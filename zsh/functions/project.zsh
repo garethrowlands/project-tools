@@ -219,7 +219,6 @@ switch-project() {
       local ide_cmd
       ide_cmd=$(_detect_ide_command "$project_path")
       [[ -n "$ide_cmd" ]] && "$ide_cmd" "$project_path" 2>/dev/null || true
-      return 0
     fi
   fi
 
