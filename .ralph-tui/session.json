@@ -3,10 +3,10 @@
   "sessionId": "26860637-40e6-4031-b560-32a25e1be418",
   "status": "running",
   "startedAt": "2026-05-30T09:38:07.039Z",
-  "updatedAt": "2026-05-30T09:51:01.931Z",
-  "currentIteration": 2,
+  "updatedAt": "2026-05-30T09:52:39.416Z",
+  "currentIteration": 3,
   "maxIterations": 10,
-  "tasksCompleted": 2,
+  "tasksCompleted": 3,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -41,8 +41,8 @@
       {
         "id": "pt-bun.5",
         "title": "US-005: switch-project — fall back to cd when no kitty window exists",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       }
     ]
   },
@@ -66,6 +66,16 @@
       "durationMs": 145766,
       "startedAt": "2026-05-30T09:47:12.396Z",
       "endedAt": "2026-05-30T09:49:38.162Z"
+    },
+    {
+      "iteration": 3,
+      "status": "completed",
+      "taskId": "pt-bun.5",
+      "taskTitle": "US-005: switch-project — fall back to cd when no kitty window exists",
+      "taskCompleted": true,
+      "durationMs": 82415,
+      "startedAt": "2026-05-30T09:49:39.463Z",
+      "endedAt": "2026-05-30T09:51:01.878Z"
     }
   ],
   "skippedTaskIds": [],

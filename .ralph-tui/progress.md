@@ -19,6 +19,14 @@ after each iteration and it's included in prompts for context.
 
 ---
 
+## 2026-05-30 - pt-bun.4
+- What was implemented: `_detect_ide_command` helper that inspects project root files (`tspconfig.yaml` → `code`, `package.json` → `code`, `pom.xml`/`build.gradle`/`build.gradle.kts`/`.idea/` → `idea`). `switch-project` now calls it and runs the IDE only when a kitty window was found and focused.
+- Files changed: `zsh/functions/project.zsh`, `zsh/tests/project-tests.zsh`
+- **Learnings:**
+  - IDE detection order matters: check `tspconfig.yaml` before `package.json` so TypeSpec projects use `code` via the TypeSpec branch, not the generic JS one.
+  - Shadowing `kitty()` in tests to control `kitty @ ls` output: the function receives `@ ls` as positional args `$1 $2`, so match with `[[ "$1" == "@" && "$2" == "ls" ]]`.
+---
+
 ## 2026-05-30 - pt-bun.5
 - What was implemented: `switch-project` now `cd`s into the project path when kitty is unavailable or no matching window is found, instead of returning early. Added three tests: cd when kitty unavailable, cd when no matching window, no IDE opened on cd fallback.
 - Files changed: `zsh/functions/project.zsh`, `zsh/tests/project-tests.zsh`

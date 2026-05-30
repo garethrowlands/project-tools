@@ -151,6 +151,17 @@ _switch_project_find_window() {
   [[ -n "$hit" ]] && echo "$hit"
 }
 
+_detect_ide_command() {
+  local path="$1"
+  if [[ -f "$path/tspconfig.yaml" ]]; then
+    echo "code"
+  elif [[ -f "$path/package.json" ]]; then
+    echo "code"
+  elif [[ -f "$path/pom.xml" || -f "$path/build.gradle" || -f "$path/build.gradle.kts" || -d "$path/.idea" ]]; then
+    echo "idea"
+  fi
+}
+
 switch-project() {
   local query="${*:-}"
 
@@ -174,6 +185,9 @@ switch-project() {
         kitty @ focus-tab --match "id:$match_id" 2>/dev/null || true
       fi
       osascript -e 'tell application "kitty" to activate' 2>/dev/null || true
+      local ide_cmd
+      ide_cmd=$(_detect_ide_command "$project_path")
+      [[ -n "$ide_cmd" ]] && "$ide_cmd" "$project_path" 2>/dev/null || true
       return 0
     fi
   fi

@@ -251,6 +251,105 @@ test_switch_project_no_ide_on_cd_fallback() {
   rm -rf "$proj_dir"
 }
 
+# ── _detect_ide_command ──────────────────────────────────────────────────────
+
+test_detect_ide_typespec() {
+  local d; d=$(mktemp -d)
+  touch "$d/tspconfig.yaml" "$d/package.json"
+  local result; result=$(_detect_ide_command "$d")
+  _assert_eq "$result" "code" "detect_ide: tspconfig.yaml → code (TypeSpec wins over package.json)"
+  rm -rf "$d"
+}
+
+test_detect_ide_typescript() {
+  local d; d=$(mktemp -d)
+  touch "$d/package.json"
+  local result; result=$(_detect_ide_command "$d")
+  _assert_eq "$result" "code" "detect_ide: package.json alone → code"
+  rm -rf "$d"
+}
+
+test_detect_ide_pom() {
+  local d; d=$(mktemp -d)
+  touch "$d/pom.xml"
+  local result; result=$(_detect_ide_command "$d")
+  _assert_eq "$result" "idea" "detect_ide: pom.xml → idea"
+  rm -rf "$d"
+}
+
+test_detect_ide_gradle() {
+  local d; d=$(mktemp -d)
+  touch "$d/build.gradle"
+  local result; result=$(_detect_ide_command "$d")
+  _assert_eq "$result" "idea" "detect_ide: build.gradle → idea"
+  rm -rf "$d"
+}
+
+test_detect_ide_gradle_kts() {
+  local d; d=$(mktemp -d)
+  touch "$d/build.gradle.kts"
+  local result; result=$(_detect_ide_command "$d")
+  _assert_eq "$result" "idea" "detect_ide: build.gradle.kts → idea"
+  rm -rf "$d"
+}
+
+test_detect_ide_idea_dir() {
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/.idea"
+  local result; result=$(_detect_ide_command "$d")
+  _assert_eq "$result" "idea" "detect_ide: .idea/ dir → idea"
+  rm -rf "$d"
+}
+
+test_detect_ide_unknown() {
+  local d; d=$(mktemp -d)
+  local result; result=$(_detect_ide_command "$d")
+  _assert_eq "$result" "" "detect_ide: no known files → empty (silent skip)"
+  rm -rf "$d"
+}
+
+test_switch_project_opens_ide_on_window_focus() {
+  local proj_dir="$_tmpdir/idetest"
+  mkdir -p "$proj_dir"
+  touch "$proj_dir/package.json"
+
+  local match_json; match_json=$(_mock_kitty_ls 200 20 "$proj_dir" "bash" "idetest")
+  project() { echo "$proj_dir"; }
+  kitty() {
+    if [[ "$1" == "@" && "$2" == "ls" ]]; then echo "$match_json"; return 0; fi
+    return 0
+  }
+  local _ide_called=0
+  code() { _ide_called=1; }
+
+  switch-project "idetest"
+
+  (( _ide_called == 1 )) && _pass "switch_project_ide: code called when focusing existing window" || _fail "switch_project_ide: code was not called"
+
+  unfunction project kitty code
+  rm -rf "$proj_dir"
+}
+
+test_switch_project_no_ide_on_cd() {
+  local proj_dir="$_tmpdir/ideskip"
+  mkdir -p "$proj_dir"
+  touch "$proj_dir/package.json"
+
+  project() { echo "$proj_dir"; }
+  kitty() { return 1; }
+  local _ide_called=0
+  code() { _ide_called=1; }
+
+  local orig_dir="$PWD"
+  switch-project "ideskip"
+  cd "$orig_dir"
+
+  (( _ide_called == 0 )) && _pass "switch_project_ide: no IDE on cd fallback" || _fail "switch_project_ide: IDE unexpectedly called on cd"
+
+  unfunction project kitty code
+  rm -rf "$proj_dir"
+}
+
 # ── run ─────────────────────────────────────────────────────────────────────
 
 _failures=0
@@ -277,6 +376,15 @@ test_find_window_cwd_match_wins_over_title
 test_switch_project_cd_when_kitty_unavailable
 test_switch_project_cd_when_no_matching_window
 test_switch_project_no_ide_on_cd_fallback
+test_detect_ide_typespec
+test_detect_ide_typescript
+test_detect_ide_pom
+test_detect_ide_gradle
+test_detect_ide_gradle_kts
+test_detect_ide_idea_dir
+test_detect_ide_unknown
+test_switch_project_opens_ide_on_window_focus
+test_switch_project_no_ide_on_cd
 
 teardown
 
