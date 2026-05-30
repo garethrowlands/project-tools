@@ -145,8 +145,16 @@ _switch_project_find_window() {
   local kitty_ls_json="$2"
   local project_basename="${project_path:t}"
 
-  # cwd match: any window with a foreground process cwd inside the project dir
+  # user var match: explicit tag set by switch-project on previous visit (highest priority)
   local hit
+  hit=$(printf '%s' "$kitty_ls_json" | jq -r --arg path "$project_path" '
+    .[].tabs[].windows[] |
+    select(.user_vars.project_path == $path) |
+    "window:\(.id)"
+  ' 2>/dev/null | head -1)
+  [[ -n "$hit" ]] && { echo "$hit"; return; }
+
+  # cwd match: any window with a foreground process cwd inside the project dir
   hit=$(printf '%s' "$kitty_ls_json" | jq -r --arg path "$project_path" '
     .[].tabs[].windows[] |
     select([.foreground_processes[].cwd] |
@@ -202,6 +210,7 @@ switch-project() {
       local match_id="${match#*:}"
       if [[ "$match_type" == "window" ]]; then
         kitty @ focus-window --match "id:$match_id" 2>/dev/null || true
+        kitty @ set-user-vars --match "id:$match_id" project_path="$project_path" 2>/dev/null || true
       else
         kitty @ focus-tab --match "id:$match_id" 2>/dev/null || true
       fi

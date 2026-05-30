@@ -148,8 +148,16 @@ _mock_kitty_ls() {
   # Build a small kitty @ ls JSON fragment for tests.
   # Args: window_id tab_id cwd window_title tab_title
   local wid="$1" tid="$2" cwd="$3" wtitle="$4" ttitle="$5"
-  printf '[{"id":1,"tabs":[{"id":%s,"title":"%s","windows":[{"id":%s,"title":"%s","foreground_processes":[{"cwd":"%s","pid":1}]}]}]}]' \
+  printf '[{"id":1,"tabs":[{"id":%s,"title":"%s","windows":[{"id":%s,"title":"%s","user_vars":{},"foreground_processes":[{"cwd":"%s","pid":1}]}]}]}]' \
     "$tid" "$ttitle" "$wid" "$wtitle" "$cwd"
+}
+
+_mock_kitty_ls_with_var() {
+  # Like _mock_kitty_ls but sets user_vars.project_path on the window.
+  # Args: window_id tab_id cwd window_title tab_title project_path
+  local wid="$1" tid="$2" cwd="$3" wtitle="$4" ttitle="$5" proj="$6"
+  printf '[{"id":1,"tabs":[{"id":%s,"title":"%s","windows":[{"id":%s,"title":"%s","user_vars":{"project_path":"%s"},"foreground_processes":[{"cwd":"%s","pid":1}]}]}]}]' \
+    "$tid" "$ttitle" "$wid" "$wtitle" "$proj" "$cwd"
 }
 
 test_find_window_cwd_exact_match() {
@@ -191,6 +199,53 @@ test_find_window_cwd_match_wins_over_title() {
   ]}]'
   local result; result=$(_switch_project_find_window "/projects/my-project" "$json")
   _assert_eq "$result" "window:100" "find_window: cwd match takes priority over title match"
+}
+
+test_find_window_user_var_match() {
+  local json; json=$(_mock_kitty_ls_with_var 100 10 "/some/other/place" "vim" "tab" "/projects/my-project")
+  local result; result=$(_switch_project_find_window "/projects/my-project" "$json")
+  _assert_eq "$result" "window:100" "find_window_var: user var match returns window id"
+}
+
+test_find_window_user_var_beats_cwd() {
+  # Window 99 has a CWD match; window 100 has the user var — var wins.
+  local json
+  json='[{"id":1,"tabs":[
+    {"id":10,"title":"other","windows":[{"id":99,"title":"vim","user_vars":{},"foreground_processes":[{"cwd":"/projects/my-project","pid":2}]}]},
+    {"id":11,"title":"tab",  "windows":[{"id":100,"title":"bash","user_vars":{"project_path":"/projects/my-project"},"foreground_processes":[{"cwd":"/","pid":1}]}]}
+  ]}]'
+  local result; result=$(_switch_project_find_window "/projects/my-project" "$json")
+  _assert_eq "$result" "window:100" "find_window_var: user var takes priority over cwd match"
+}
+
+test_find_window_user_var_absent_key() {
+  # user_vars field absent entirely — should not error, should fall through to cwd match.
+  local json
+  json='[{"id":1,"tabs":[{"id":10,"title":"tab","windows":[{"id":100,"title":"bash","foreground_processes":[{"cwd":"/projects/my-project","pid":1}]}]}]}]'
+  local result; result=$(_switch_project_find_window "/projects/my-project" "$json")
+  _assert_eq "$result" "window:100" "find_window_var: absent user_vars falls through to cwd match"
+}
+
+test_switch_project_sets_user_var() {
+  local proj_dir="$_tmpdir/vartest"
+  mkdir -p "$proj_dir"
+
+  local match_json; match_json=$(_mock_kitty_ls 300 30 "$proj_dir" "bash" "vartest")
+  project() { echo "$proj_dir"; }
+  local _vars_called=0
+  kitty() {
+    if [[ "$1" == "@" && "$2" == "ls" ]];            then echo "$match_json"; return 0; fi
+    if [[ "$1" == "@" && "$2" == "set-user-vars" ]]; then _vars_called=1; return 0; fi
+    return 0
+  }
+
+  switch-project "vartest"
+
+  (( _vars_called == 1 )) && _pass "switch_project_vars: set-user-vars called after focusing window" \
+                           || _fail "switch_project_vars: set-user-vars not called"
+
+  unfunction project kitty
+  rm -rf "$proj_dir"
 }
 
 # ── switch-project cd fallback ───────────────────────────────────────────────
@@ -484,6 +539,10 @@ test_find_window_title_match_fallback
 test_find_window_tab_title_match_fallback
 test_find_window_no_match
 test_find_window_cwd_match_wins_over_title
+test_find_window_user_var_match
+test_find_window_user_var_beats_cwd
+test_find_window_user_var_absent_key
+test_switch_project_sets_user_var
 test_switch_project_cd_when_kitty_unavailable
 test_switch_project_cd_when_no_matching_window
 test_switch_project_no_ide_on_cd_fallback
