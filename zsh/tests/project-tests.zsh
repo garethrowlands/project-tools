@@ -248,6 +248,37 @@ test_switch_project_sets_user_var() {
   rm -rf "$proj_dir"
 }
 
+test_switch_project_sets_user_var_on_cd_fallback() {
+  local proj_dir="$_tmpdir/vartest-cd"
+  mkdir -p "$proj_dir"
+
+  local no_match_json; no_match_json=$(_mock_kitty_ls 100 10 "/some/other/place" "vim" "other")
+  project() { echo "$proj_dir"; }
+  local _var_args=""
+  local old_term="$TERM"
+  local old_wid="${KITTY_WINDOW_ID:-}"
+  export TERM="xterm-kitty"
+  export KITTY_WINDOW_ID=42
+  kitty() {
+    if [[ "$1" == "@" && "$2" == "ls" ]];            then echo "$no_match_json"; return 0; fi
+    if [[ "$1" == "@" && "$2" == "set-user-vars" ]]; then _var_args="$*"; return 0; fi
+    return 0
+  }
+
+  local orig_dir="$PWD"
+  switch-project "vartest-cd"
+  cd "$orig_dir"
+
+  [[ "$_var_args" == *"id:42"* && "$_var_args" == *"$proj_dir"* ]] \
+    && _pass "switch_project_vars_cd: set-user-vars called on current window after cd" \
+    || _fail "switch_project_vars_cd: set-user-vars not called correctly (got: $_var_args)"
+
+  export TERM="$old_term"
+  [[ -n "$old_wid" ]] && export KITTY_WINDOW_ID="$old_wid" || unset KITTY_WINDOW_ID
+  unfunction project kitty
+  rm -rf "$proj_dir"
+}
+
 # ── switch-project cd fallback ───────────────────────────────────────────────
 
 test_switch_project_cd_when_kitty_unavailable() {
@@ -543,6 +574,7 @@ test_find_window_user_var_match
 test_find_window_user_var_beats_cwd
 test_find_window_user_var_absent_key
 test_switch_project_sets_user_var
+test_switch_project_sets_user_var_on_cd_fallback
 test_switch_project_cd_when_kitty_unavailable
 test_switch_project_cd_when_no_matching_window
 test_switch_project_no_ide_on_cd_fallback

@@ -192,6 +192,13 @@ _detect_ide_command() {
   fi
 }
 
+current-project() {
+  [[ "$TERM" != "xterm-kitty" || -z "$KITTY_WINDOW_ID" ]] && return 1
+  kitty @ ls 2>/dev/null | jq -r --argjson id "$KITTY_WINDOW_ID" '
+    .[].tabs[].windows[] | select(.id == $id) | .user_vars.project_path // empty
+  '
+}
+
 switch-project() {
   local query="${*:-}"
 
@@ -223,6 +230,8 @@ switch-project() {
   fi
 
   cd "$project_path"
+  [[ "$TERM" == "xterm-kitty" && -n "$KITTY_WINDOW_ID" ]] && \
+    kitty @ set-user-vars --match "id:$KITTY_WINDOW_ID" project_path="$project_path" 2>/dev/null || true
 }
 
 project() {
