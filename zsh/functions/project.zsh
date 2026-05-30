@@ -117,6 +117,66 @@ _project_picker() {
   echo "$result"
 }
 
+_switch_project_find_window() {
+  # Args: project_path kitty_ls_json
+  # Outputs: "window:<id>" or "tab:<id>" or empty if no match found.
+  local project_path="$1"
+  local kitty_ls_json="$2"
+  local project_basename="${project_path:t}"
+
+  # cwd match: any window with a foreground process cwd inside the project dir
+  local hit
+  hit=$(printf '%s' "$kitty_ls_json" | jq -r --arg path "$project_path" '
+    .[].tabs[].windows[] |
+    select([.foreground_processes[].cwd] |
+           map(. == $path or startswith($path + "/")) | any) |
+    "window:\(.id)"
+  ' 2>/dev/null | head -1)
+  [[ -n "$hit" ]] && { echo "$hit"; return; }
+
+  # title match on windows
+  hit=$(printf '%s' "$kitty_ls_json" | jq -r --arg name "$project_basename" '
+    .[].tabs[].windows[] |
+    select(.title | contains($name)) |
+    "window:\(.id)"
+  ' 2>/dev/null | head -1)
+  [[ -n "$hit" ]] && { echo "$hit"; return; }
+
+  # title match on tabs
+  hit=$(printf '%s' "$kitty_ls_json" | jq -r --arg name "$project_basename" '
+    .[].tabs[] |
+    select(.title | contains($name)) |
+    "tab:\(.id)"
+  ' 2>/dev/null | head -1)
+  [[ -n "$hit" ]] && echo "$hit"
+}
+
+switch-project() {
+  local query="${*:-}"
+
+  local project_path
+  project_path=$(project "$query")
+  [[ -z "$project_path" ]] && return 0
+
+  local kitty_ls_json
+  kitty_ls_json=$(kitty @ ls 2>/dev/null) || true
+  [[ -z "$kitty_ls_json" ]] && return 0
+
+  local match
+  match=$(_switch_project_find_window "$project_path" "$kitty_ls_json")
+
+  if [[ -n "$match" ]]; then
+    local match_type="${match%%:*}"
+    local match_id="${match#*:}"
+    if [[ "$match_type" == "window" ]]; then
+      kitty @ focus-window --match "id:$match_id" 2>/dev/null || true
+    else
+      kitty @ focus-tab --match "id:$match_id" 2>/dev/null || true
+    fi
+    osascript -e 'tell application "kitty" to activate' 2>/dev/null || true
+  fi
+}
+
 project() {
   local query="${*:-}"
 

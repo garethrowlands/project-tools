@@ -141,6 +141,57 @@ test_no_open_group_when_empty_cwds() {
   _assert_contains     "$list" "── All ──"  "no_open: All header always present"
 }
 
+# ── switch-project helpers ───────────────────────────────────────────────────
+
+_mock_kitty_ls() {
+  # Build a small kitty @ ls JSON fragment for tests.
+  # Args: window_id tab_id cwd window_title tab_title
+  local wid="$1" tid="$2" cwd="$3" wtitle="$4" ttitle="$5"
+  printf '[{"id":1,"tabs":[{"id":%s,"title":"%s","windows":[{"id":%s,"title":"%s","foreground_processes":[{"cwd":"%s","pid":1}]}]}]}]' \
+    "$tid" "$ttitle" "$wid" "$wtitle" "$cwd"
+}
+
+test_find_window_cwd_exact_match() {
+  local json; json=$(_mock_kitty_ls 100 10 "/projects/my-project" "vim" "my-project")
+  local result; result=$(_switch_project_find_window "/projects/my-project" "$json")
+  _assert_eq "$result" "window:100" "find_window: exact cwd match returns window id"
+}
+
+test_find_window_cwd_subdir_match() {
+  local json; json=$(_mock_kitty_ls 100 10 "/projects/my-project/src/components" "vim" "tab")
+  local result; result=$(_switch_project_find_window "/projects/my-project" "$json")
+  _assert_eq "$result" "window:100" "find_window: cwd subdir match returns window id"
+}
+
+test_find_window_title_match_fallback() {
+  local json; json=$(_mock_kitty_ls 100 10 "/some/other/place" "my-project — bash" "tab")
+  local result; result=$(_switch_project_find_window "/projects/my-project" "$json")
+  _assert_eq "$result" "window:100" "find_window: falls back to window title when cwd misses"
+}
+
+test_find_window_tab_title_match_fallback() {
+  local json; json=$(_mock_kitty_ls 100 10 "/some/other/place" "vim" "my-project")
+  local result; result=$(_switch_project_find_window "/projects/my-project" "$json")
+  _assert_eq "$result" "tab:10" "find_window: falls back to tab title when cwd and window title miss"
+}
+
+test_find_window_no_match() {
+  local json; json=$(_mock_kitty_ls 100 10 "/some/other/place" "vim" "other-tab")
+  local result; result=$(_switch_project_find_window "/projects/my-project" "$json")
+  _assert_eq "$result" "" "find_window: returns empty when nothing matches"
+}
+
+test_find_window_cwd_match_wins_over_title() {
+  # Window with matching cwd AND a different window with matching title — cwd wins.
+  local json
+  json='[{"id":1,"tabs":[
+    {"id":10,"title":"other","windows":[{"id":99,"title":"my-project — vim","foreground_processes":[{"cwd":"/other","pid":2}]}]},
+    {"id":11,"title":"tab","windows":[{"id":100,"title":"editor","foreground_processes":[{"cwd":"/projects/my-project","pid":1}]}]}
+  ]}]'
+  local result; result=$(_switch_project_find_window "/projects/my-project" "$json")
+  _assert_eq "$result" "window:100" "find_window: cwd match takes priority over title match"
+}
+
 # ── run ─────────────────────────────────────────────────────────────────────
 
 _failures=0
@@ -158,6 +209,12 @@ test_cold_start_scan_absolute_paths
 test_open_projects_appear_first
 test_open_cwd_subdir_matches
 test_no_open_group_when_empty_cwds
+test_find_window_cwd_exact_match
+test_find_window_cwd_subdir_match
+test_find_window_title_match_fallback
+test_find_window_tab_title_match_fallback
+test_find_window_no_match
+test_find_window_cwd_match_wins_over_title
 
 teardown
 

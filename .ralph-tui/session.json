@@ -3,10 +3,10 @@
   "sessionId": "26860637-40e6-4031-b560-32a25e1be418",
   "status": "running",
   "startedAt": "2026-05-30T09:38:07.039Z",
-  "updatedAt": "2026-05-30T09:47:11.146Z",
-  "currentIteration": 0,
+  "updatedAt": "2026-05-30T09:49:38.215Z",
+  "currentIteration": 1,
   "maxIterations": 10,
-  "tasksCompleted": 0,
+  "tasksCompleted": 1,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -17,8 +17,8 @@
       {
         "id": "pt-bun.1",
         "title": "US-001: project — pick from cache with fzf",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "pt-bun.2",
@@ -46,7 +46,18 @@
       }
     ]
   },
-  "iterations": [],
+  "iterations": [
+    {
+      "iteration": 1,
+      "status": "completed",
+      "taskId": "pt-bun.1",
+      "taskTitle": "US-001: project — pick from cache with fzf",
+      "taskCompleted": true,
+      "durationMs": 535860,
+      "startedAt": "2026-05-30T09:38:15.235Z",
+      "endedAt": "2026-05-30T09:47:11.095Z"
+    }
+  ],
   "skippedTaskIds": [],
   "cwd": "/Users/garethrowlands/github.com/garethrowlands/project-tools",
   "activeTaskIds": [],

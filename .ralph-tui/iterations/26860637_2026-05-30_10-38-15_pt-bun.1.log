@@ -1,0 +1,112 @@
+# Iteration 1 Log
+
+## Metadata
+
+- **Task ID**: pt-bun.1
+- **Task Title**: US-001: project — pick from cache with fzf
+- **Description**: As a developer, I want a standalone `project` script that picks a git project interactively with fzf and prints its path, so I can use it standalone or compose it with other tools.
+
+## Acceptance Crit...
+- **Status**: completed
+- **Task Completed**: Yes
+- **Promise Detected**: Yes
+- **Started At**: 2026-05-30T09:38:15.235Z
+- **Ended At**: 2026-05-30T09:47:11.095Z
+- **Duration**: 8m 55s
+- **Input Tokens**: 60
+- **Output Tokens**: 37571
+- **Total Tokens**: 37631
+- **Agent**: claude
+- **Model**: claude-sonnet-4-6
+- **Epic**: pt-bun
+- **Sandbox Mode**: auto
+- **Sandbox Network**: Enabled
+--- RAW OUTPUT ---
+I'll start by reading the progress file and exploring the codebase structure.
+[94m[Read][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/.ralph-tui/progress.md[0m
+[94m[Glob][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools[0m pattern: [96m**/*[0m
+Let me read the existing zsh files to understand the patterns used.
+[94m[Read][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/zsh/functions/web.zsh[0m
+[94m[Read][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/zsh/functions/notes-lib.zsh[0m
+Let me check if there are any existing project files or tests:
+[94m[Glob][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools[0m pattern: [96m**/project*[0m
+[94m[Read][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/zsh/functions/notes-tests.zsh[0m
+Now I have a clear picture of the codebase patterns. Let me implement `project.zsh` and the test file.
+[94m[TodoWrite][0m
+[94m[Write][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/zsh/functions/project.zsh[0m "# project.zsh — interactive git project picker
+# Source this file to get the `project` function.
+
+_project_cache_file() {
+  echo "${XDG_CACHE_HOME:-$HOME/.cache}/project-tools/projects.txt"
+}
+
+_projec... (3986 chars)"
+[94m[TodoWrite][0m
+[94m[Write][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/zsh/tests/project-tests.zsh[0m "#!/usr/bin/env zsh
+source "${0:A:h}/../functions/project.zsh"
+
+_pass() { echo "PASS: $1" }
+_fail() { echo "FAIL: $1"; (( _failures++ )) }
+_assert_eq()           { [[ "$1" == "$2" ]] && _pass "$3" || _... (6398 chars)"
+[94m[TodoWrite][0m
+[94m[Bash][0m $ cd /Users/garethrowlands/github.com/garethrowlands/project-tools/zsh && zsh tests/project-tests.zsh
+
+[91m[Error: Exit code 1
+PASS: parse_roots: first root present
+PASS: parse_roots: second root present
+FAIL: parse_roots: ~/somerepo expands first: /Users/garethrowlands/~/somerepo$'
+'/Users/garethrowlands/~/other does not contain /Users/garethrowlands/somerepo
+FAIL: parse_roots: ~/other expands second: /Users/garethrowlands/~/somerepo$'
+'/Users/garethrowlands/~/other does not contain /Users/garethrowlands/other
+PASS: parse_roots: bare ~ expands to HOME
+PASS: project: exits 1 when PROJECT_ROOTS unset
+PASS: project: error message mentions PROJECT_ROOTS
+PASS: project: exits 1 when PROJECT_ROOTS empty
+PASS: cache_used: repo1 path in list
+PASS: cache_used: repo2 path in list
+PASS: cache_used: proj path in list
+PASS: cache_labels: repo1 label relative to root
+PASS: cache_labels: repo2 label relative to root
+PASS: cache_labels: proj label relative to root
+PASS: cold_start: cache file created
+PASS: cold_start: repo1 found by scan
+PASS: cold_start: repo2 found by scan
+PASS: cold_start: proj found by scan
+PASS: cold_start: cache contains absolute paths
+PASS: open_first: Open header present
+PASS: open_first: All header present
+PASS: open_first: Open header precedes All header
+PASS: open_first: open project is in Open section
+PASS: open_first: non-open project not in Open section
+PASS: open_first: open project absent from All section
+PASS: open_first: non-open project in All section
+PASS: cwd_subdir: project matched by cwd in subdirectory
+PASS: no_open: Open header absent when kitty_cwds empty
+PASS: no_open: All header always present
+
+2 test(s) failed.][0m
+The tilde expansion in `${root#~/}` is being expanded by zsh (treating `~/` as a path prefix in the pattern). I need to use `${root:2}` instead to strip the first two characters literally.
+[94m[Edit][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/zsh/functions/project.zsh[0m edit: "_project_parse_roots() {
+  local -a roots=("${(@s/..." → "_project_expand_tilde() {
+  local r="$1"
+  [[ "$r"..."
+[94m[Bash][0m $ cd /Users/garethrowlands/github.com/garethrowlands/project-tools/zsh && zsh tests/project-tests.zsh
+All 29 tests pass. Now let me close the bead and update progress.
+[94m[TodoWrite][0m
+[94m[Bash][0m $ cd /Users/garethrowlands/github.com/garethrowlands/project-tools && br close pt-bun.1 --reason "Impl...
+[94m[Bash][0m $ br sync --flush-only
+[94m[Bash][0m $ br sync --flush-only
+[94m[Edit][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/.ralph-tui/progress.md[0m edit: "## Codebase Patterns (Study These First)
+
+*Add reu..." → "## Codebase Patterns (Study These First)
+
+**Tilde ..."
+[94m[TodoWrite][0m
+All 29 tests pass. Two files created:
+
+- `zsh/functions/project.zsh` — `project()` command with cache, scan, kitty FIFO integration, and `_project_build_list` producing Open/All group headers
+- `zsh/tests/project-tests.zsh` — tests covering roots parsing, `~` expansion, error on unset, cache/cold-start paths, and open-project ordering
+
+Key gotcha logged: `${var#~/}` expands `~` to `$HOME` in the pattern — fixed by using `${var:2}` to strip the literal first two chars.
+
+<promise>COMPLETE</promise>
