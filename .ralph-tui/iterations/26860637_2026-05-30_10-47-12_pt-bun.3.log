@@ -1,0 +1,53 @@
+# Iteration 2 Log
+
+## Metadata
+
+- **Task ID**: pt-bun.3
+- **Task Title**: US-003: switch-project — focus existing kitty window
+- **Description**: As a developer, I want `switch-project` to find and focus an existing kitty window for the selected project so that I don't lose terminal state.
+
+## Acceptance Criteria
+- [ ] Calls `project` to get a ...
+- **Status**: completed
+- **Task Completed**: Yes
+- **Promise Detected**: Yes
+- **Started At**: 2026-05-30T09:47:12.396Z
+- **Ended At**: 2026-05-30T09:49:38.162Z
+- **Duration**: 2m 25s
+- **Input Tokens**: 48
+- **Output Tokens**: 9011
+- **Total Tokens**: 9059
+- **Agent**: claude
+- **Model**: claude-sonnet-4-6
+- **Epic**: pt-bun
+- **Sandbox Mode**: auto
+- **Sandbox Network**: Enabled
+--- RAW OUTPUT ---
+I'll start by reading the progress file and existing code to understand the current state before implementing.
+[94m[Read][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/.ralph-tui/progress.md[0m
+[94m[Glob][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools[0m pattern: [96m**/*.zsh[0m
+[94m[Read][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/zsh/functions/project.zsh[0m
+[94m[Read][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/zsh/tests/project-tests.zsh[0m
+Now I have a clear picture of the existing code. Let me implement `_switch_project_find_window` and `switch-project` in `project.zsh`, then add tests.
+[94m[TodoWrite][0m
+[94m[Edit][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/zsh/functions/project.zsh[0m edit: "project() {" → "_switch_project_find_window() {
+  # Args: project_..."
+Now add tests to `project-tests.zsh`:
+[94m[Edit][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/zsh/tests/project-tests.zsh[0m edit: "# ── run ─────────────────────────────────────────..." → "# ── switch-project helpers ──────────────────────..."
+[94m[Edit][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/zsh/tests/project-tests.zsh[0m edit: "test_open_projects_appear_first
+test_open_cwd_subd..." → "test_open_projects_appear_first
+test_open_cwd_subd..."
+[94m[TodoWrite][0m
+[94m[Bash][0m $ cd /Users/garethrowlands/github.com/garethrowlands/project-tools/zsh && zsh tests/project-tests.zsh
+All 35 tests pass. Now close the bead and update progress.
+[94m[TodoWrite][0m
+[94m[Bash][0m $ cd /Users/garethrowlands/github.com/garethrowlands/project-tools && br close pt-bun.3 --reason "Impl...
+[94m[Bash][0m $ br sync --flush-only
+[94m[Bash][0m $ echo "exit: $?"
+[94m[Edit][0m [95m/Users/garethrowlands/github.com/garethrowlands/project-tools/.ralph-tui/progress.md[0m edit: "---
+
+## 2026-05-30 - pt-bun.1" → "**jq cwd matching with empty foreground_processes*..."
+[94m[TodoWrite][0m
+All 35 tests pass. `switch-project` is implemented with cwd-first matching, window/tab title fallback, and kitty focus + osascript foreground activation. The `_switch_project_find_window` helper is fully tested with mock JSON.
+
+<promise>COMPLETE</promise>

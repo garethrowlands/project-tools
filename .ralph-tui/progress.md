@@ -19,6 +19,14 @@ after each iteration and it's included in prompts for context.
 
 ---
 
+## 2026-05-30 - pt-bun.5
+- What was implemented: `switch-project` now `cd`s into the project path when kitty is unavailable or no matching window is found, instead of returning early. Added three tests: cd when kitty unavailable, cd when no matching window, no IDE opened on cd fallback.
+- Files changed: `zsh/functions/project.zsh`, `zsh/tests/project-tests.zsh`
+- **Learnings:**
+  - To test `switch-project` without interactive fzf: shadow `project()` in test scope to return a fixed path, shadow `kitty()` to control availability; unfunction both after. This avoids any real socket or picker invocation.
+  - `cd` inside a shell function affects the calling shell — no extra machinery needed, just call `cd "$project_path"`.
+---
+
 ## 2026-05-30 - pt-bun.3
 - What was implemented: `_switch_project_find_window` helper (cwd-first, window-title fallback, tab-title fallback) and `switch-project` command in `zsh/functions/project.zsh`. Six new tests in `zsh/tests/project-tests.zsh` using mock `kitty @ ls` JSON.
 - Files changed: `zsh/functions/project.zsh`, `zsh/tests/project-tests.zsh`

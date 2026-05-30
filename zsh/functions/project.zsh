@@ -160,21 +160,25 @@ switch-project() {
 
   local kitty_ls_json
   kitty_ls_json=$(kitty @ ls 2>/dev/null) || true
-  [[ -z "$kitty_ls_json" ]] && return 0
 
-  local match
-  match=$(_switch_project_find_window "$project_path" "$kitty_ls_json")
+  if [[ -n "$kitty_ls_json" ]]; then
+    local match
+    match=$(_switch_project_find_window "$project_path" "$kitty_ls_json")
 
-  if [[ -n "$match" ]]; then
-    local match_type="${match%%:*}"
-    local match_id="${match#*:}"
-    if [[ "$match_type" == "window" ]]; then
-      kitty @ focus-window --match "id:$match_id" 2>/dev/null || true
-    else
-      kitty @ focus-tab --match "id:$match_id" 2>/dev/null || true
+    if [[ -n "$match" ]]; then
+      local match_type="${match%%:*}"
+      local match_id="${match#*:}"
+      if [[ "$match_type" == "window" ]]; then
+        kitty @ focus-window --match "id:$match_id" 2>/dev/null || true
+      else
+        kitty @ focus-tab --match "id:$match_id" 2>/dev/null || true
+      fi
+      osascript -e 'tell application "kitty" to activate' 2>/dev/null || true
+      return 0
     fi
-    osascript -e 'tell application "kitty" to activate' 2>/dev/null || true
   fi
+
+  cd "$project_path"
 }
 
 project() {

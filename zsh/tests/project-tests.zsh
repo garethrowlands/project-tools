@@ -192,6 +192,65 @@ test_find_window_cwd_match_wins_over_title() {
   _assert_eq "$result" "window:100" "find_window: cwd match takes priority over title match"
 }
 
+# ── switch-project cd fallback ───────────────────────────────────────────────
+
+test_switch_project_cd_when_kitty_unavailable() {
+  local proj_dir="$_tmpdir/cdtest"
+  mkdir -p "$proj_dir"
+
+  project() { echo "$proj_dir"; }
+  kitty() { return 1; }
+
+  local orig_dir="$PWD"
+  switch-project "cdtest"
+  local landed="$PWD"
+  cd "$orig_dir"
+
+  _assert_eq "$landed" "$proj_dir" "switch_project_cd: cds when kitty unavailable"
+
+  unfunction project kitty
+  rm -rf "$proj_dir"
+}
+
+test_switch_project_cd_when_no_matching_window() {
+  local proj_dir="$_tmpdir/cdtest2"
+  mkdir -p "$proj_dir"
+
+  local no_match_json; no_match_json=$(_mock_kitty_ls 100 10 "/some/other/place" "vim" "other")
+  project() { echo "$proj_dir"; }
+  kitty() { echo "$no_match_json"; }
+
+  local orig_dir="$PWD"
+  switch-project "cdtest2"
+  local landed="$PWD"
+  cd "$orig_dir"
+
+  _assert_eq "$landed" "$proj_dir" "switch_project_cd: cds when no matching window"
+
+  unfunction project kitty
+  rm -rf "$proj_dir"
+}
+
+test_switch_project_no_ide_on_cd_fallback() {
+  local proj_dir="$_tmpdir/cdtest3"
+  mkdir -p "$proj_dir"
+
+  project() { echo "$proj_dir"; }
+  kitty() { return 1; }
+  local _ide_called=0
+  code()   { _ide_called=1; }
+  cursor() { _ide_called=1; }
+
+  local orig_dir="$PWD"
+  switch-project "cdtest3"
+  cd "$orig_dir"
+
+  (( _ide_called == 0 )) && _pass "switch_project_cd: no IDE opened on cd fallback" || _fail "switch_project_cd: IDE was unexpectedly invoked"
+
+  unfunction project kitty code cursor
+  rm -rf "$proj_dir"
+}
+
 # ── run ─────────────────────────────────────────────────────────────────────
 
 _failures=0
@@ -215,6 +274,9 @@ test_find_window_title_match_fallback
 test_find_window_tab_title_match_fallback
 test_find_window_no_match
 test_find_window_cwd_match_wins_over_title
+test_switch_project_cd_when_kitty_unavailable
+test_switch_project_cd_when_no_matching_window
+test_switch_project_no_ide_on_cd_fallback
 
 teardown
 

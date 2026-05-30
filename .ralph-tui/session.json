@@ -3,10 +3,10 @@
   "sessionId": "26860637-40e6-4031-b560-32a25e1be418",
   "status": "running",
   "startedAt": "2026-05-30T09:38:07.039Z",
-  "updatedAt": "2026-05-30T09:49:38.215Z",
-  "currentIteration": 1,
+  "updatedAt": "2026-05-30T09:51:01.931Z",
+  "currentIteration": 2,
   "maxIterations": 10,
-  "tasksCompleted": 1,
+  "tasksCompleted": 2,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -29,8 +29,8 @@
       {
         "id": "pt-bun.3",
         "title": "US-003: switch-project — focus existing kitty window",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "pt-bun.4",
@@ -56,6 +56,16 @@
       "durationMs": 535860,
       "startedAt": "2026-05-30T09:38:15.235Z",
       "endedAt": "2026-05-30T09:47:11.095Z"
+    },
+    {
+      "iteration": 2,
+      "status": "completed",
+      "taskId": "pt-bun.3",
+      "taskTitle": "US-003: switch-project — focus existing kitty window",
+      "taskCompleted": true,
+      "durationMs": 145766,
+      "startedAt": "2026-05-30T09:47:12.396Z",
+      "endedAt": "2026-05-30T09:49:38.162Z"
     }
   ],
   "skippedTaskIds": [],
