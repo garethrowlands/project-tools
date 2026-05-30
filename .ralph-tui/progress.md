@@ -19,6 +19,15 @@ after each iteration and it's included in prompts for context.
 
 ---
 
+## 2026-05-30 - pt-bun.2
+- What was implemented: `project --refresh` flag, live stderr progress counter (`\rScanning... N repos found` with ANSI clear on finish), warning for missing roots, `_project_cache_file` now respects `$PROJECT_CACHE` env var (with `~` expansion). 7 new tests covering depth-1 repos, depth-2 repos, missing root warning, cache content, `PROJECT_CACHE` env var, tilde expansion, and `project --refresh` end-to-end.
+- Files changed: `zsh/functions/project.zsh`, `zsh/tests/project-tests.zsh`
+- **Learnings:**
+  - Inside a zsh function, `$0` is the function name, not the script path — `${0:A:h}` gives the wrong directory. Save `_script_dir="${0:A:h}"` at the top level of the script and reference it inside functions.
+  - `zsh`'s `:h` modifier (`${var:h}`) is the equivalent of `dirname` without spawning a subprocess — use it in hot loops.
+  - Tests that `unfunction project` poison later tests that call `project()`. Fix with `source "$_script_dir/../functions/project.zsh"` at the start of the affected test to restore the function.
+---
+
 ## 2026-05-30 - pt-bun.4
 - What was implemented: `_detect_ide_command` helper that inspects project root files (`tspconfig.yaml` → `code`, `package.json` → `code`, `pom.xml`/`build.gradle`/`build.gradle.kts`/`.idea/` → `idea`). `switch-project` now calls it and runs the IDE only when a kitty window was found and focused.
 - Files changed: `zsh/functions/project.zsh`, `zsh/tests/project-tests.zsh`

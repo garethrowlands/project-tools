@@ -1,5 +1,6 @@
 #!/usr/bin/env zsh
-source "${0:A:h}/../functions/project.zsh"
+_script_dir="${0:A:h}"
+source "$_script_dir/../functions/project.zsh"
 
 _pass() { echo "PASS: $1" }
 _fail() { echo "FAIL: $1"; (( _failures++ )) }
@@ -350,6 +351,116 @@ test_switch_project_no_ide_on_cd() {
   rm -rf "$proj_dir"
 }
 
+# ── --refresh / PROJECT_CACHE ────────────────────────────────────────────────
+
+test_project_cache_env_var() {
+  local old_cache="${PROJECT_CACHE:-}"
+  export PROJECT_CACHE="$_tmpdir/custom-cache.txt"
+  local cf; cf=$(_project_cache_file)
+  _assert_eq "$cf" "$_tmpdir/custom-cache.txt" "project_cache_env_var: PROJECT_CACHE respected"
+  [[ -n "$old_cache" ]] && export PROJECT_CACHE="$old_cache" || unset PROJECT_CACHE
+}
+
+test_project_cache_env_var_tilde() {
+  local old_cache="${PROJECT_CACHE:-}"
+  export PROJECT_CACHE="~/my-cache"
+  local cf; cf=$(_project_cache_file)
+  _assert_eq "$cf" "$HOME/my-cache" "project_cache_env_var_tilde: ~ expanded in PROJECT_CACHE"
+  [[ -n "$old_cache" ]] && export PROJECT_CACHE="$old_cache" || unset PROJECT_CACHE
+}
+
+test_refresh_finds_depth1_repos() {
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/root/direct-repo/.git"
+  local cache="$d/cache.txt"
+  local old_roots="$PROJECT_ROOTS"
+  export PROJECT_ROOTS="$d/root"
+
+  _project_scan "$cache"
+
+  local content; content=$(cat "$cache")
+  _assert_contains "$content" "direct-repo" "refresh_depth1: repo at depth 1 found"
+  [[ "$(head -1 "$cache")" == /* ]] && _pass "refresh_depth1: absolute path" || _fail "refresh_depth1: not absolute path"
+
+  export PROJECT_ROOTS="$old_roots"
+  rm -rf "$d"
+}
+
+test_refresh_finds_depth2_repos() {
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/root/org/nested-repo/.git"
+  local cache="$d/cache.txt"
+  local old_roots="$PROJECT_ROOTS"
+  export PROJECT_ROOTS="$d/root"
+
+  _project_scan "$cache"
+
+  local content; content=$(cat "$cache")
+  _assert_contains "$content" "nested-repo" "refresh_depth2: repo at depth 2 found"
+
+  export PROJECT_ROOTS="$old_roots"
+  rm -rf "$d"
+}
+
+test_refresh_skips_missing_root_with_warning() {
+  local missing="/nonexistent/path/project-test-$$"
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/real/repo/.git"
+  local old_roots="$PROJECT_ROOTS"
+  export PROJECT_ROOTS="$missing:$d/real"
+
+  local cache="$_tmpdir/miss-cache.txt"
+  local err_out
+  err_out=$( { _project_scan "$cache"; } 2>&1 )
+
+  _assert_contains "$err_out" "$missing" "refresh_missing_root: warning mentions missing root"
+  local content; content=$(cat "$cache" 2>/dev/null || echo "")
+  _assert_contains "$content" "repo" "refresh_missing_root: valid repos still found"
+
+  export PROJECT_ROOTS="$old_roots"
+  rm -rf "$d"
+}
+
+test_refresh_writes_cache_with_correct_content() {
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/src/org/alpha/.git"
+  mkdir -p "$d/src/org/beta/.git"
+  local old_roots="$PROJECT_ROOTS"
+  export PROJECT_ROOTS="$d/src"
+  local cache="$_tmpdir/rw-cache.txt"
+
+  _project_scan "$cache"
+
+  [[ -f "$cache" ]] && _pass "refresh_writes_cache: cache file created" || _fail "refresh_writes_cache: cache file not created"
+  local content; content=$(cat "$cache")
+  _assert_contains "$content" "alpha" "refresh_writes_cache: alpha in cache"
+  _assert_contains "$content" "beta"  "refresh_writes_cache: beta in cache"
+
+  export PROJECT_ROOTS="$old_roots"
+  rm -rf "$d"
+}
+
+test_project_refresh_flag_rebuilds_cache() {
+  # Re-source: earlier tests unfunctioned `project` via `unfunction project kitty`
+  source "$_script_dir/../functions/project.zsh"
+
+  local old_cache="${PROJECT_CACHE:-}"
+  local cache="$_tmpdir/rebuild-cache.txt"
+  export PROJECT_CACHE="$cache"
+
+  # Override picker to avoid interactive fzf
+  _project_picker() { echo ""; }
+
+  project --refresh
+
+  [[ -f "$cache" ]] && _pass "project_refresh: cache written after --refresh" || _fail "project_refresh: cache not written"
+  local content; content=$(cat "$cache" 2>/dev/null || echo "")
+  _assert_contains "$content" "repo1" "project_refresh: repos present in rebuilt cache"
+
+  unfunction _project_picker
+  [[ -n "$old_cache" ]] && export PROJECT_CACHE="$old_cache" || unset PROJECT_CACHE
+}
+
 # ── run ─────────────────────────────────────────────────────────────────────
 
 _failures=0
@@ -385,6 +496,13 @@ test_detect_ide_idea_dir
 test_detect_ide_unknown
 test_switch_project_opens_ide_on_window_focus
 test_switch_project_no_ide_on_cd
+test_project_cache_env_var
+test_project_cache_env_var_tilde
+test_refresh_finds_depth1_repos
+test_refresh_finds_depth2_repos
+test_refresh_skips_missing_root_with_warning
+test_refresh_writes_cache_with_correct_content
+test_project_refresh_flag_rebuilds_cache
 
 teardown
 

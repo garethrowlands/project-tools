@@ -2,7 +2,14 @@
 # Source this file to get the `project` function.
 
 _project_cache_file() {
-  echo "${XDG_CACHE_HOME:-$HOME/.cache}/project-tools/projects.txt"
+  if [[ -n "${PROJECT_CACHE:-}" ]]; then
+    local p="$PROJECT_CACHE"
+    [[ "$p" == "~" ]]   && p="$HOME"
+    [[ "$p" == "~/"* ]] && p="$HOME/${p:2}"
+    echo "$p"
+  else
+    echo "${XDG_CACHE_HOME:-$HOME/.cache}/project-tools/projects.txt"
+  fi
 }
 
 _project_expand_tilde() {
@@ -38,16 +45,30 @@ _project_rel_label() {
 
 _project_scan() {
   local cache_file="$1"
+  local show_progress="${2:-0}"
   mkdir -p "${cache_file:h}"
-  {
-    local root
-    while IFS= read -r root; do
-      [[ -d "$root" ]] || continue
-      find "$root" -maxdepth 3 -name ".git" -type d 2>/dev/null | while IFS= read -r gitdir; do
-        dirname "$gitdir"
-      done
-    done < <(_project_parse_roots)
-  } | sort -u > "$cache_file"
+
+  local count=0
+  local -a paths=()
+
+  local root
+  while IFS= read -r root; do
+    if [[ ! -d "$root" ]]; then
+      [[ $show_progress -eq 1 ]] && printf '\r\033[K' >&2
+      printf 'project: root not found, skipping: %s\n' "$root" >&2
+      continue
+    fi
+    local gitdir
+    while IFS= read -r gitdir; do
+      paths+=("${gitdir:h}")
+      (( count++ ))
+      [[ $show_progress -eq 1 ]] && printf '\rScanning... %d repos found' "$count" >&2
+    done < <(find "$root" -maxdepth 3 -name ".git" -type d 2>/dev/null)
+  done < <(_project_parse_roots)
+
+  [[ $show_progress -eq 1 ]] && printf '\r\033[K' >&2
+
+  printf '%s\n' "${paths[@]}" | sort -u > "$cache_file"
 }
 
 _project_build_list() {
@@ -196,7 +217,17 @@ switch-project() {
 }
 
 project() {
-  local query="${*:-}"
+  local refresh=0
+  local -a query_parts=()
+  local arg
+  for arg in "$@"; do
+    if [[ "$arg" == "--refresh" ]]; then
+      refresh=1
+    else
+      query_parts+=("$arg")
+    fi
+  done
+  local query="${query_parts[*]:-}"
 
   if [[ -z "$PROJECT_ROOTS" ]]; then
     echo "project: PROJECT_ROOTS is not set or empty" >&2
@@ -205,8 +236,10 @@ project() {
 
   local cache_file; cache_file=$(_project_cache_file)
 
-  if [[ ! -f "$cache_file" ]]; then
-    _project_scan "$cache_file"
+  if [[ $refresh -eq 1 ]]; then
+    _project_scan "$cache_file" 1
+  elif [[ ! -f "$cache_file" ]]; then
+    _project_scan "$cache_file" 0
   fi
 
   local result
