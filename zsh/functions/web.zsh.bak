@@ -1,0 +1,168 @@
+_web_picker() {
+  local query="${1:-}"
+  {
+    rg --glob '*.md' --no-heading --no-line-number -m1 -A1 '^title: ' "$HOME/notes" |
+      awk '
+        /^--$/ { lf=""; lv=""; next }
+        { n=index($0,":title: ") }
+        n>0 {
+          f=substr($0,1,n-1); v=substr($0,n+8); sub(/[[:space:]]+$/,"",v)
+          if (v!=">-") { print f "\tT\t" v; lf=""; lv="" }
+          else { lf=f; lv=">-" }
+          next
+        }
+        lv==">-" {
+          p=lf "-"
+          if (index($0,p)==1) { line=substr($0,length(p)+1); sub(/^[[:space:]]+/,"",line); sub(/[[:space:]]+$/,"",line); if(line!="") print lf "\tT\t" line }
+          lf=""; lv=""
+        }
+      '
+    rg --glob '*.md' --no-heading --no-line-number -A1 '^> ## Excerpt' "$HOME/notes" |
+      grep -- '->' |
+      awk '{ n=index($0,"->"); e=substr($0,n+2); sub(/^ /,"",e); if(length(e)>100) e=substr(e,1,100) "…"; print substr($0,1,n-1) "\tE\t" e }'
+  } | awk -F'\t' '
+    $2=="T" { titles[$1]=$3 }
+    $2=="E" { excerpts[$1]=$3 }
+    END {
+      for (f in titles) {
+        if (f in excerpts) print f "::" titles[f] " \342\200\224 " excerpts[f]
+        else print f "::" titles[f]
+      }
+    }
+  ' | sort |
+    fzf \
+      --query "$query" \
+      --delimiter '::' \
+      --prompt='websearch> ' \
+      --header=$'ctrl-o: browser | ctrl-e: VS Code | ctrl-b: Obsidian | enter: print link' \
+      --preview 'bat --style=numbers --color=always {1}' \
+      --bind 'ctrl-o:execute-silent(
+        url=$(rg -m1 -A1 "^(source|url): " {1} | grep -oE "https?://[^[:space:]]+" | head -1);
+        [ -n "$url" ] && open "$url"
+      )' \
+      --bind 'ctrl-e:execute-silent(code {1})' \
+      --bind 'ctrl-b:execute-silent(
+        f={1}; rel=${f#$HOME/notes/}; open "obsidian://adv-uri?vault=notes&viewmode=preview&filepath=$(jq -rn --arg s "$rel" '"'"'$s|@uri'"'"')"
+      )' \
+      --bind 'enter:become(echo {1})'
+}
+
+web() {
+  local query="${*:-}" result
+
+  if [ "$TERM" = "xterm-kitty" ] && kitty @ ls &>/dev/null 2>&1; then
+    local fifo
+    fifo=$(mktemp -u /tmp/web-XXXXXX)
+    mkfifo "$fifo"
+
+    kitty @ launch --type=tab \
+      --env "WEB_FIFO=$fifo" \
+      --env "WEB_QUERY=$query" \
+      zsh -c 'source "$HOME/.config/zsh/functions/web.zsh"; result=$(_web_picker "$WEB_QUERY"); echo "$result" > "$WEB_FIFO"' > /dev/null
+    open -a kitty
+
+    read -r result < "$fifo"
+    rm -f "$fifo"
+  else
+    result=$(_web_picker "$query")
+  fi
+
+  [ -z "$result" ] && return
+
+  local title url
+  title=$(rg -m1 -A3 "^title: " "$result" | awk '/^title: >-$/{y=1;t="";next} y&&/^  /{sub(/^[[:space:]]+/,"");sub(/[[:space:]]+$/,"");t=t==""?$0:t" "$0;next} y{if(t!="")print t;exit} /^title: /{sub(/^title: /,"");print;exit} END{if(y&&t!="")print t}')
+  url=$(rg -m1 -A1 "^(source|url): " "$result" | grep -oE "https?://[^[:space:]]+" | head -1)
+
+  [ -z "$url" ] && { echo "No source/url found in: $result"; return 1; }
+  [ -z "$title" ] && title="$url"
+
+  if [ -t 1 ]; then
+    printf "\033]8;;%s\033\\\\%s\033]8;;\033\\\\\n" "$url" "$title"
+  else
+    echo "$url"
+  fi
+}
+
+_note_picker() {
+  local query="${1:-}"
+  {
+    rg --glob '*.md' --no-heading --no-line-number -m1 -A1 '^title: ' "$HOME/notes" |
+      awk '
+        /^--$/ { lf=""; lv=""; next }
+        { n=index($0,":title: ") }
+        n>0 {
+          f=substr($0,1,n-1); v=substr($0,n+8); sub(/[[:space:]]+$/,"",v)
+          if (v!=">-") { print f "\tT\t" v; lf=""; lv="" }
+          else { lf=f; lv=">-" }
+          next
+        }
+        lv==">-" {
+          p=lf "-"
+          if (index($0,p)==1) { line=substr($0,length(p)+1); sub(/^[[:space:]]+/,"",line); sub(/[[:space:]]+$/,"",line); if(line!="") print lf "\tT\t" line }
+          lf=""; lv=""
+        }
+      '
+    rg --glob '*.md' --no-heading --no-line-number -A1 '^> ## Excerpt' "$HOME/notes" |
+      grep -- '->' |
+      awk '{ n=index($0,"->"); e=substr($0,n+2); sub(/^ /,"",e); if(length(e)>100) e=substr(e,1,100) "…"; print substr($0,1,n-1) "\tE\t" e }'
+    rg --files --glob '*.md' "$HOME/notes" |
+      awk '{ print $0 "\tF\t" }'
+  } | awk -F'\t' '
+    $2=="T" { titles[$1]=$3 }
+    $2=="E" { excerpts[$1]=$3 }
+    $2=="F" { all[$1]=1 }
+    END {
+      for (f in all) {
+        title = titles[f]
+        if (title == "") {
+          n = split(f, parts, "/"); base = parts[n]; sub(/\.md$/, "", base); title = base
+        }
+        if (f in excerpts) print f "::" title " \342\200\224 " excerpts[f]
+        else print f "::" title
+      }
+    }
+  ' | sort |
+    fzf \
+      --query "$query" \
+      --delimiter '::' \
+      --prompt='notes> ' \
+      --header=$'ctrl-o: browser | ctrl-e: VS Code | ctrl-b: Obsidian | enter: print path' \
+      --preview 'bat --style=numbers --color=always {1}' \
+      --bind 'ctrl-o:execute-silent(
+        url=$(rg -m1 -A1 "^(source|url): " {1} | grep -oE "https?://[^[:space:]]+" | head -1);
+        [ -n "$url" ] && open "$url"
+      )' \
+      --bind 'ctrl-e:execute-silent(code {1})' \
+      --bind 'ctrl-b:execute-silent(
+        f={1}; rel=${f#$HOME/notes/}; open "obsidian://adv-uri?vault=notes&viewmode=preview&filepath=$(jq -rn --arg s "$rel" '"'"'$s|@uri'"'"')"
+      )' \
+      --bind 'enter:become(echo {1})'
+}
+
+note() {
+  local query="${*:-}" result
+
+  if [ "$TERM" = "xterm-kitty" ] && kitty @ ls &>/dev/null 2>&1; then
+    local fifo
+    fifo=$(mktemp -u /tmp/note-XXXXXX)
+    mkfifo "$fifo"
+
+    kitty @ launch --type=tab \
+      --env "NOTE_FIFO=$fifo" \
+      --env "NOTE_QUERY=$query" \
+      zsh -c 'source "$HOME/.config/zsh/functions/web.zsh"; result=$(_note_picker "$NOTE_QUERY"); echo "$result" > "$NOTE_FIFO"' > /dev/null
+    open -a kitty
+
+    read -r result < "$fifo"
+    rm -f "$fifo"
+  else
+    result=$(_note_picker "$query")
+  fi
+
+  [ -z "$result" ] && return
+  if [ -t 1 ]; then
+    printf "\033]8;;file://%s\033\\\\%s\033]8;;\033\\\\\n" "$result" "$result"
+  else
+    echo "$result"
+  fi
+}

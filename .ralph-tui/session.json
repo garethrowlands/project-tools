@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "sessionId": "26860637-40e6-4031-b560-32a25e1be418",
+  "status": "running",
+  "startedAt": "2026-05-30T09:38:07.039Z",
+  "updatedAt": "2026-05-30T09:47:11.146Z",
+  "currentIteration": 0,
+  "maxIterations": 10,
+  "tasksCompleted": 0,
+  "isPaused": false,
+  "agentPlugin": "claude",
+  "trackerState": {
+    "plugin": "beads-rust",
+    "epicId": "pt-bun",
+    "totalTasks": 5,
+    "tasks": [
+      {
+        "id": "pt-bun.1",
+        "title": "US-001: project — pick from cache with fzf",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "pt-bun.2",
+        "title": "US-002: project --refresh — scan and rebuild cache with progress",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "pt-bun.3",
+        "title": "US-003: switch-project — focus existing kitty window",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "pt-bun.4",
+        "title": "US-004: switch-project — open or focus IDE when switching to existing kitty window",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "pt-bun.5",
+        "title": "US-005: switch-project — fall back to cd when no kitty window exists",
+        "status": "open",
+        "completedInSession": false
+      }
+    ]
+  },
+  "iterations": [],
+  "skippedTaskIds": [],
+  "cwd": "/Users/garethrowlands/github.com/garethrowlands/project-tools",
+  "activeTaskIds": [],
+  "subagentPanelVisible": false
+}
