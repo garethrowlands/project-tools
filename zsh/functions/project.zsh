@@ -1,5 +1,6 @@
 # project.zsh — interactive git project picker
 # Source this file to get the `project` function.
+_PROJECT_ZSH_PATH="${0:A}"
 
 _project_cache_file() {
   if [[ -n "${PROJECT_CACHE:-}" ]]; then
@@ -263,7 +264,8 @@ project() {
       --env "PROJECT_QUERY=$query" \
       --env "PROJECT_ROOTS=$PROJECT_ROOTS" \
       --env "PROJECT_CACHE=$cache_file" \
-      zsh -c 'source "$HOME/.config/zsh/functions/project.zsh"; result=$(_project_picker "$PROJECT_QUERY" "$PROJECT_CACHE"); echo "$result" > "$PROJECT_FIFO"' > /dev/null
+      --env "PROJECT_ZSH_PATH=$_PROJECT_ZSH_PATH" \
+      zsh -c 'source "$PROJECT_ZSH_PATH"; result=$(_project_picker "$PROJECT_QUERY" "$PROJECT_CACHE"); echo "$result" > "$PROJECT_FIFO"' > /dev/null
     open -a kitty
 
     read -r result < "$fifo"

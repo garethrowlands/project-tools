@@ -1,4 +1,5 @@
-source "$HOME/.config/zsh/functions/notes-lib.zsh"
+source "${0:A:h}/notes-lib.zsh"
+_WEB_ZSH_PATH="${0:A}"
 
 web() {
   local query="${*:-}" result
@@ -11,7 +12,8 @@ web() {
     kitty @ launch --type=tab \
       --env "WEB_FIFO=$fifo" \
       --env "WEB_QUERY=$query" \
-      zsh -c 'source "$HOME/.config/zsh/functions/web.zsh"; result=$(_notes_picker "$WEB_QUERY"); echo "$result" > "$WEB_FIFO"' > /dev/null
+      --env "WEB_ZSH_PATH=$_WEB_ZSH_PATH" \
+      zsh -c 'source "$WEB_ZSH_PATH"; result=$(_notes_picker "$WEB_QUERY"); echo "$result" > "$WEB_FIFO"' > /dev/null
     open -a kitty
 
     read -r result < "$fifo"
@@ -47,7 +49,8 @@ note() {
     kitty @ launch --type=tab \
       --env "NOTE_FIFO=$fifo" \
       --env "NOTE_QUERY=$query" \
-      zsh -c 'source "$HOME/.config/zsh/functions/web.zsh"; result=$(_notes_picker "$NOTE_QUERY"); echo "$result" > "$NOTE_FIFO"' > /dev/null
+      --env "WEB_ZSH_PATH=$_WEB_ZSH_PATH" \
+      zsh -c 'source "$WEB_ZSH_PATH"; result=$(_notes_picker "$NOTE_QUERY"); echo "$result" > "$NOTE_FIFO"' > /dev/null
     open -a kitty
 
     read -r result < "$fifo"
