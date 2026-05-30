@@ -193,10 +193,8 @@ _detect_ide_command() {
 }
 
 current-project() {
-  [[ "$TERM" != "xterm-kitty" || -z "$KITTY_WINDOW_ID" ]] && return 1
-  kitty @ ls 2>/dev/null | jq -r --argjson id "$KITTY_WINDOW_ID" '
-    .[].tabs[].windows[] | select(.id == $id) | .user_vars.project_path // empty
-  '
+  [[ "$TERM" != "xterm-kitty" ]] && return 1
+  kitty @ ls --self 2>/dev/null | jq -r '.[].tabs[].windows[].user_vars.project_path // empty'
 }
 
 switch-project() {
@@ -229,9 +227,10 @@ switch-project() {
     fi
   fi
 
+  export PROJECT_PATH="$project_path"
   cd "$project_path"
-  [[ "$TERM" == "xterm-kitty" && -n "$KITTY_WINDOW_ID" ]] && \
-    kitty @ set-user-vars --match "id:$KITTY_WINDOW_ID" project_path="$project_path" 2>/dev/null || true
+  [[ "$TERM" == "xterm-kitty" ]] && \
+    kitty @ set-user-vars --self project_path="$project_path" 2>/dev/null || true
 }
 
 project() {
