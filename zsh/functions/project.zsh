@@ -127,7 +127,7 @@ _project_picker() {
   local query="${1:-}" cache_file="${2:-}"
   local kitty_cwds=""
 
-  if [[ "$TERM" = "xterm-kitty" ]] && kitty @ ls &>/dev/null 2>&1; then
+  if kitty @ ls &>/dev/null 2>&1; then
     kitty_cwds=$(kitty @ ls 2>/dev/null \
       | jq -r '.[].tabs[].windows[].foreground_processes[].cwd // empty' 2>/dev/null \
       | sort -u) || true
@@ -180,7 +180,7 @@ project() {
 
   local result
 
-  if [[ "$TERM" = "xterm-kitty" ]] && kitty @ ls &>/dev/null 2>&1; then
+  if [[ ! -t 0 ]] && kitty @ ls &>/dev/null 2>&1; then
     local fifo
     fifo=$(mktemp -u /tmp/project-XXXXXX)
     mkfifo "$fifo"
