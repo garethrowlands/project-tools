@@ -23,11 +23,13 @@ _close_app_windows() {
   osascript 2>/dev/null <<APPLESCRIPT || true
 tell application "System Events"
   if exists process "$process_name" then
-    repeat with w in (every window of process "$process_name")
-      if name of w contains "$match" then
-        perform action "AXClose" of w
-      end if
-    end repeat
+    tell process "$process_name"
+      repeat with w in every window
+        if name of w contains "$match" then
+          perform action "AXClose" of w
+        end if
+      end repeat
+    end tell
   end if
 end tell
 APPLESCRIPT
