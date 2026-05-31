@@ -64,7 +64,7 @@ _project_scan() {
       paths+=("${gitdir:h}")
       (( count++ ))
       [[ $show_progress -eq 1 ]] && printf '\rScanning... %d repos found' "$count" >&2
-    done < <(find "$root" -maxdepth 3 -name ".git" -type d 2>/dev/null)
+    done < <(fd --hidden --type d --max-depth 4 --glob '.git' "$root" 2>/dev/null)
   done < <(_project_parse_roots)
 
   [[ $show_progress -eq 1 ]] && printf '\r\033[K' >&2
@@ -79,39 +79,48 @@ _project_build_list() {
   local cache_file="$1"
   local kitty_cwds="${2:-}"
 
-  local -a open_paths
-  if [[ -n "$kitty_cwds" ]]; then
-    local path cwd
-    while IFS= read -r path; do
-      [[ -z "$path" ]] && continue
-      while IFS= read -r cwd; do
-        if [[ "$cwd" == "$path" || "$cwd" == "$path/"* ]]; then
-          open_paths+=("$path")
-          break
-        fi
-      done <<< "$kitty_cwds"
-    done < "$cache_file"
-  fi
-
-  local -A open_set
-  local p
-  for p in "${open_paths[@]}"; do
-    open_set[$p]=1
-  done
-
-  if (( ${#open_paths[@]} > 0 )); then
-    printf '\t── Open ──\n'
-    for p in "${open_paths[@]}"; do
-      printf '%s\t%s\n' "$p" "$(_project_rel_label "$p")"
-    done
-  fi
-
-  printf '\t── All ──\n'
-  local path
-  while IFS= read -r path; do
-    [[ -z "$path" ]] && continue
-    [[ -z "${open_set[$path]}" ]] && printf '%s\t%s\n' "$path" "$(_project_rel_label "$path")"
-  done < "$cache_file"
+  # BSD awk rejects newlines in -v values, so roots and cwds are fed as file
+  # input via a single process substitution, separated by a "---" sentinel.
+  # FNR==NR identifies this first file; the cache is the second file.
+  awk '
+  function make_label(path,    i, pfx) {
+    for (i = 1; i <= n_roots; i++) {
+      pfx = root_arr[i] "/"
+      if (substr(path, 1, length(pfx)) == pfx)
+        return substr(path, length(pfx) + 1)
+    }
+    return path
+  }
+  function is_open(path,    i, c) {
+    for (i = 1; i <= n_cwds; i++) {
+      c = cwd_arr[i]
+      if (c == path || substr(c, 1, length(path) + 1) == path "/")
+        return 1
+    }
+    return 0
+  }
+  FNR == NR {
+    if ($0 == "---") { in_cwds = 1; next }
+    if (in_cwds) { if (NF) cwd_arr[++n_cwds] = $0 }
+    else root_arr[++n_roots] = $0
+    next
+  }
+  NF {
+    paths[++n] = $0
+    labels[n]  = make_label($0)
+    open[n]    = (n_cwds > 0) ? is_open($0) : 0
+  }
+  END {
+    has_open = 0
+    for (i = 1; i <= n; i++) if (open[i]) { has_open = 1; break }
+    if (has_open) {
+      print "\t── Open ──"
+      for (i = 1; i <= n; i++) if (open[i])  print paths[i] "\t" labels[i]
+    }
+    print "\t── All ──"
+    for (i = 1; i <= n; i++) if (!open[i]) print paths[i] "\t" labels[i]
+  }
+  ' <({ _project_parse_roots; printf -- '---\n'; printf '%s' "$kitty_cwds"; }) "$cache_file"
 }
 
 _project_picker() {
@@ -193,8 +202,10 @@ _detect_ide_command() {
 }
 
 current-project() {
-  [[ "$TERM" != "xterm-kitty" ]] && return 1
-  kitty @ ls --self 2>/dev/null | jq -r '.[].tabs[].windows[].user_vars.project_path // empty'
+  [[ "$TERM" != "xterm-kitty" || -z "$KITTY_WINDOW_ID" ]] && return 1
+  kitty @ ls 2>/dev/null | jq -r --argjson id "$KITTY_WINDOW_ID" '
+    .[].tabs[].windows[] | select(.id == $id) | .user_vars.project_path // empty
+  '
 }
 
 switch-project() {
@@ -229,8 +240,8 @@ switch-project() {
 
   export PROJECT_PATH="$project_path"
   cd "$project_path"
-  [[ "$TERM" == "xterm-kitty" ]] && \
-    kitty @ set-user-vars --self project_path="$project_path" 2>/dev/null || true
+  [[ "$TERM" == "xterm-kitty" && -n "$KITTY_WINDOW_ID" ]] && \
+    kitty @ set-user-vars --match "id:$KITTY_WINDOW_ID" project_path="$project_path" 2>/dev/null || true
 }
 
 project() {
