@@ -25,13 +25,15 @@ selection=$(printf '%s' "$kitty_ls" | jq -r '
   [
     (.id | tostring),
     ($tab.title),
-    (.foreground_processes[0].cwd // .title // "")
+    (.foreground_processes[0].cwd // .title // ""),
+    (.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last)
   ] | join("\t")
 ' | awk -F'\t' '{
-  id=$1; tab=$2; cwd=$3
+  id=$1; tab=$2; cwd=$3; proc=$4
   n=split(cwd, parts, "/")
   basename = (n > 0) ? parts[n] : cwd
   label = (basename != "") ? tab " > " basename : tab
+  if (proc != "") label = label " (" proc ")"
   print id "\t" label
 }' | fzf --with-nth=2.. --no-sort)
 
