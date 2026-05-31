@@ -1,0 +1,40 @@
+#!/usr/bin/env zsh
+
+kitty_ls=$(kitty @ ls 2>/dev/null) || { echo "kitty not available" >&2; exit 1 }
+
+# Restore the tab title: when launched from a keybinding, the overlay is inserted
+# at active_window_history[0], so filter out self to find the true previous window.
+prev_title=$(printf '%s' "$kitty_ls" | jq -r '
+  .[].tabs[] |
+  select(.windows[] | .is_self) |
+  . as $tab |
+  ($tab.windows[] | select(.is_self) | .id) as $self_id |
+  ($tab.active_window_history | map(select(. != $self_id)) | .[0]) as $prev_id |
+  .windows[] | select(.id == $prev_id) | .title
+' 2>/dev/null | head -1)
+if [[ -n "$prev_title" && -n "$KITTY_WINDOW_ID" ]]; then
+  kitty @ set-window-title --match "id:$KITTY_WINDOW_ID" "$prev_title"
+  kitty_ls=$(kitty @ ls 2>/dev/null)
+fi
+
+selection=$(printf '%s' "$kitty_ls" | jq -r '
+  .[].tabs[] |
+  . as $tab |
+  .windows[] |
+  [
+    (.id | tostring),
+    ($tab.title),
+    (.foreground_processes[0].cwd // .title // "")
+  ] | join("\t")
+' | awk -F'\t' '{
+  id=$1; tab=$2; cwd=$3
+  n=split(cwd, parts, "/")
+  basename = (n > 0) ? parts[n] : cwd
+  label = (basename != "") ? tab " > " basename : tab
+  print id "\t" label
+}' | fzf --with-nth=2.. --no-sort)
+
+[[ -z "$selection" ]] && exit 0
+
+window_id="${selection%%$'\t'*}"
+kitty @ focus-window --match "id:${window_id}" 2>/dev/null
