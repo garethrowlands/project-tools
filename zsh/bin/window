@@ -21,6 +21,7 @@ selection=$(printf '%s' "$kitty_ls" | jq -r '
   .[].tabs[] |
   . as $tab |
   .windows[] |
+  select(.is_self | not) |
   [
     (.id | tostring),
     ($tab.title),
