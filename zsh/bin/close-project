@@ -1,0 +1,30 @@
+#!/usr/bin/env zsh
+
+_ide_detect() {
+  local path="$1"
+  if [[ -f "$path/pom.xml" || -f "$path/build.gradle" || -f "$path/build.gradle.kts" || -d "$path/.idea" ]]; then
+    echo "idea"
+  else
+    echo "code"
+  fi
+}
+
+local project
+project=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null) || { echo "not a git project"; exit 1 }
+[[ -z "$project" ]] && { echo "not a git project"; exit 1 }
+
+local ide_cmd
+ide_cmd=$(_ide_detect "$project")
+
+local basename="${project:t}"
+
+case "$ide_cmd" in
+  code)
+    osascript -e "tell application \"Visual Studio Code\" to close (windows whose name contains \"$basename\")" 2>/dev/null || true
+    ;;
+  idea)
+    osascript -e "tell application \"IntelliJ IDEA\" to close (windows whose name contains \"$basename\")" 2>/dev/null || true
+    ;;
+esac
+
+kitty @ close-window --match "id:$KITTY_WINDOW_ID" 2>/dev/null || true
