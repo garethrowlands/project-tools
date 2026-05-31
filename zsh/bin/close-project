@@ -26,7 +26,7 @@ tell application "System Events"
     tell process "$process_name"
       repeat with w in every window
         if name of w contains "$match" then
-          perform action "AXClose" of w
+          click (first button of w whose description is "close button")
         end if
       end repeat
     end tell
