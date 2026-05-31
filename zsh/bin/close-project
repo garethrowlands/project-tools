@@ -18,13 +18,24 @@ ide_cmd=$(_ide_detect "$project")
 
 local basename="${project:t}"
 
+_close_app_windows() {
+  local process_name="$1" match="$2"
+  osascript 2>/dev/null <<APPLESCRIPT || true
+tell application "System Events"
+  if exists process "$process_name" then
+    repeat with w in (every window of process "$process_name")
+      if name of w contains "$match" then
+        perform action "AXClose" of w
+      end if
+    end repeat
+  end if
+end tell
+APPLESCRIPT
+}
+
 case "$ide_cmd" in
-  code)
-    osascript -e "tell application \"Visual Studio Code\" to close (windows whose name contains \"$basename\")" 2>/dev/null || true
-    ;;
-  idea)
-    osascript -e "tell application \"IntelliJ IDEA\" to close (windows whose name contains \"$basename\")" 2>/dev/null || true
-    ;;
+  code) _close_app_windows "Code" "$basename" ;;
+  idea) _close_app_windows "IntelliJ IDEA" "$basename" ;;
 esac
 
 kitty @ close-window --match "id:$KITTY_WINDOW_ID" 2>/dev/null || true
