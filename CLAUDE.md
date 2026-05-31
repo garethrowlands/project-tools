@@ -30,6 +30,14 @@ Zsh shell functions for searching and navigating a personal notes vault (`$HOME/
 
 Both commands support **kitty terminal**: when running inside kitty with socket access, they open a new tab for the interactive picker and communicate the result back via a named pipe (FIFO).
 
+**`bin/ide`** — opens the appropriate IDE (VS Code or IntelliJ IDEA) for the git root of the given path (or `$PWD`). Detects the IDE from project files (`pom.xml`, `.idea`, etc.).
+
+**`bin/close-project`** — inverse of `ide`: closes the IDE window for the current git project (matched by window title) and closes the current kitty pane. Exits with an error if not inside a git repo. Uses `System Events` + close-button click to close VS Code (which exposes no AppleScript command dictionary).
+
+**`bin/switch-project`** — picks a project via `project()` and focuses the matching kitty window (by CWD), or opens a new tab if none exists.
+
+**`bin/window`** — `fzf` picker over all open kitty windows; focuses the selected one.
+
 ## Key Conventions
 
 - Notes frontmatter is parsed with `rg` + `awk`, not a YAML library — the awk handles the specific YAML subset used in this vault.
@@ -38,10 +46,11 @@ Both commands support **kitty terminal**: when running inside kitty with socket 
 
 ## Installation
 
-`zsh/bin/ide` is a standalone executable. Symlink it onto your PATH:
+`zsh/bin/ide` and `zsh/bin/close-project` are standalone executables. Symlink them onto your PATH:
 
 ```zsh
 ln -s $PWD/zsh/bin/ide ~/.local/bin/ide
+ln -s $PWD/zsh/bin/close-project ~/.local/bin/close-project
 ```
 
 ## Dependencies
