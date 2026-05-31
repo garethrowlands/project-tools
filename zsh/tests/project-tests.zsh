@@ -1,6 +1,7 @@
 #!/usr/bin/env zsh
 _script_dir="${0:A:h}"
 source "$_script_dir/../functions/project.zsh"
+source "$_script_dir/../functions/ide.zsh"
 
 _pass() { echo "PASS: $1" }
 _fail() { echo "FAIL: $1"; (( _failures++ )) }
@@ -315,26 +316,6 @@ test_switch_project_cd_when_no_matching_window() {
   rm -rf "$proj_dir"
 }
 
-test_switch_project_no_ide_on_cd_fallback() {
-  local proj_dir="$_tmpdir/cdtest3"
-  mkdir -p "$proj_dir"
-
-  project() { echo "$proj_dir"; }
-  kitty() { return 1; }
-  local _ide_called=0
-  code()   { _ide_called=1; }
-  cursor() { _ide_called=1; }
-
-  local orig_dir="$PWD"
-  switch-project "cdtest3"
-  cd "$orig_dir"
-
-  (( _ide_called == 0 )) && _pass "switch_project_cd: no IDE opened on cd fallback" || _fail "switch_project_cd: IDE was unexpectedly invoked"
-
-  unfunction project kitty code cursor
-  rm -rf "$proj_dir"
-}
-
 # ── _detect_ide_command ──────────────────────────────────────────────────────
 
 test_detect_ide_typespec() {
@@ -392,46 +373,48 @@ test_detect_ide_unknown() {
   rm -rf "$d"
 }
 
-test_switch_project_opens_ide_on_window_focus() {
-  local proj_dir="$_tmpdir/idetest"
-  mkdir -p "$proj_dir"
-  touch "$proj_dir/package.json"
+# ── ide ──────────────────────────────────────────────────────────────────────
 
-  local match_json; match_json=$(_mock_kitty_ls 200 20 "$proj_dir" "bash" "idetest")
-  project() { echo "$proj_dir"; }
-  kitty() {
-    if [[ "$1" == "@" && "$2" == "ls" ]]; then echo "$match_json"; return 0; fi
-    return 0
-  }
-  local _ide_called=0
-  code() { _ide_called=1; }
+test_ide_calls_detected_command() {
+  local d; d=$(mktemp -d)
+  touch "$d/package.json"
+  local _called_with=""
+  code() { _called_with="$1"; }
 
-  switch-project "idetest"
+  ide "$d"
 
-  (( _ide_called == 1 )) && _pass "switch_project_ide: code called when focusing existing window" || _fail "switch_project_ide: code was not called"
-
-  unfunction project kitty code
-  rm -rf "$proj_dir"
+  _assert_eq "$_called_with" "$d" "ide: calls code with correct path for package.json project"
+  unfunction code
+  rm -rf "$d"
 }
 
-test_switch_project_no_ide_on_cd() {
-  local proj_dir="$_tmpdir/ideskip"
-  mkdir -p "$proj_dir"
-  touch "$proj_dir/package.json"
-
-  project() { echo "$proj_dir"; }
-  kitty() { return 1; }
-  local _ide_called=0
-  code() { _ide_called=1; }
+test_ide_defaults_to_pwd() {
+  local d; d=$(mktemp -d)
+  touch "$d/package.json"
+  local _called_with=""
+  code() { _called_with="$1"; }
 
   local orig_dir="$PWD"
-  switch-project "ideskip"
+  cd "$d"
+  ide
   cd "$orig_dir"
 
-  (( _ide_called == 0 )) && _pass "switch_project_ide: no IDE on cd fallback" || _fail "switch_project_ide: IDE unexpectedly called on cd"
+  _assert_eq "$_called_with" "$d" "ide: defaults to PWD when no argument given"
+  unfunction code
+  rm -rf "$d"
+}
 
-  unfunction project kitty code
-  rm -rf "$proj_dir"
+test_ide_no_op_for_unknown() {
+  local d; d=$(mktemp -d)
+  local _called=0
+  code() { _called=1; }
+  idea() { _called=1; }
+
+  ide "$d"
+
+  (( _called == 0 )) && _pass "ide: silent no-op for unrecognised project" || _fail "ide: unexpectedly called an IDE for unknown project"
+  unfunction code idea
+  rm -rf "$d"
 }
 
 # ── --refresh / PROJECT_CACHE ────────────────────────────────────────────────
@@ -574,7 +557,6 @@ test_switch_project_sets_user_var
 test_switch_project_sets_user_var_on_cd_fallback
 test_switch_project_cd_when_kitty_unavailable
 test_switch_project_cd_when_no_matching_window
-test_switch_project_no_ide_on_cd_fallback
 test_detect_ide_typespec
 test_detect_ide_typescript
 test_detect_ide_pom
@@ -582,8 +564,9 @@ test_detect_ide_gradle
 test_detect_ide_gradle_kts
 test_detect_ide_idea_dir
 test_detect_ide_unknown
-test_switch_project_opens_ide_on_window_focus
-test_switch_project_no_ide_on_cd
+test_ide_calls_detected_command
+test_ide_defaults_to_pwd
+test_ide_no_op_for_unknown
 test_project_cache_env_var
 test_project_cache_env_var_tilde
 test_refresh_finds_depth1_repos

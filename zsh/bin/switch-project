@@ -1,0 +1,33 @@
+#!/usr/bin/env zsh
+
+source "${0:A:h}/../functions/project.zsh"
+
+local project_path
+project_path=$(project)
+[[ -z "$project_path" ]] && exit 0
+
+local kitty_ls_json
+kitty_ls_json=$(kitty @ ls 2>/dev/null) || exit 0
+[[ -z "$kitty_ls_json" ]] && exit 0
+
+# Prefer exact CWD match (at project root), fall back to window inside project
+local match
+match=$(printf '%s' "$kitty_ls_json" | jq -r --arg path "$project_path" '
+  .[].tabs[].windows[] |
+  select([.foreground_processes[].cwd] | map(. == $path) | any) |
+  "window:\(.id)"
+' 2>/dev/null | head -1)
+
+if [[ -z "$match" ]]; then
+  match=$(printf '%s' "$kitty_ls_json" | jq -r --arg path "$project_path" '
+    .[].tabs[].windows[] |
+    select([.foreground_processes[].cwd] | map(startswith($path + "/")) | any) |
+    "window:\(.id)"
+  ' 2>/dev/null | head -1)
+fi
+
+if [[ -n "$match" ]]; then
+  kitty @ focus-window --match "id:${match#*:}" 2>/dev/null || true
+else
+  kitty @ launch --type=tab --cwd "$project_path" 2>/dev/null || true
+fi

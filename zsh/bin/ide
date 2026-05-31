@@ -1,0 +1,29 @@
+#!/usr/bin/env zsh
+
+_ide_git_root() {
+  git -C "$1" rev-parse --show-toplevel 2>/dev/null || echo "$1"
+}
+
+_ide_detect() {
+  local path="$1"
+  if [[ -f "$path/pom.xml" || -f "$path/build.gradle" || -f "$path/build.gradle.kts" || -d "$path/.idea" ]]; then
+    echo "idea"
+  else
+    echo "code"
+  fi
+}
+
+
+local project
+project=$(_ide_git_root "${1:-$PWD}")
+echo "project: $project"
+
+local ide_cmd
+ide_cmd=$(_ide_detect "$project")
+echo "ide_cmd: $ide_cmd"
+[[ -z "$ide_cmd" ]] && exit 0
+
+case "$ide_cmd" in
+  code) echo "running: code --reuse-window $project"; code --reuse-window "$project" ;;
+  idea) echo "running: idea $project"; idea "$project" ;;
+esac

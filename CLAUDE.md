@@ -36,6 +36,14 @@ Both commands support **kitty terminal**: when running inside kitty with socket 
 - `_notes_picker` avoids subshells for mode-switching by having `fzf` print sentinel strings that the outer `while true` loop interprets.
 - The `awk` join pattern (`NR==FNR{…;next}{…}`) is used to attach titles to file paths in `fzf` reload commands, where the map file path is embedded in the reload string at construction time.
 
+## Installation
+
+`zsh/bin/ide` is a standalone executable. Symlink it onto your PATH:
+
+```zsh
+ln -s $PWD/zsh/bin/ide ~/.local/bin/ide
+```
+
 ## Dependencies
 
-`rg` (ripgrep), `fzf`, `bat`, `jq`, `awk`, `kitty` (optional).
+`rg` (ripgrep), `fd`, `fzf`, `bat`, `jq`, `awk`, `kitty` (optional).

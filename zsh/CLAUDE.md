@@ -36,4 +36,4 @@ Both commands support **kitty terminal**: when running inside kitty with socket 
 
 ## Dependencies
 
-`rg` (ripgrep), `fzf`, `bat`, `jq`, `awk`, `kitty` (optional).
+`rg` (ripgrep), `fd`, `fzf`, `bat`, `jq`, `awk`, `kitty` (optional).
