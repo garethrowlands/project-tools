@@ -145,10 +145,10 @@ _project_picker() {
       | sort -u) || true
   fi
 
-  local header='enter: open project'
+  local header='enter: open  ctrl-i: ide  ctrl-w: close  ctrl-y: copy'
   local -a extra_bindings=()
   if [[ -n "$new_tab_key" ]]; then
-    header='enter: open  ctrl-t: new tab'
+    header='enter: open  ctrl-t: new tab  ctrl-i: ide  ctrl-w: close  ctrl-y: copy'
     extra_bindings=(--bind 'ctrl-t:transform([[ -n {1} ]] && echo "become(echo newtab:{1})")')
   fi
 
@@ -166,6 +166,9 @@ _project_picker() {
       --preview "$preview_cmd" \
       --preview-window 'right:50%:wrap' \
       --bind 'enter:transform([[ -n {1} ]] && echo "become(echo {1})")' \
+      --bind 'ctrl-i:execute-silent([[ -n {1} ]] && ide {1})' \
+      --bind 'ctrl-w:transform([[ -n {1} ]] && echo "become(echo close:{1})")' \
+      --bind 'ctrl-y:execute-silent([[ -n {1} ]] && echo -n {1} | pbcopy)' \
       "${extra_bindings[@]}"
   )
 
