@@ -167,7 +167,7 @@ _project_picker() {
       --preview-window 'right:50%:wrap' \
       --bind 'enter:transform([[ -n {1} ]] && echo "become(echo {1})")' \
       --bind 'ctrl-i:execute-silent([[ -n {1} ]] && ide {1})' \
-      --bind 'ctrl-w:transform([[ -n {1} ]] && echo "become(echo close:{1})")' \
+      --bind 'ctrl-w:execute-silent([[ -n {1} ]] && close-project {1})' \
       --bind 'ctrl-y:execute-silent([[ -n {1} ]] && echo -n {1} | pbcopy)' \
       "${extra_bindings[@]}"
   )

@@ -10,28 +10,6 @@ local project_path="$raw_result" new_tab=0
 if [[ "$raw_result" == newtab:* ]]; then
   new_tab=1
   project_path="${raw_result#newtab:}"
-elif [[ "$raw_result" == close:* ]]; then
-  project_path="${raw_result#close:}"
-  local kitty_ls_json
-  kitty_ls_json=$(kitty @ ls 2>/dev/null) || true
-  if [[ -n "$kitty_ls_json" ]]; then
-    local window_ids
-    local self_id="${KITTY_WINDOW_ID:-0}"
-    window_ids=$(printf '%s' "$kitty_ls_json" | jq -r --arg p "$project_path" --argjson self "$self_id" '
-      .[].tabs[].windows[] |
-      select(
-        .id != $self and
-        ([.foreground_processes[].cwd] | map(. == $p or startswith($p + "/")) | any)
-      ) |
-      .id
-    ' 2>/dev/null)
-    local wid
-    for wid in ${(f)window_ids}; do
-      kitty @ close-window --match "id:$wid" 2>/dev/null || true
-    done
-  fi
-  close-project "$project_path" 2>/dev/null || true
-  exit 0
 fi
 
 local kitty_ls_json
