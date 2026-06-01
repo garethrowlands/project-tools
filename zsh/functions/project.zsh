@@ -124,8 +124,9 @@ _project_build_list() {
 }
 
 _project_preview_windows() {
-  local dir="$1"
-  kitty @ ls 2>/dev/null | jq -r --arg p "$dir" '
+  local dir="$1" ls_file="${2:-}"
+  [[ -z "$ls_file" || ! -f "$ls_file" ]] && return
+  jq -r --arg p "$dir" '
     [.[].tabs[].windows[] |
      select([.foreground_processes[].cwd] | map(. == $p or startswith($p + "/")) | any)] |
     if length == 0 then empty
@@ -133,14 +134,14 @@ _project_preview_windows() {
       "Windows (\(length)):",
       (.[] | "  \(.foreground_processes[0].cmdline[0] // "?" | ltrimstr("-"))  \(.foreground_processes[0].cwd // $p | if . == $p then "." else ltrimstr($p + "/") end)")
     end
-  ' 2>/dev/null
+  ' "$ls_file" 2>/dev/null
 }
 
 _project_preview_dir() {
-  local dir="$1"
+  local dir="$1" ls_file="${2:-}"
   [[ -z "$dir" ]] && return
   local windows
-  windows=$(_project_preview_windows "$dir")
+  windows=$(_project_preview_windows "$dir" "$ls_file")
   if [[ -n "$windows" ]]; then
     printf '%s\n\n' "$windows"
   fi
@@ -155,12 +156,16 @@ _project_preview_dir() {
 
 _project_picker() {
   local query="${1:-}" cache_file="${2:-}" new_tab_key="${3:-}"
-  local kitty_cwds=""
+  local kitty_cwds="" kitty_ls_file=""
 
   if kitty @ ls &>/dev/null 2>&1; then
-    kitty_cwds=$(kitty @ ls 2>/dev/null \
+    local kitty_ls_json
+    kitty_ls_json=$(kitty @ ls 2>/dev/null) || true
+    kitty_cwds=$(printf '%s' "$kitty_ls_json" \
       | jq -r '.[].tabs[].windows[].foreground_processes[].cwd // empty' 2>/dev/null \
       | sort -u) || true
+    kitty_ls_file=$(mktemp /tmp/project-kitty-XXXXXX)
+    printf '%s' "$kitty_ls_json" > "$kitty_ls_file"
   fi
 
   local header='enter: open  ctrl-i: ide  ctrl-w: close  ctrl-y: copy'
@@ -170,7 +175,7 @@ _project_picker() {
     extra_bindings=(--bind 'ctrl-t:transform([[ -n {1} ]] && echo "become(echo newtab:{1})")')
   fi
 
-  local preview_cmd="zsh -c 'source \"\$1\"; _project_preview_dir \"\$2\"' -- ${_PROJECT_ZSH_PATH:q} {1}"
+  local preview_cmd="zsh -c 'source \"\$1\"; _project_preview_dir \"\$2\" \"\$3\"' -- ${_PROJECT_ZSH_PATH:q} {1} ${kitty_ls_file:q}"
 
   local result
   result=$(
@@ -190,6 +195,7 @@ _project_picker() {
       "${extra_bindings[@]}"
   )
 
+  [[ -n "$kitty_ls_file" ]] && rm -f "$kitty_ls_file"
   echo "$result"
 }
 
