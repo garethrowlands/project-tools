@@ -145,10 +145,11 @@ _project_preview_dir() {
   if [[ -n "$windows" ]]; then
     printf '%s\n%s\n\n' "$windows" "$(printf '%.0s─' $(seq 1 ${FZF_PREVIEW_COLUMNS:-40}))"
   fi
+  local bat_width=${FZF_PREVIEW_COLUMNS:-80}
   if [[ -f "$dir/README.md" ]]; then
-    bat --color=always --style=header "$dir/README.md"
+    bat --color=always --style=header --terminal-width "$bat_width" "$dir/README.md"
   elif [[ -f "$dir/CLAUDE.md" ]]; then
-    bat --color=always --style=header "$dir/CLAUDE.md"
+    bat --color=always --style=header --terminal-width "$bat_width" "$dir/CLAUDE.md"
   else
     ls "$dir"
   fi
