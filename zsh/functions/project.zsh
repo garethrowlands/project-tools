@@ -143,7 +143,7 @@ _project_preview_dir() {
   local windows
   windows=$(_project_preview_windows "$dir" "$ls_file")
   if [[ -n "$windows" ]]; then
-    printf '%s\n%s\n\n' "$windows" "$(printf '%.0s─' $(seq 1 ${COLUMNS:-40}))"
+    printf '%s\n%s\n\n' "$windows" "$(printf '%.0s─' $(seq 1 ${FZF_PREVIEW_COLUMNS:-40}))"
   fi
   if [[ -f "$dir/README.md" ]]; then
     bat --color=always --style=header "$dir/README.md"
