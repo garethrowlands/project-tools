@@ -128,7 +128,7 @@ _project_preview_windows() {
   [[ -z "$ls_file" || ! -f "$ls_file" ]] && return
   jq -r --arg p "$dir" '
     [.[].tabs[].windows[] |
-     select([.foreground_processes[].cwd] | map(. == $p or startswith($p + "/")) | any)] |
+     select([.foreground_processes[].cwd // empty] | map(. == $p or startswith($p + "/")) | any)] |
     if length == 0 then empty
     else
       "Windows (\(length)):",
