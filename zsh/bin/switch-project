@@ -2,8 +2,21 @@
 
 source "${0:A:h}/../functions/project.zsh"
 
+local prev_layout=""
+if kitty @ ls &>/dev/null 2>&1; then
+  prev_layout=$(kitty @ ls 2>/dev/null \
+    | jq -r '.[] | select(.is_focused) | .tabs[] | select(.is_active) | .layout' \
+    2>/dev/null | head -1) || true
+  [[ -n "$prev_layout" && "$prev_layout" != "stack" ]] && \
+    kitty @ goto-layout stack 2>/dev/null || true
+fi
+
 local raw_result
 raw_result=$(project --new-tab-key)
+
+[[ -n "$prev_layout" && "$prev_layout" != "stack" ]] && \
+  kitty @ goto-layout "$prev_layout" 2>/dev/null || true
+
 [[ -z "$raw_result" ]] && exit 0
 
 local project_path="$raw_result" new_tab=0
