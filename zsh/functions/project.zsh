@@ -115,7 +115,7 @@ _project_build_list() {
     for (i = 1; i <= n; i++) if (open[i]) { has_open = 1; break }
     if (has_open) {
       print "\t── Open ──"
-      for (i = 1; i <= n; i++) if (open[i])  print paths[i] "\t" labels[i]
+      for (i = 1; i <= n; i++) if (open[i])  print paths[i] "\t* " labels[i]
     }
     print "\t── All ──"
     for (i = 1; i <= n; i++) if (!open[i]) print paths[i] "\t" labels[i]
