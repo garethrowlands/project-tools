@@ -27,7 +27,7 @@ elif [[ "$raw_result" == close:* ]]; then
       kitty @ close-window --match "id:$wid" 2>/dev/null || true
     done
   fi
-  KITTY_WINDOW_ID="" close-project "$project_path" 2>/dev/null || true
+  close-project "$project_path" 2>/dev/null || true
   exit 0
 fi
 

@@ -9,6 +9,7 @@ _ide_detect() {
   fi
 }
 
+local close_kitty=$(( $# == 0 ))
 local dir="${1:-$PWD}"
 [[ -f "$dir" ]] && dir="${dir:h}"
 local project
@@ -42,4 +43,4 @@ case "$ide_cmd" in
   idea) _close_app_windows "IntelliJ IDEA" "$basename" ;;
 esac
 
-kitty @ close-window --match "id:$KITTY_WINDOW_ID" 2>/dev/null || true
+[[ $close_kitty -eq 1 ]] && kitty @ close-window --match "id:$KITTY_WINDOW_ID" 2>/dev/null || true
