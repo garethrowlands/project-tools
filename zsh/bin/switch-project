@@ -16,10 +16,13 @@ elif [[ "$raw_result" == close:* ]]; then
   kitty_ls_json=$(kitty @ ls 2>/dev/null) || true
   if [[ -n "$kitty_ls_json" ]]; then
     local window_ids
-    window_ids=$(printf '%s' "$kitty_ls_json" | jq -r --arg p "$project_path" '
+    local self_id="${KITTY_WINDOW_ID:-0}"
+    window_ids=$(printf '%s' "$kitty_ls_json" | jq -r --arg p "$project_path" --argjson self "$self_id" '
       .[].tabs[].windows[] |
-      select([.foreground_processes[].cwd] |
-        map(. == $p or startswith($p + "/")) | any) |
+      select(
+        .id != $self and
+        ([.foreground_processes[].cwd] | map(. == $p or startswith($p + "/")) | any)
+      ) |
       .id
     ' 2>/dev/null)
     local wid
