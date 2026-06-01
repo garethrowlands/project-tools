@@ -1,7 +1,9 @@
 #!/usr/bin/env zsh
 
 _ide_git_root() {
-  git -C "$1" rev-parse --show-toplevel 2>/dev/null || echo "$1"
+  local dir="$1"
+  [[ -f "$dir" ]] && dir="${dir:h}"
+  git -C "$dir" rev-parse --show-toplevel 2>/dev/null || echo "$dir"
 }
 
 _ide_detect() {

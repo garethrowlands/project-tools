@@ -9,8 +9,10 @@ _ide_detect() {
   fi
 }
 
+local dir="${1:-$PWD}"
+[[ -f "$dir" ]] && dir="${dir:h}"
 local project
-project=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null) || { echo "not a git project"; exit 1 }
+project=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || { echo "not a git project"; exit 1 }
 [[ -z "$project" ]] && { echo "not a git project"; exit 1 }
 
 local ide_cmd
