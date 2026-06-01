@@ -123,9 +123,27 @@ _project_build_list() {
   ' <({ _project_parse_roots; printf -- '---\n'; printf '%s' "$kitty_cwds"; }) "$cache_file"
 }
 
+_project_preview_windows() {
+  local dir="$1"
+  kitty @ ls 2>/dev/null | jq -r --arg p "$dir" '
+    [.[].tabs[].windows[] |
+     select([.foreground_processes[].cwd] | map(. == $p or startswith($p + "/")) | any)] |
+    if length == 0 then empty
+    else
+      "Windows (\(length)):",
+      (.[] | "  \(.foreground_processes[0].cmdline[0] // "?" | ltrimstr("-"))  \(.foreground_processes[0].cwd // $p | if . == $p then "." else ltrimstr($p + "/") end)")
+    end
+  ' 2>/dev/null
+}
+
 _project_preview_dir() {
   local dir="$1"
   [[ -z "$dir" ]] && return
+  local windows
+  windows=$(_project_preview_windows "$dir")
+  if [[ -n "$windows" ]]; then
+    printf '%s\n\n' "$windows"
+  fi
   if [[ -f "$dir/README.md" ]]; then
     bat --color=always --style=header "$dir/README.md"
   elif [[ -f "$dir/CLAUDE.md" ]]; then
