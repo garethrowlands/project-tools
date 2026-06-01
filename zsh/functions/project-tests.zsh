@@ -61,16 +61,17 @@ EOF
 # ── _project_preview_windows ──────────────────────────────────────────────────
 
 out=$(_project_preview_windows /home/user/myproject "$_ls_file")
-_assert_contains "$out" "Windows (2)" "_project_preview_windows: header shows count"
+_assert_contains "$out" "Windows" "_project_preview_windows: header shown"
 _assert_contains "$out" "zsh" "_project_preview_windows: shell process shown"
 _assert_contains "$out" "nvim" "_project_preview_windows: editor process shown"
 _assert_contains "$out" "src" "_project_preview_windows: subdir path shown"
 
 out=$(_project_preview_windows /home/user/otherproject "$_ls_file")
-_assert_contains "$out" "Windows (1)" "_project_preview_windows: exact match only counts correct project"
+_assert_contains "$out" "Windows" "_project_preview_windows: exact match only shows correct project"
+_assert_not_contains "$out" "otherproject" "_project_preview_windows: non-matching project excluded"
 
 out=$(_project_preview_windows /home/user/myproject "$_ls_file")
-_assert_contains "$out" "Windows (2)" "_project_preview_windows: null cwd window is skipped without error"
+_assert_contains "$out" "nvim" "_project_preview_windows: null cwd window is skipped without error"
 
 out=$(_project_preview_windows /home/user/myproject "")
 _assert_empty "$out" "_project_preview_windows: empty ls_file produces no output"

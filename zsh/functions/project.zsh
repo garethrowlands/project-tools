@@ -131,7 +131,7 @@ _project_preview_windows() {
      select([.foreground_processes[].cwd // empty] | map(. == $p or startswith($p + "/")) | any)] |
     if length == 0 then empty
     else
-      "[1mWindows (\(length)):[0m",
+      "[1mWindows[0m",
       (.[] | "[1m  \(.foreground_processes[0].cmdline[0] // "?" | ltrimstr("-"))  \(.foreground_processes[0].cwd // $p | if . == $p then "." else ltrimstr($p + "/") end)[0m")
     end
   ' "$ls_file" 2>/dev/null
