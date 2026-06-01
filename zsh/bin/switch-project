@@ -2,9 +2,15 @@
 
 source "${0:A:h}/../functions/project.zsh"
 
-local project_path
-project_path=$(project)
-[[ -z "$project_path" ]] && exit 0
+local raw_result
+raw_result=$(project --new-tab-key)
+[[ -z "$raw_result" ]] && exit 0
+
+local project_path="$raw_result" new_tab=0
+if [[ "$raw_result" == newtab:* ]]; then
+  new_tab=1
+  project_path="${raw_result#newtab:}"
+fi
 
 local kitty_ls_json
 kitty_ls_json=$(kitty @ ls 2>/dev/null) || exit 0
@@ -26,8 +32,57 @@ if [[ -z "$match" ]]; then
   ' 2>/dev/null | head -1)
 fi
 
+if [[ $new_tab -eq 0 ]]; then
+  if [[ -n "$match" ]]; then
+    kitty @ focus-window --match "id:${match#*:}" 2>/dev/null || true
+  else
+    kitty @ launch --type=window --cwd "$project_path" 2>/dev/null || true
+  fi
+  exit 0
+fi
+
+# New-tab mode
+local tab_name
+tab_name=$(basename "$project_path")
+
+_switch_project_find_tab_id() {
+  local ls_json="$1" window_id="$2"
+  printf '%s' "$ls_json" | jq -r --argjson wid "$window_id" '
+    .[].tabs[] | select(any(.windows[]; .id == $wid)) | .id
+  ' 2>/dev/null | head -1
+}
+
+_switch_project_window_count() {
+  local ls_json="$1" tab_id="$2"
+  printf '%s' "$ls_json" | jq -r --argjson tid "$tab_id" '
+    .[].tabs[] | select(.id == $tid) | .windows | length
+  ' 2>/dev/null | head -1
+}
+
 if [[ -n "$match" ]]; then
-  kitty @ focus-window --match "id:${match#*:}" 2>/dev/null || true
+  local window_id="${match#*:}"
+  local tab_id window_count
+  tab_id=$(_switch_project_find_tab_id "$kitty_ls_json" "$window_id")
+  window_count=$(_switch_project_window_count "$kitty_ls_json" "$tab_id")
+
+  if [[ "$window_count" -eq 1 ]]; then
+    kitty @ set-tab-title --match "id:${tab_id}" "$tab_name" 2>/dev/null || true
+    kitty @ focus-window --match "id:${window_id}" 2>/dev/null || true
+  else
+    kitty @ detach-window --match "id:${window_id}" --target-tab new 2>/dev/null || true
+    local new_ls new_tab_id
+    new_ls=$(kitty @ ls 2>/dev/null) || true
+    new_tab_id=$(_switch_project_find_tab_id "$new_ls" "$window_id")
+    [[ -n "$new_tab_id" ]] && kitty @ set-tab-title --match "id:${new_tab_id}" "$tab_name" 2>/dev/null || true
+    kitty @ focus-window --match "id:${window_id}" 2>/dev/null || true
+  fi
 else
-  kitty @ launch --type=window --cwd "$project_path" 2>/dev/null || true
+  local new_window_id
+  new_window_id=$(kitty @ launch --type=tab --cwd "$project_path" 2>/dev/null) || true
+  if [[ -n "$new_window_id" ]]; then
+    local new_ls new_tab_id
+    new_ls=$(kitty @ ls 2>/dev/null) || true
+    new_tab_id=$(_switch_project_find_tab_id "$new_ls" "$new_window_id")
+    [[ -n "$new_tab_id" ]] && kitty @ set-tab-title --match "id:${new_tab_id}" "$tab_name" 2>/dev/null || true
+  fi
 fi

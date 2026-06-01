@@ -123,8 +123,20 @@ _project_build_list() {
   ' <({ _project_parse_roots; printf -- '---\n'; printf '%s' "$kitty_cwds"; }) "$cache_file"
 }
 
+_project_preview_dir() {
+  local dir="$1"
+  [[ -z "$dir" ]] && return
+  if [[ -f "$dir/README.md" ]]; then
+    bat --color=always --style=header "$dir/README.md"
+  elif [[ -f "$dir/CLAUDE.md" ]]; then
+    bat --color=always --style=header "$dir/CLAUDE.md"
+  else
+    ls "$dir"
+  fi
+}
+
 _project_picker() {
-  local query="${1:-}" cache_file="${2:-}"
+  local query="${1:-}" cache_file="${2:-}" new_tab_key="${3:-}"
   local kitty_cwds=""
 
   if kitty @ ls &>/dev/null 2>&1; then
@@ -132,6 +144,15 @@ _project_picker() {
       | jq -r '.[].tabs[].windows[].foreground_processes[].cwd // empty' 2>/dev/null \
       | sort -u) || true
   fi
+
+  local header='enter: open project'
+  local -a extra_bindings=()
+  if [[ -n "$new_tab_key" ]]; then
+    header='enter: open  ctrl-t: new tab'
+    extra_bindings=(--bind 'ctrl-t:transform([[ -n {1} ]] && echo "become(echo newtab:{1})")')
+  fi
+
+  local preview_cmd="zsh -c 'source \"\$1\"; _project_preview_dir \"\$2\"' -- ${_PROJECT_ZSH_PATH:q} {1}"
 
   local result
   result=$(
@@ -141,8 +162,11 @@ _project_picker() {
       --delimiter $'\t' \
       --with-nth 2 \
       --no-sort \
-      --header=$'enter: open project' \
-      --bind 'enter:transform([[ -n {1} ]] && echo "become(echo {1})")'
+      --header="$header" \
+      --preview "$preview_cmd" \
+      --preview-window 'right:50%:wrap' \
+      --bind 'enter:transform([[ -n {1} ]] && echo "become(echo {1})")' \
+      "${extra_bindings[@]}"
   )
 
   echo "$result"
@@ -153,12 +177,14 @@ current-project() {
 }
 
 project() {
-  local refresh=0
+  local refresh=0 new_tab_key=""
   local -a query_parts=()
   local arg
   for arg in "$@"; do
     if [[ "$arg" == "--refresh" ]]; then
       refresh=1
+    elif [[ "$arg" == "--new-tab-key" ]]; then
+      new_tab_key=1
     else
       query_parts+=("$arg")
     fi
@@ -191,13 +217,14 @@ project() {
       --env "PROJECT_ROOTS=$PROJECT_ROOTS" \
       --env "PROJECT_CACHE=$cache_file" \
       --env "PROJECT_ZSH_PATH=$_PROJECT_ZSH_PATH" \
-      zsh -c 'source "$PROJECT_ZSH_PATH"; result=$(_project_picker "$PROJECT_QUERY" "$PROJECT_CACHE"); echo "$result" > "$PROJECT_FIFO"' > /dev/null
+      --env "PROJECT_NEW_TAB_KEY=$new_tab_key" \
+      zsh -c 'source "$PROJECT_ZSH_PATH"; result=$(_project_picker "$PROJECT_QUERY" "$PROJECT_CACHE" "${PROJECT_NEW_TAB_KEY:-}"); echo "$result" > "$PROJECT_FIFO"' > /dev/null
     open -a kitty
 
     read -r result < "$fifo"
     rm -f "$fifo"
   else
-    result=$(_project_picker "$query" "$cache_file")
+    result=$(_project_picker "$query" "$cache_file" "$new_tab_key")
   fi
 
   [[ -n "$result" ]] && echo "$result"
