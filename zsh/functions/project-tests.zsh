@@ -5,7 +5,8 @@ _pass() { print "PASS: $1" }
 _fail() { print "FAIL: $1"; (( _failures++ )) }
 _assert_eq()       { [[ "$1" == "$2" ]] && _pass "$3" || _fail "$3: expected $(printf '%q' "$2"), got $(printf '%q' "$1")" }
 _assert_contains() { [[ "$1" == *"$2"* ]] && _pass "$3" || _fail "$3: $(printf '%q' "$1") does not contain $(printf '%q' "$2")" }
-_assert_empty()    { [[ -z "$1" ]] && _pass "$2" || _fail "$2: expected empty, got $(printf '%q' "$1")" }
+_assert_empty()        { [[ -z "$1" ]] && _pass "$2" || _fail "$2: expected empty, got $(printf '%q' "$1")" }
+_assert_not_contains() { [[ "$1" != *"$2"* ]] && _pass "$3" || _fail "$3: output unexpectedly contains $(printf '%q' "$2")" }
 
 integer _failures=0
 
