@@ -29,5 +29,5 @@ fi
 if [[ -n "$match" ]]; then
   kitty @ focus-window --match "id:${match#*:}" 2>/dev/null || true
 else
-  kitty @ launch --type=tab --cwd "$project_path" 2>/dev/null || true
+  kitty @ launch --type=window --cwd "$project_path" 2>/dev/null || true
 fi
