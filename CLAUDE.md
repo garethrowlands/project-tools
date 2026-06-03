@@ -67,6 +67,19 @@ ln -s $PWD/zsh/bin/switch-project ~/.local/bin/switch-project
 ln -s $PWD/zsh/bin/window ~/.local/bin/window
 ```
 
+For `bin/window` live preview, enable socket-based remote control in `kitty.conf`:
+
+```
+allow_remote_control yes
+listen_on unix:${HOME}/.config/kitty/kitty-{kitty_pid}.sock
+```
+
+Restrict the config directory so the socket is only accessible to you:
+
+```zsh
+chmod 700 ~/.config/kitty
+```
+
 Kitty key binding example:
 
 ```
