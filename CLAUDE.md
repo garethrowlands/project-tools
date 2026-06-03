@@ -31,7 +31,7 @@ When run from a kitty key binding (no tty), `project` launches a new kitty tab f
 
 **`bin/switch-project`** — intended to be bound to a kitty key binding (`launch --type=overlay`). Switches to `stack` layout for full-screen display, runs `project --new-tab-key`, then restores the previous layout via `kitten @ last-used-layout`. Focuses the matching kitty window by CWD, or opens a new window/tab.
 
-**`bin/window`** — `fzf` picker over all open kitty windows; focuses the selected one.
+**`bin/window`** — `fzf` picker over all open kitty windows; focuses the selected one. Switches to `stack` layout for full-screen display and restores the previous layout on exit. Preview pane shows the live screen content of the highlighted window via `kitty @ get-text --extent=screen --ansi`, with trailing spaces and SGR codes stripped by `perl`. Requires `listen_on` in `kitty.conf` so that `KITTY_LISTEN_ON` is inherited by fzf preview subprocesses (tty-based remote control blocks in subprocesses). Key binding: `ctrl-t` moves the selected window to a new tab.
 
 ### IDE tools
 
@@ -51,7 +51,7 @@ When run from a kitty key binding (no tty), `project` launches a new kitty tab f
 ## Key Conventions
 
 - `_project_build_list` uses BSD awk with roots and CWDs fed via process substitution (separated by `---` sentinel) to avoid newline-in-`-v` issues.
-- `kitty @ ls` JSON is pre-fetched once at picker startup and written to a temp file; preview subprocesses read the file rather than calling `kitty @` (which has no socket in a subprocess).
+- `kitty @ ls` JSON is pre-fetched once at picker startup and written to a temp file; preview subprocesses read the file rather than calling `kitty @`. With tty-based remote control (no `listen_on`), `kitty @` blocks in subprocesses; with `listen_on` configured (socket-based), `KITTY_LISTEN_ON` is inherited and `kitty @` works in subprocesses — `bin/window` relies on this for its live preview.
 - `null` CWDs in kitty ls JSON are guarded with `// empty` before `startswith()` to avoid jq type errors.
 - `FZF_PREVIEW_COLUMNS` (not `$COLUMNS`) is used for preview pane width — fzf sets it in the preview subprocess.
 - `_notes_picker` avoids subshells for mode-switching via sentinel strings from `fzf --bind become(…)`.
