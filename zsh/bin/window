@@ -39,7 +39,7 @@ selection=$(printf '%s' "$kitty_ls" | jq -r '
   print id "\t" label
 }' | fzf --with-nth=2.. --no-sort \
      --header $'ctrl-t: move to new tab' \
-     --preview 'kitty @ get-text --match id:{1} --extent=screen 2>/dev/null | cut -c1-${FZF_PREVIEW_COLUMNS:-80}' \
+     --preview 'kitty @ get-text --match id:{1} --extent=screen --ansi 2>/dev/null | perl -pe "s/(\e\[[0-9;]*m|[ \t])*$//"' \
      --preview-window 'right:50%' \
      --bind 'ctrl-t:transform([[ -n {1} ]] && echo "become(echo newtab:{1})")')
 
