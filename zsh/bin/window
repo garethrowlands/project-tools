@@ -37,6 +37,8 @@ selection=$(printf '%s' "$kitty_ls" | jq -r '
   print id "\t" label
 }' | fzf --with-nth=2.. --no-sort \
      --header $'ctrl-t: move to new tab' \
+     --preview 'kitty @ get-text --match id:{1} --extent=screen 2>/dev/null | cut -c1-${FZF_PREVIEW_COLUMNS:-80}' \
+     --preview-window 'right:50%' \
      --bind 'ctrl-t:transform([[ -n {1} ]] && echo "become(echo newtab:{1})")')
 
 [[ -z "$selection" ]] && exit 0
