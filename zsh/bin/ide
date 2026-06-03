@@ -20,14 +20,12 @@ _ide_detect() {
 
 local project
 project=$(_ide_git_root "${1:-$PWD}")
-echo "project: $project"
 
 local ide_cmd
 ide_cmd=$(_ide_detect "$project")
-echo "ide_cmd: $ide_cmd"
 [[ -z "$ide_cmd" ]] && exit 0
 
 case "$ide_cmd" in
-  code) echo "running: code --reuse-window $project"; code --reuse-window "$project" ;;
-  idea) echo "running: idea $project"; idea "$project" ;;
+  code) code --reuse-window "$project" ;;
+  idea) idea "$project" ;;
 esac
