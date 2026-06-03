@@ -5,7 +5,7 @@ source "${0:A:h}/../functions/project.zsh"
 kitten @ goto-layout stack 2>/dev/null || true
 
 local raw_result
-raw_result=$(project --new-tab-key)
+raw_result=$(project --new-tab-key "$@")
 
 kitten @ last-used-layout 2>/dev/null || true
 
