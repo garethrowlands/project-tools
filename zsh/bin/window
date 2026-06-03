@@ -17,6 +17,8 @@ if [[ -n "$prev_title" && -n "$KITTY_WINDOW_ID" ]]; then
   kitty_ls=$(kitty @ ls 2>/dev/null)
 fi
 
+kitten @ goto-layout stack 2>/dev/null || true
+
 selection=$(printf '%s' "$kitty_ls" | jq -r '
   .[].tabs[] |
   . as $tab |
@@ -40,6 +42,8 @@ selection=$(printf '%s' "$kitty_ls" | jq -r '
      --preview 'kitty @ get-text --match id:{1} --extent=screen 2>/dev/null | cut -c1-${FZF_PREVIEW_COLUMNS:-80}' \
      --preview-window 'right:50%' \
      --bind 'ctrl-t:transform([[ -n {1} ]] && echo "become(echo newtab:{1})")')
+
+kitten @ last-used-layout 2>/dev/null || true
 
 [[ -z "$selection" ]] && exit 0
 
