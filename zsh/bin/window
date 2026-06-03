@@ -35,9 +35,51 @@ selection=$(printf '%s' "$kitty_ls" | jq -r '
   label = (basename != "") ? tab " > " basename : tab
   if (proc != "") label = label " (" proc ")"
   print id "\t" label
-}' | fzf --with-nth=2.. --no-sort)
+}' | fzf --with-nth=2.. --no-sort \
+     --header $'ctrl-t: move to new tab' \
+     --bind 'ctrl-t:transform([[ -n {1} ]] && echo "become(echo newtab:{1})")')
 
 [[ -z "$selection" ]] && exit 0
 
-window_id="${selection%%$'\t'*}"
-kitty @ focus-window --match "id:${window_id}" 2>/dev/null
+local new_tab=0
+local window_id
+if [[ "$selection" == newtab:* ]]; then
+  new_tab=1
+  window_id="${selection#newtab:}"
+else
+  window_id="${selection%%$'\t'*}"
+fi
+
+if [[ $new_tab -eq 0 ]]; then
+  kitty @ focus-window --match "id:${window_id}" 2>/dev/null
+  exit 0
+fi
+
+local cwd tab_name
+cwd=$(printf '%s' "$kitty_ls" | jq -r --argjson wid "$window_id" '
+  .[].tabs[].windows[] | select(.id == $wid) |
+  .foreground_processes[0].cwd // ""
+' 2>/dev/null | head -1)
+tab_name=$(basename "${cwd:-window}")
+
+local tab_id window_count
+tab_id=$(printf '%s' "$kitty_ls" | jq -r --argjson wid "$window_id" '
+  .[].tabs[] | select(any(.windows[]; .id == $wid)) | .id
+' 2>/dev/null | head -1)
+window_count=$(printf '%s' "$kitty_ls" | jq -r --argjson tid "$tab_id" '
+  .[].tabs[] | select(.id == $tid) | .windows | length
+' 2>/dev/null | head -1)
+
+if [[ "$window_count" -eq 1 ]]; then
+  kitty @ set-tab-title --match "id:${tab_id}" "$tab_name" 2>/dev/null || true
+  kitty @ focus-window --match "id:${window_id}" 2>/dev/null || true
+else
+  kitty @ detach-window --match "id:${window_id}" --target-tab new 2>/dev/null || true
+  local new_ls new_tab_id
+  new_ls=$(kitty @ ls 2>/dev/null) || true
+  new_tab_id=$(printf '%s' "$new_ls" | jq -r --argjson wid "$window_id" '
+    .[].tabs[] | select(any(.windows[]; .id == $wid)) | .id
+  ' 2>/dev/null | head -1)
+  [[ -n "$new_tab_id" ]] && kitty @ set-tab-title --match "id:${new_tab_id}" "$tab_name" 2>/dev/null || true
+  kitty @ focus-window --match "id:${window_id}" 2>/dev/null || true
+fi
