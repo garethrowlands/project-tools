@@ -4,6 +4,7 @@ kitty_ls=$(kitty @ ls 2>/dev/null) || { echo "kitty not available" >&2; exit 1 }
 
 # Restore the tab title: when launched from a keybinding, the overlay is inserted
 # at active_window_history[0], so filter out self to find the true previous window.
+local prev_title
 prev_title=$(printf '%s' "$kitty_ls" | jq -r '
   .[].tabs[] |
   select(.windows[] | .is_self) |
@@ -20,15 +21,10 @@ fi
 kitten @ goto-layout stack 2>/dev/null || true
 
 selection=$(printf '%s' "$kitty_ls" | jq -r '
-  .[].tabs[] |
-  . as $tab |
-  .windows[] |
-  select(.is_self | not) |
-  [
-    (.id | tostring),
-    ($tab.title),
-    (.foreground_processes[0].cwd // .title // ""),
-    (.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last)
+  .[].tabs[] | . as $tab | .windows[] | select(.is_self | not) |
+  [(.id | tostring), ($tab.title),
+   (.foreground_processes[0].cwd // .title // ""),
+   (.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last)
   ] | join("\t")
 ' | awk -F'\t' '{
   id=$1; tab=$2; cwd=$3; proc=$4

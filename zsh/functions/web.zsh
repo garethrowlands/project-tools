@@ -1,27 +1,8 @@
 source "${0:A:h}/notes-lib.zsh"
-_WEB_ZSH_PATH="${0:A}"
 
 web() {
   local query="${*:-}" result
-
-  if [ "$TERM" = "xterm-kitty" ] && kitty @ ls &>/dev/null 2>&1; then
-    local fifo
-    fifo=$(mktemp -u /tmp/web-XXXXXX)
-    mkfifo "$fifo"
-
-    kitty @ launch --type=tab \
-      --env "WEB_FIFO=$fifo" \
-      --env "WEB_QUERY=$query" \
-      --env "WEB_ZSH_PATH=$_WEB_ZSH_PATH" \
-      zsh -c 'source "$WEB_ZSH_PATH"; result=$(_notes_picker "$WEB_QUERY"); echo "$result" > "$WEB_FIFO"' > /dev/null
-    open -a kitty
-
-    read -r result < "$fifo"
-    rm -f "$fifo"
-  else
-    result=$(_notes_picker "$query")
-  fi
-
+  result=$(_notes_picker "$query")
   [ -z "$result" ] && return
 
   local title url
@@ -40,25 +21,7 @@ web() {
 
 note() {
   local query="${*:-}" result
-
-  if [ "$TERM" = "xterm-kitty" ] && kitty @ ls &>/dev/null 2>&1; then
-    local fifo
-    fifo=$(mktemp -u /tmp/note-XXXXXX)
-    mkfifo "$fifo"
-
-    kitty @ launch --type=tab \
-      --env "NOTE_FIFO=$fifo" \
-      --env "NOTE_QUERY=$query" \
-      --env "WEB_ZSH_PATH=$_WEB_ZSH_PATH" \
-      zsh -c 'source "$WEB_ZSH_PATH"; result=$(_notes_picker "$NOTE_QUERY"); echo "$result" > "$NOTE_FIFO"' > /dev/null
-    open -a kitty
-
-    read -r result < "$fifo"
-    rm -f "$fifo"
-  else
-    result=$(_notes_picker "$query")
-  fi
-
+  result=$(_notes_picker "$query")
   [ -z "$result" ] && return
   if [ -t 1 ]; then
     printf "\033]8;;file://%s\033\\\\%s\033]8;;\033\\\\\n" "$result" "$result"
