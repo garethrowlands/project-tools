@@ -1,88 +1,28 @@
 #!/usr/bin/env zsh
 
-kitty_ls=$(kitty @ ls 2>/dev/null) || { echo "kitty not available" >&2; exit 1 }
-
 # Find the window this overlay covers (if launched via --type=overlay).
-local prev_id prev_title
-prev_id=$(kitty @ ls --match 'state:overlay_parent' 2>/dev/null | jq -r '.[].tabs[].windows[].id' | head -1)
+# This also serves as the kitty availability check.
+local overlay_parent_ls prev_id prev_title
+overlay_parent_ls=$(kitty @ ls --match 'state:overlay_parent' 2>/dev/null) || { echo "kitty not available" >&2; exit 1 }
+prev_id=$(printf '%s' "$overlay_parent_ls" | jq -r '.[].tabs[].windows[].id' | head -1)
 if [[ -n "$prev_id" ]]; then
-  prev_title=$(printf '%s' "$kitty_ls" | jq -r --argjson id "$prev_id" '.[].tabs[].windows[] | select(.id == $id) | .title' | head -1)
+  prev_title=$(printf '%s' "$overlay_parent_ls" | jq -r '.[].tabs[].windows[].title' | head -1)
   kitty @ set-window-title --match "id:$KITTY_WINDOW_ID" "$prev_title" 2>/dev/null || true
-  kitty_ls=$(kitty @ ls 2>/dev/null)
 fi
 
 kitten @ goto-layout stack 2>/dev/null || true
 
-local closed_entries list_script
+local window_list_cmd closed_entries order_file
+window_list_cmd="${0:h}/window-list"
 closed_entries=$(mktemp)
-list_script=$(mktemp)
-trap "rm -f $closed_entries $list_script" EXIT
-
-cat > "$list_script" << 'LIST_SCRIPT'
-#!/bin/zsh
-closed_entries=$1
-
-if [[ $2 == close ]]; then
-  # Strip closed: prefix in case called on an already-marked entry
-  window_id="${3#closed:}"
-  # No-op if already recorded
-  awk -F'\t' -v id="$window_id" '$1==id{exit 1}' "$closed_entries" || exit 0
-  # Look up the label before closing
-  label=$(kitty @ ls 2>/dev/null | jq -r --argjson wid "$window_id" '
-    .[].tabs[] | . as $tab | .windows[] | select(.id == $wid) |
-    [($tab.title), (.foreground_processes[0].cwd // .title // ""),
-     (.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last)
-    ] | join("\t")
-  ' | awk -F'\t' '{
-    tab=$1; cwd=$2; proc=$3
-    n=split(cwd, parts, "/")
-    base = (n > 0) ? parts[n] : cwd
-    label = (base != "") ? tab " > " base : tab
-    if (proc != "") label = label " (" proc ")"
-    print label
-  }')
-  [[ -n "$label" ]] && printf '%s\t%s\n' "$window_id" "$label" >> "$closed_entries"
-  kitty @ close-window --match "id:$window_id" 2>/dev/null
-  exit 0
-fi
-
-kitty @ ls 2>/dev/null | jq -r '
-  .[].tabs[] | . as $tab | .windows[] | select(.is_self | not) |
-  [(.id | tostring), ($tab.title),
-   (.foreground_processes[0].cwd // .title // ""),
-   (.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last)
-  ] | join("\t")
-' | awk -F'\t' '{
-  id=$1; tab=$2; cwd=$3; proc=$4
-  n=split(cwd, parts, "/")
-  base = (n > 0) ? parts[n] : cwd
-  label = (base != "") ? tab " > " base : tab
-  if (proc != "") label = label " (" proc ")"
-  print id "\t" label
-}' | awk -F'\t' -v cf="$closed_entries" '
-BEGIN {
-  while ((getline line < cf) > 0) {
-    n = split(line, a, "\t")
-    if (n >= 2) closed_label[a[1]] = a[2]
-  }
-}
-{
-  id = $1
-  seen[id] = 1
-  if (id in closed_label)
-    print "closed:" id "\t\033[2m[closed] " $2 "\033[0m"
-  else
-    print id "\t" $2
-}
-END {
-  for (id in closed_label)
-    if (!(id in seen))
-      print "closed:" id "\t\033[2m[closed] " closed_label[id] "\033[0m"
-}'
-LIST_SCRIPT
+order_file=$(mktemp)
+trap "rm -f $closed_entries $order_file" EXIT
 
 local window_list
-window_list=$(zsh "$list_script" "$closed_entries")
+window_list=$(zsh "$window_list_cmd" "$closed_entries" "$order_file")
+
+# Save the initial window order for position-stable reloads
+printf '%s\n' "$window_list" | awk -F'\t' '{id=$1; sub(/^closed:/, "", id); print id}' > "$order_file"
 
 local prev_pos=0
 if [[ -n "$prev_id" ]]; then
@@ -91,7 +31,6 @@ if [[ -n "$prev_id" ]]; then
   ')
   prev_pos=${prev_pos:-0}
 fi
-
 
 local start_bind=()
 [[ $prev_pos -gt 0 ]] && start_bind=(--bind "load:pos($prev_pos)")
@@ -103,7 +42,7 @@ selection=$(printf '%s\n' "$window_list" | fzf --ansi --with-nth=2.. --no-sort \
      --preview-window 'right:50%' \
      --bind 'return:transform([[ {1} != closed:* ]] && echo accept)' \
      --bind 'ctrl-t:transform([[ {1} != closed:* ]] && [[ -n {1} ]] && echo "become(echo newtab:{1})")' \
-     --bind "ctrl-w:execute(zsh $list_script $closed_entries close {1})+reload(zsh $list_script $closed_entries)")
+     --bind "ctrl-w:execute(zsh $window_list_cmd $closed_entries $order_file close {1})+reload(zsh $window_list_cmd $closed_entries $order_file)")
 
 kitten @ last-used-layout 2>/dev/null || true
 
@@ -118,13 +57,15 @@ else
   window_id="${selection%%$'\t'*}"
 fi
 
-# Strip closed: prefix (safety guard; closed entries should not reach here)
 window_id="${window_id#closed:}"
 
 if [[ $new_tab -eq 0 ]]; then
   kitty @ focus-window --match "id:${window_id}" 2>/dev/null
   exit 0
 fi
+
+local kitty_ls
+kitty_ls=$(kitty @ ls 2>/dev/null) || true
 
 local cwd tab_name
 cwd=$(printf '%s' "$kitty_ls" | jq -r --argjson wid "$window_id" '

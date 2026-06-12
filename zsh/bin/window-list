@@ -1,0 +1,92 @@
+#!/usr/bin/env zsh
+# Usage:
+#   window-list <closed_entries> <order_file>
+#              — generate the fzf window list
+#   window-list <closed_entries> <order_file> close <window_id>
+#              — close a window and record it in closed_entries
+
+closed_entries=$1
+order_file=$2
+
+if [[ $3 == close ]]; then
+  window_id="${4#closed:}"
+  awk -F'\t' -v id="$window_id" '$1==id{exit 1}' "$closed_entries" || exit 0
+  label=$(kitty @ ls 2>/dev/null | jq -r --argjson wid "$window_id" '
+    .[].tabs[] | . as $tab | .windows[] | select(.id == $wid) |
+    [($tab.title), (.foreground_processes[0].cwd // .title // ""),
+     (.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last)
+    ] | join("\t")
+  ' | awk -F'\t' '{
+    tab=$1; cwd=$2; proc=$3
+    n=split(cwd, parts, "/")
+    base = (n > 0) ? parts[n] : cwd
+    label = (base != "") ? tab " > " base : tab
+    if (proc != "") label = label " (" proc ")"
+    print label
+  }')
+  [[ -n "$label" ]] && printf '%s\t%s\n' "$window_id" "$label" >> "$closed_entries"
+  kitty @ close-window --match "id:$window_id" 2>/dev/null
+  exit 0
+fi
+
+# Build the live window list: id<TAB>label, in kitty's natural order
+live_list=$(kitty @ ls 2>/dev/null | jq -r '
+  .[].tabs[] | . as $tab | .windows[] | select(.is_self | not) |
+  [(.id | tostring), ($tab.title),
+   (.foreground_processes[0].cwd // .title // ""),
+   (.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last)
+  ] | join("\t")
+' | awk -F'\t' '{
+  id=$1; tab=$2; cwd=$3; proc=$4
+  n=split(cwd, parts, "/")
+  base = (n > 0) ? parts[n] : cwd
+  label = (base != "") ? tab " > " base : tab
+  if (proc != "") label = label " (" proc ")"
+  print id "\t" label
+}')
+
+if [[ -s "$order_file" ]]; then
+  # Reload after a close: use the saved order so closed entries stay in place
+  printf '%s\n' "$live_list" | awk -F'\t' -v of="$order_file" -v cf="$closed_entries" '
+  BEGIN {
+    while ((getline id < of) > 0) { order[++n] = id; in_order[id] = 1 }
+    while ((getline line < cf) > 0) {
+      split(line, a, "\t")
+      if (a[1] != "") closed_label[a[1]] = a[2]
+    }
+  }
+  { live[$1] = $2 }
+  END {
+    for (i = 1; i <= n; i++) {
+      id = order[i]
+      if (id in live)
+        print id "\t" live[id]
+      else if (id in closed_label)
+        print "closed:" id "\t\033[2m[closed] " closed_label[id] "\033[0m"
+    }
+    for (id in live)
+      if (!(id in in_order)) print id "\t" live[id]
+  }'
+else
+  # Initial load: kitty order, merge any pre-existing closed entries
+  printf '%s\n' "$live_list" | awk -F'\t' -v cf="$closed_entries" '
+  BEGIN {
+    while ((getline line < cf) > 0) {
+      n = split(line, a, "\t")
+      if (n >= 2) closed_label[a[1]] = a[2]
+    }
+  }
+  {
+    id = $1
+    seen[id] = 1
+    if (id in closed_label)
+      print "closed:" id "\t\033[2m[closed] " $2 "\033[0m"
+    else
+      print id "\t" $2
+  }
+  END {
+    for (id in closed_label)
+      if (!(id in seen))
+        print "closed:" id "\t\033[2m[closed] " closed_label[id] "\033[0m"
+  }'
+fi
