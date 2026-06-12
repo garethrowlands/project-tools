@@ -2,19 +2,12 @@
 
 kitty_ls=$(kitty @ ls 2>/dev/null) || { echo "kitty not available" >&2; exit 1 }
 
-# Restore the tab title: when launched from a keybinding, the overlay is inserted
-# at active_window_history[0], so filter out self to find the true previous window.
-local prev_title
-prev_title=$(printf '%s' "$kitty_ls" | jq -r '
-  .[].tabs[] |
-  select(.windows[] | .is_self) |
-  . as $tab |
-  ($tab.windows[] | select(.is_self) | .id) as $self_id |
-  ($tab.active_window_history | map(select(. != $self_id)) | .[0]) as $prev_id |
-  .windows[] | select(.id == $prev_id) | .title
-' 2>/dev/null | head -1)
-if [[ -n "$prev_title" && -n "$KITTY_WINDOW_ID" ]]; then
-  kitty @ set-window-title --match "id:$KITTY_WINDOW_ID" "$prev_title"
+# Find the window this overlay covers (if launched via --type=overlay).
+local prev_id prev_title
+prev_id=$(kitty @ ls --match 'state:overlay_parent' 2>/dev/null | jq -r '.[].tabs[].windows[].id' | head -1)
+if [[ -n "$prev_id" ]]; then
+  prev_title=$(printf '%s' "$kitty_ls" | jq -r --argjson id "$prev_id" '.[].tabs[].windows[] | select(.id == $id) | .title' | head -1)
+  kitty @ set-window-title --match "id:$KITTY_WINDOW_ID" "$prev_title" 2>/dev/null || true
   kitty_ls=$(kitty @ ls 2>/dev/null)
 fi
 
@@ -88,7 +81,23 @@ END {
 }'
 LIST_SCRIPT
 
-selection=$(zsh "$list_script" "$closed_entries" | fzf --ansi --with-nth=2.. --no-sort \
+local window_list
+window_list=$(zsh "$list_script" "$closed_entries")
+
+local prev_pos=0
+if [[ -n "$prev_id" ]]; then
+  prev_pos=$(printf '%s\n' "$window_list" | awk -F'\t' -v id="$prev_id" '
+    $1==id || $1=="closed:"id {print NR; exit}
+  ')
+  prev_pos=${prev_pos:-0}
+fi
+
+
+local start_bind=()
+[[ $prev_pos -gt 0 ]] && start_bind=(--bind "load:pos($prev_pos)")
+
+selection=$(printf '%s\n' "$window_list" | fzf --ansi --with-nth=2.. --no-sort \
+     "${start_bind[@]}" \
      --header 'ctrl-t: move to new tab  ctrl-w: close window' \
      --preview 'kitty @ get-text --match id:{1} --extent=screen --ansi 2>/dev/null | perl -pe "s/(\e\[[0-9;]*m|[ \t])*$//"' \
      --preview-window 'right:50%' \
