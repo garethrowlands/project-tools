@@ -1,0 +1,13 @@
+#!/usr/bin/env zsh
+
+source "${0:A:h}/../functions/web.zsh"
+
+kitten @ goto-layout stack 2>/dev/null || true
+
+local result
+result=$(_notes_picker "${*:-}")
+
+kitten @ last-used-layout 2>/dev/null || true
+
+[[ -z "$result" ]] && exit 0
+${EDITOR:-vim} "$result"

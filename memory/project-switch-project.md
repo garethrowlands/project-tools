@@ -16,6 +16,7 @@ Working on `zsh/bin/switch-project` and `zsh/functions/project.zsh` in the proje
 - `null` CWDs in kitty ls JSON guarded with `// empty` to prevent jq `startswith()` errors
 - Tests in `zsh/functions/project-tests.zsh`
 
-**Next task:** Put a `*` in front of each project label in the Open group in the fzf picker list.
+- Layout switches to `stack` before picker opens via `kitten @ goto-layout stack`, restored via `kitten @ last-used-layout` after
+- `bat` preview passes `--terminal-width $FZF_PREVIEW_COLUMNS` so output wraps to pane width
 
-**How to apply:** The picker list is built in `_project_build_list` (awk). The label field is field 2 in the tab-delimited output; `--with-nth 2` shows it. Open projects are printed at line ~118 of project.zsh.
+**How to apply:** The picker list is built in `_project_build_list` (awk). The label field is field 2 in the tab-delimited output; `--with-nth 2` shows it.

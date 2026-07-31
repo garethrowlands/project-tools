@@ -39,6 +39,8 @@ When run from a kitty key binding (no tty), `project` launches a new kitty tab f
 
 **`bin/close-project`** — inverse of `ide`: closes the IDE window for a given project path (or `$PWD`). When called with no argument, also closes the current kitty pane. Uses `System Events` + close-button click for VS Code (no AppleScript dictionary).
 
+**`bin/project-web`** — opens the web page for a project (git root of a given path, or `$PWD`) in the browser. Before opening anything, checks via AppleScript whether a Microsoft Edge tab already has that repo's URL (or a sub-page under it, e.g. an open issue/PR) open, and if so focuses that tab/window instead of opening a new one. Otherwise detects the origin remote's host and dispatches: GitLab remotes use `glab repo view -w`, GitHub remotes use `gh repo view -w`, anything else falls back to deriving an `https://` URL from the remote (handling both `git@host:owner/repo.git` and `https://host/owner/repo.git` forms) and `open`ing it.
+
 ### Notes
 
 **`functions/notes-lib.zsh`** — core library for the notes vault (`$HOME/notes`), Markdown files with YAML frontmatter:
@@ -48,6 +50,8 @@ When run from a kitty key binding (no tty), `project` launches a new kitty tab f
 
 **`functions/web.zsh`** — exposes `web <query>` (opens source URL) and `note <query>` (opens note file), both with kitty tab support via FIFO.
 
+**`bin/web`** / **`bin/note`** — standalone kitty-launchable counterparts to the `web`/`note` functions above, intended for a kitty key binding (`launch --type=overlay`). Switch to `stack` layout, run `_notes_picker` directly, restore the previous layout, then act on the result: `bin/web` extracts the `source`/`url` frontmatter field and `open`s it in the browser; `bin/note` opens the picked note in `$EDITOR`. Unlike the `web`/`note` functions, these open the result directly rather than printing an OSC 8 hyperlink.
+
 ## Key Conventions
 
 - `_project_build_list` uses BSD awk with roots and CWDs fed via process substitution (separated by `---` sentinel) to avoid newline-in-`-v` issues.
@@ -55,36 +59,6 @@ When run from a kitty key binding (no tty), `project` launches a new kitty tab f
 - `null` CWDs in kitty ls JSON are guarded with `// empty` before `startswith()` to avoid jq type errors.
 - `FZF_PREVIEW_COLUMNS` (not `$COLUMNS`) is used for preview pane width — fzf sets it in the preview subprocess.
 - `_notes_picker` avoids subshells for mode-switching via sentinel strings from `fzf --bind become(…)`.
-
-## Installation
-
-Symlink the executables onto your PATH:
-
-```zsh
-ln -s $PWD/zsh/bin/ide ~/.local/bin/ide
-ln -s $PWD/zsh/bin/close-project ~/.local/bin/close-project
-ln -s $PWD/zsh/bin/switch-project ~/.local/bin/switch-project
-ln -s $PWD/zsh/bin/window ~/.local/bin/window
-```
-
-For `bin/window` live preview, enable socket-based remote control in `kitty.conf`:
-
-```
-allow_remote_control yes
-listen_on unix:${HOME}/.config/kitty/kitty-{kitty_pid}.sock
-```
-
-Restrict the config directory so the socket is only accessible to you:
-
-```zsh
-chmod 700 ~/.config/kitty
-```
-
-Kitty key binding example:
-
-```
-map kitty_mod+§ launch --type=overlay --cwd=current switch-project
-```
 
 ## Dependencies
 

@@ -1,0 +1,84 @@
+#!/usr/bin/env zsh
+
+_project_web_git_root() {
+  local dir="$1"
+  [[ -f "$dir" ]] && dir="${dir:h}"
+  git -C "$dir" rev-parse --show-toplevel 2>/dev/null
+}
+
+_project_web_detect() {
+  local url="$1"
+  if [[ "$url" == *gitlab* ]]; then
+    echo "gitlab"
+  elif [[ "$url" == *github.com* ]]; then
+    echo "github"
+  else
+    echo "generic"
+  fi
+}
+
+_project_web_https_url() {
+  local url="$1"
+  url="${url%.git}"
+  if [[ "$url" == git@*:* ]]; then
+    url="${url#git@}"
+    local host="${url%%:*}"
+    local path="${url#*:}"
+    url="https://$host/$path"
+  fi
+  echo "$url"
+}
+
+_project_web_focus_edge_tab() {
+  local base_url="$1"
+  local result
+  result=$(osascript 2>/dev/null <<APPLESCRIPT
+tell application "Microsoft Edge"
+  set targetURL to "$base_url"
+  repeat with w in windows
+    set tabIndex to 0
+    repeat with t in tabs of w
+      set tabIndex to tabIndex + 1
+      set tURL to URL of t
+      if tURL is targetURL or tURL is (targetURL & "/") or tURL starts with (targetURL & "/") or tURL starts with (targetURL & "?") then
+        set index of w to 1
+        set active tab index of w to tabIndex
+        activate
+        return "found"
+      end if
+    end repeat
+  end repeat
+  return "notfound"
+end tell
+APPLESCRIPT
+) || return 1
+  [[ "$result" == "found" ]]
+}
+
+local project
+project=$(_project_web_git_root "${1:-$PWD}")
+if [[ -z "$project" ]]; then
+  echo "project-web: not a git repository" >&2
+  exit 1
+fi
+
+local remote_url
+remote_url=$(git -C "$project" remote get-url origin 2>/dev/null)
+if [[ -z "$remote_url" ]]; then
+  echo "project-web: no 'origin' remote for $project" >&2
+  exit 1
+fi
+
+local base_url
+base_url=$(_project_web_https_url "$remote_url")
+
+_project_web_focus_edge_tab "$base_url" && exit 0
+
+local kind
+kind=$(_project_web_detect "$remote_url")
+
+case "$kind" in
+  gitlab) (cd "$project" && glab repo view -w) ;;
+  github) (cd "$project" && gh repo view -w) ;;
+  generic) open "$base_url" ;;
+esac

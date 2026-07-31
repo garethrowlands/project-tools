@@ -1,0 +1,17 @@
+#!/usr/bin/env zsh
+
+source "${0:A:h}/../functions/web.zsh"
+
+kitten @ goto-layout stack 2>/dev/null || true
+
+local result
+result=$(_notes_picker "${*:-}")
+
+kitten @ last-used-layout 2>/dev/null || true
+
+[[ -z "$result" ]] && exit 0
+
+local url
+url=$(rg -m1 -A1 "^(source|url): " "$result" | grep -oE "https?://[^[:space:]\"]+" | head -1)
+[[ -z "$url" ]] && { echo "No source/url found in: $result"; exit 1; }
+open "$url"

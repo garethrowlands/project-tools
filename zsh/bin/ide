@@ -8,10 +8,10 @@ _ide_git_root() {
 
 _ide_detect() {
   local path="$1"
-  if [[ -d "$path/.vscode" ]]; then
-    echo "code"
-  elif [[ -f "$path/pom.xml" || -f "$path/build.gradle" || -f "$path/build.gradle.kts" || -d "$path/.idea" ]]; then
+  if [[ -f "$path/pom.xml" || -f "$path/build.gradle" || -f "$path/build.gradle.kts" || -d "$path/.idea" ]]; then
     echo "idea"
+  elif [[ -d "$path/.vscode" ]]; then
+    echo "code"
   else
     echo "code"
   fi
