@@ -29,6 +29,18 @@ _project_web_https_url() {
   echo "$url"
 }
 
+_project_web_glab() {
+  # `glab` is aliased in interactive shells to `op plugin run -- glab` so
+  # 1Password can inject a fresh GitLab token. Aliases don't exist in this
+  # script's process, so call the same wrapper explicitly here rather than
+  # falling back to the bare `glab` binary's own (often stale) credentials.
+  if command -v op >/dev/null 2>&1; then
+    op plugin run -- glab "$@"
+  else
+    command glab "$@"
+  fi
+}
+
 _project_web_focus_edge_tab() {
   local base_url="$1"
   local result
@@ -78,7 +90,7 @@ local kind
 kind=$(_project_web_detect "$remote_url")
 
 case "$kind" in
-  gitlab) (cd "$project" && glab repo view -w) ;;
+  gitlab) (cd "$project" && _project_web_glab repo view -w) ;;
   github) (cd "$project" && gh repo view -w) ;;
   generic) open "$base_url" ;;
 esac
