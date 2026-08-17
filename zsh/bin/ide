@@ -17,9 +17,38 @@ _ide_detect() {
   fi
 }
 
+# Make sure PATH has an nvm-managed node/pnpm satisfying package.json's
+# engines.node before launching the IDE. Needed because this script doesn't
+# source ~/.zshrc (where `nvm use default` normally runs), so depending on
+# how it's invoked, PATH may have no nvm node on it at all.
+_ide_use_node() {
+  local dir="$1"
+  [[ -f "$dir/package.json" ]] || return 0
+
+  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  [[ -s "$NVM_DIR/nvm.sh" ]] || return 0
+  source "$NVM_DIR/nvm.sh" --no-use
+
+  if [[ -f "$dir/.nvmrc" ]]; then
+    (cd "$dir" && nvm use --silent) 2>/dev/null
+    return 0
+  fi
+
+  # Crude extract of a minimum major version from "engines": { "node": ">=24.0.0" }
+  local required
+  required=$(grep -A2 '"engines"' "$dir/package.json" 2>/dev/null | grep '"node"' | grep -oE '[0-9]+' | head -1)
+
+  if [[ -n "$required" ]]; then
+    nvm use "$required" --silent 2>/dev/null || nvm use default --silent 2>/dev/null
+  else
+    nvm use default --silent 2>/dev/null
+  fi
+}
 
 local project
 project=$(_ide_git_root "${1:-$PWD}")
+
+_ide_use_node "$project"
 
 local ide_cmd
 ide_cmd=$(_ide_detect "$project")
