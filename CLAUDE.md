@@ -7,9 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```zsh
 zsh functions/notes-tests.zsh
 zsh functions/project-tests.zsh
+(cd ../python/tidy-windows-advise && uv run pytest)
 ```
 
-Each exits with code 1 if any test fails. `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers.
+Each zsh suite exits with code 1 if any test fails. `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic.
 
 ## Architecture
 
@@ -31,7 +32,15 @@ When run from a kitty key binding (no tty), `project` launches a new kitty tab f
 
 **`bin/switch-project`** — intended to be bound to a kitty key binding (`launch --type=overlay`). Switches to `stack` layout for full-screen display, runs `project --new-tab-key`, then restores the previous layout via `kitten @ last-used-layout`. Focuses the matching kitty window by CWD, or opens a new window/tab.
 
-**`bin/window`** — `fzf` picker over all open kitty windows; focuses the selected one. Switches to `stack` layout for full-screen display and restores the previous layout on exit. Preview pane shows the live screen content of the highlighted window via `kitty @ get-text --extent=screen --ansi`, with trailing spaces and SGR codes stripped by `perl`. Requires `listen_on` in `kitty.conf` so that `KITTY_LISTEN_ON` is inherited by fzf preview subprocesses (tty-based remote control blocks in subprocesses). Key binding: `ctrl-t` moves the selected window to a new tab.
+**`bin/window`** — `fzf` picker over all open kitty windows; focuses the selected one. Switches to `stack` layout for full-screen display and restores the previous layout on exit. Preview pane shows the live screen content of the highlighted window via `kitty @ get-text --extent=screen --ansi`, with trailing spaces and SGR codes stripped by `perl`. Requires `listen_on` in `kitty.conf` so that `KITTY_LISTEN_ON` is inherited by fzf preview subprocesses (tty-based remote control blocks in subprocesses). Key binding: `ctrl-t` moves the selected window to a new tab. Its window list (`bin/window-list`) labels windows running `claude` with their Claude Code session name (e.g. `[tidy-windows-claude-advisor]`) instead of a bare `(claude)` — see "Claude session names" below.
+
+**`bin/tidy-windows`** — reviews every open kitty window and recommends **close** (stale/safe to discard), **move** (consolidate onto its project's tab — one tab per project), or **keep**, in an `fzf --multi` picker; nothing is applied until confirmed. The interactive picker only lists close/move rows (`to_fzf_tsv` drops "keep" — selecting one there would be a no-op) and pre-selects all of them on load (`--bind 'load:select-all'`, fzf's documented idiom for this — opt-out: Tab deselects one you disagree with, Enter applies the rest). `--dry-run` shows the full picture instead, including keeps and why (e.g. the current-window protection below). Prints a status line to stderr immediately on launch and `advise` prints its own progress (window/git scan, then the API call) so the screen is never blank while waiting on the model. `advise` also prints why on stderr when there's nothing to do (no open windows, or everything reviewed and kept) — since this is an overlay that vanishes the instant the script exits (taking anything printed to it along), `bin/tidy-windows` blocks on a keypress in that case, and again at the end if any close/move failed or was refused, so the message is actually seen rather than flashing and disappearing; a clean close/move needs no pause, since the windows themselves are the visible confirmation. Bound in `kitty.conf` as `map kitty_mod+shift+w launch --type=overlay --cwd=current tidy-windows`, alongside `switch-project`'s and `window`'s overlay bindings — see "Kitty key bindings" below. Finds the real current window the same way `bin/window` does (`kitty @ ls --match 'state:overlay_parent'`) and passes its id to `advise` as `--current-window-id`, plus keeps its own defense-in-depth check that refuses to close/move that id even if selected. Thin zsh glue otherwise: fetches `kitty @ ls`, pipes it to `../python/tidy-windows-advise/advise` (resolved via `${0:A:h}`, same pattern `bin/switch-project` uses for `project.zsh`), then applies the returned `id / action / target_tab` TSV rows via `kitty @ close-window` / `kitty @ detach-window --target-tab` (the same primitive `bin/switch-project` uses for moving a window to a tab), reporting any failed close/move rather than swallowing the error. All judgement logic lives in the Python script — see below.
+
+**`../python/tidy-windows-advise/advise`** — a `uv run --script` executable (inline PEP 723 deps, no separate venv setup needed) that owns all of `tidy-windows`'s logic: parses `kitty @ ls` JSON, computes idle time (`kitty @ ls`'s `last_focused_at` is seconds-since-boot, not wall-clock — offset by `sysctl -n kern.boottime`; degrades to an unqualified `"idle"` label if `sysctl` is unavailable), enriches each window with `git` state (branch, dirty, ahead/behind upstream, last-commit recency) via `git -C <cwd>` and, when the window is running `claude`, its Claude Code session name (see "Claude session names" below), and asks the Claude API (`ANTHROPIC_API_KEY`, model `${TIDY_WINDOWS_MODEL:-claude-haiku-4-5-20251001}`, structured `output_config: json_schema` output) to judge close-vs-keep — a distinctive session name is a signal toward "keep". `kitty @ ls`'s `is_focused` is per-tab (the last-active window *within that tab*), not "the window the user is looking at right now" — several tabs can each show `is_focused: true` simultaneously, and the actual current window (the one under the `tidy-windows` overlay) reads `is_focused: false` at the moment `kitty @ ls` runs, since kitty treats the overlay as that tab's active window while it's open. Its idle label is worded "active in tab" rather than "focused now" so it can't be mistaken for `protect_current_window`'s unambiguous "YOU ARE HERE" marker. So the system prompt treats `is_focused` as only a weak signal, and `protect_current_window` hard-overrides the row matching `--current-window-id` (supplied by `bin/tidy-windows`, found independently via `state:overlay_parent`) to `keep` regardless of what the model said — the one window that must never be touched isn't left to the model's judgement. The prompt also asks the model to never recommend closing a window whose `cmdline` looks like a long-running server/watch/daemon process — best-effort via the model's judgement, not hard-enforced like the current-window case. Move recommendations are **not** AI-judged — `plan_moves` deterministically groups windows by git root and proposes moving any window off its project's tab-with-the-most-windows-of-that-project onto it. Falls back to an all-`keep` table (keeping the deterministic moves) if the API call fails for any reason, so `tidy-windows` still works without a key. Follows the `anthropic` SDK + `uv run --script` + `output_config: json_schema` pattern from the sibling `organise-inbox` repo's `skills/organise-notes/scripts/classify_note_api`. Tested with `pytest` (`tests/test_advise.py`) — real scratch git repos for `git_summary`, mocked Anthropic client for `advise`, no live kitty/network calls.
+
+### Claude session names
+
+Claude Code writes `~/.claude/sessions/<pid>.json` (undocumented internal state — `pid` is the `claude` process's own pid, `name` is the human-readable session name shown in cross-session tooling) for each active session. Both `bin/window-list` (jq, joining on `foreground_processes[-1].pid`) and `python/tidy-windows-advise/advise`'s `claude_session_name()` (Python, same join by pid) look this up to label windows running `claude` with their session name instead of a bare `(claude)`. Both treat a missing/malformed session file as "no name available" rather than an error, since this is unstable internal state that could change between Claude Code versions.
 
 ### IDE tools
 
@@ -52,6 +61,21 @@ When run from a kitty key binding (no tty), `project` launches a new kitty tab f
 
 **`bin/web`** / **`bin/note`** — standalone kitty-launchable counterparts to the `web`/`note` functions above, intended for a kitty key binding (`launch --type=overlay`). Switch to `stack` layout, run `_notes_picker` directly, restore the previous layout, then act on the result: `bin/web` extracts the `source`/`url` frontmatter field and `open`s it in the browser; `bin/note` opens the picked note in `$EDITOR`. Unlike the `web`/`note` functions, these open the result directly rather than printing an OSC 8 hyperlink.
 
+## Kitty key bindings
+
+The overlay-launched pickers (`switch-project`, `window`, `tidy-windows`) plus the misc project actions (`ide`, `note`, `project-web`) are each bound to a key in `kitty.conf`:
+
+```
+map kitty_mod+§         launch --type=overlay --cwd=current switch-project
+map option+tab          launch --type=overlay --cwd=current window
+map kitty_mod+shift+w   launch --type=overlay --cwd=current tidy-windows
+map kitty_mod+i         launch --type=overlay --cwd=current ide
+map kitty_mod+n         launch --type=overlay --cwd=current note
+map kitty_mod+b         launch --type=overlay --cwd=current project-web
+```
+
+`switch-project` and `window` are picker-per-target (jump to one project/window); `tidy-windows` is a bulk review across all open windows — kept as a separate binding rather than merged into `window`, since it fires an Anthropic API call on each run. See `.claude/skills/install-scripts/SKILL.md` for the full setup (symlinks, `listen_on` for `window`'s live preview, these bindings).
+
 ## Key Conventions
 
 - `_project_build_list` uses BSD awk with roots and CWDs fed via process substitution (separated by `---` sentinel) to avoid newline-in-`-v` issues.
@@ -62,4 +86,4 @@ When run from a kitty key binding (no tty), `project` launches a new kitty tab f
 
 ## Dependencies
 
-`rg` (ripgrep), `fd`, `fzf`, `bat`, `jq`, `awk`, `kitty` (optional).
+`rg` (ripgrep), `fd`, `fzf`, `bat`, `jq`, `awk`, `kitty` (optional). `bin/tidy-windows` additionally needs `uv` (runs `../python/tidy-windows-advise/advise`) and `ANTHROPIC_API_KEY` set (falls back to keep-only recommendations without it).

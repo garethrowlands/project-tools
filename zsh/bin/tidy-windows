@@ -1,0 +1,103 @@
+#!/usr/bin/env zsh
+
+# Review open kitty windows and recommend close / move / keep, via the Python
+# advisor at python/tidy-windows-advise/advise (Claude API for close/keep,
+# deterministic project-grouping for move). Nothing is applied until the user
+# confirms in the fzf picker below.
+
+echo "tidy-windows: reviewing open windows…" >&2
+
+kitty @ ls &>/dev/null 2>&1 || { echo "kitty not available" >&2; exit 1 }
+
+local advise_cmd="${0:A:h}/../../python/tidy-windows-advise/advise"
+local dry_run=0
+[[ "$1" == "--dry-run" ]] && dry_run=1
+
+# Find the real current window (the one this overlay covers), the same way
+# bin/window does - `is_focused` in kitty ls is per-tab, not "the window the
+# user is using right now", so this is the only reliable way to identify it.
+# Passed to advise so it can never be recommended for close/move.
+local current_window_id
+current_window_id=$(kitty @ ls --match 'state:overlay_parent' 2>/dev/null | jq -r '.[].tabs[].windows[].id' | head -1)
+
+local -a current_window_args
+[[ -n "$current_window_id" ]] && current_window_args=(--current-window-id "$current_window_id")
+
+local kitty_ls_json
+kitty_ls_json=$(kitty @ ls 2>/dev/null) || { echo "tidy-windows: kitty @ ls failed" >&2; exit 1 }
+
+if [[ $dry_run -eq 1 ]]; then
+  printf '%s' "$kitty_ls_json" | "$advise_cmd" --model "${TIDY_WINDOWS_MODEL:-claude-haiku-4-5-20251001}" "${current_window_args[@]}" --dry-run
+  exit $?
+fi
+
+local rows
+rows=$(printf '%s' "$kitty_ls_json" | "$advise_cmd" --model "${TIDY_WINDOWS_MODEL:-claude-haiku-4-5-20251001}" "${current_window_args[@]}")
+
+if [[ -z "$rows" ]]; then
+  # advise already explained why on stderr (no open windows, or nothing to close/move) -
+  # but this is an overlay: it and everything printed to it vanish the instant the script
+  # exits, so without this pause the message would flash and disappear unread.
+  read -k 1 "?tidy-windows: press any key to close…"
+  exit 0
+fi
+
+# $rows only ever contains close/move rows (to_fzf_tsv drops "keep" - selecting one there
+# would be a no-op anyway; use --dry-run to see the full picture including keeps and why).
+# So every row here is a recommendation worth acting on - select all of them by default
+# (opt-out: tab deselects any you don't want, enter applies the rest).
+local selection
+selection=$(printf '%s\n' "$rows" | fzf --ansi --multi --delimiter $'\t' --with-nth 4.. --no-sort \
+  --bind 'load:select-all' \
+  --header 'tab: toggle off  enter: apply marked')
+
+[[ -z "$selection" ]] && exit 0
+
+local err_file
+err_file=$(mktemp)
+trap "rm -f $err_file" EXIT
+
+local id action target_tab display
+integer closed=0 moved=0 skipped=0 failed=0
+local -a failures
+while IFS=$'\t' read -r id action target_tab display; do
+  if [[ -n "$current_window_id" && "$id" == "$current_window_id" ]]; then
+    # Defense in depth - advise.py already forces this row to "keep", so this
+    # should be unreachable, but never risk closing/moving the window the
+    # user is actually in.
+    echo "tidy-windows: refusing to $action the current window (id $id)" >&2
+    (( skipped++ ))
+    continue
+  fi
+  case "$action" in
+    close)
+      if kitty @ close-window --match "id:${id}" 2>"$err_file"; then
+        (( closed++ ))
+      else
+        (( failed++ )); failures+=("close window ${id}: $(<"$err_file")")
+      fi
+      ;;
+    move)
+      if kitty @ detach-window --match "id:${id}" --target-tab "${target_tab:-new}" 2>"$err_file"; then
+        (( moved++ ))
+      else
+        (( failed++ )); failures+=("move window ${id}: $(<"$err_file")")
+      fi
+      ;;
+  esac
+done <<< "$selection"
+
+local summary="tidy-windows: closed $closed, moved $moved"
+[[ $skipped -gt 0 ]] && summary+=", skipped $skipped"
+[[ $failed -gt 0 ]] && summary+=", failed $failed"
+echo "$summary"
+if (( ${#failures[@]} > 0 )); then
+  printf 'tidy-windows: %s\n' "${failures[@]}" >&2
+fi
+
+# On a clean run the closed/moved windows themselves are the visible confirmation, but a
+# failure or a refused current-window action needs to actually be read - this is an
+# overlay, so without a pause it would flash and vanish the instant the script exits.
+if (( failed > 0 || skipped > 0 )); then
+  read -k 1 "?tidy-windows: press any key to close…"
+fi
