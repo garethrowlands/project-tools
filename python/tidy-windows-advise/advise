@@ -30,6 +30,16 @@ NO_RECOMMENDATION = "(no recommendation available)"
 # ── kitty ls parsing ─────────────────────────────────────────────────────────
 
 
+def _cmdline_basename(cmdline: list | None) -> str:
+    """The frontmost command's basename, e.g. "-/opt/homebrew/bin/claude" -> "claude"."""
+    if not cmdline:
+        return ""
+    first = cmdline[0] or ""
+    if first.startswith("-"):
+        first = first[1:]
+    return Path(first).name
+
+
 def build_rows(kitty_ls_json: list) -> list[dict]:
     """Flatten `kitty @ ls` JSON into one row per real (non-self) window with a cwd."""
     rows = []
@@ -55,31 +65,104 @@ def build_rows(kitty_ls_json: list) -> list[dict]:
                         # last foreground process is the front-most running command
                         # (e.g. `claude`) - used to look up a Claude session name below.
                         "pid": fg[-1].get("pid"),
+                        "proc": _cmdline_basename(fg[-1].get("cmdline")),
                     }
                 )
     return rows
 
 
-# ── Claude session names ─────────────────────────────────────────────────────
+# ── Claude session titles ────────────────────────────────────────────────────
+#
+# See zsh/bin/window-list's _window_list_claude_title for the full rationale (this
+# mirrors it): <config-dir>/sessions/<pid>.json's "name" field is NOT the conversation
+# title shown in Claude Code's own UI/history - it's a short slug derived at startup,
+# used as an addressable session name elsewhere. The actual human-facing title is
+# recorded as a `{"type":"ai-title","aiTitle":"..."}` line appended to that session's
+# own transcript, at <config-dir>/projects/*/<sessionId>.jsonl - found by sessionId
+# rather than by reconstructing the project-slug directory name from cwd, since that
+# slug transform is lossy (e.g. "." becomes "-" too, not just "/"). An interactive
+# session can also "park" on a background job (a separate claude process, with its own
+# pid/session file, "kind":"bg") via "parkedJobId" matching the job's own "jobId"; while
+# parked, the interactive session's own transcript typically has no ai-title yet, so the
+# lookup follows parkedJobId to the job's session file and resolves its title the same
+# way. And a `claude` process may run under a non-default config dir (e.g.
+# CLAUDE_CONFIG_DIR=~/.claude-k for a separate work profile), so every ~/.claude*
+# directory with a sessions/ subfolder is searched, not just ~/.claude.
+#
+# All of this is undocumented internal state, so failures here should never be fatal.
 
-DEFAULT_SESSIONS_DIR = Path.home() / ".claude" / "sessions"
+
+def _config_dirs(home: Path | None = None) -> list[Path]:
+    home = home or Path.home()
+    return sorted(p for p in home.glob(".claude*") if (p / "sessions").is_dir())
 
 
-def claude_session_name(pid, sessions_dir: Path = DEFAULT_SESSIONS_DIR) -> str | None:
-    """Look up a running Claude Code session's name by its pid.
-
-    Claude Code writes `~/.claude/sessions/<pid>.json` (with a "name" field) for each
-    active session - this is undocumented internal state, so failures here should never
-    be fatal.
-    """
-    if not pid:
-        return None
+def _read_json(path: Path) -> dict | None:
     try:
-        data = json.loads((sessions_dir / f"{pid}.json").read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+
+
+def _find_transcript(config_dir: Path, session_id: str) -> Path | None:
+    matches = list((config_dir / "projects").glob(f"*/{session_id}.jsonl"))
+    return matches[0] if matches else None
+
+
+def _last_ai_title(transcript: Path) -> str | None:
+    title = None
+    try:
+        with transcript.open(encoding="utf-8") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue
+                if entry.get("type") == "ai-title" and isinstance(entry.get("aiTitle"), str) and entry["aiTitle"]:
+                    title = entry["aiTitle"]
+    except OSError:
+        return None
+    return title
+
+
+def _title_from_session_file(config_dir: Path, session_file: Path) -> str | None:
+    """The best available title recorded in one sessions/<pid>.json: its own ai-title,
+    else (if parked on a background job) that job's title by the same rule, else its
+    own "name" slug."""
+    data = _read_json(session_file)
+    if data is None:
+        return None
+    session_id = data.get("sessionId")
+    if isinstance(session_id, str) and session_id:
+        transcript = _find_transcript(config_dir, session_id)
+        if transcript is not None:
+            title = _last_ai_title(transcript)
+            if title:
+                return title
+    parked_job_id = data.get("parkedJobId")
+    if isinstance(parked_job_id, str) and parked_job_id:
+        for job_file in (config_dir / "sessions").glob("*.json"):
+            if job_file == session_file:
+                continue
+            job_data = _read_json(job_file)
+            if job_data and job_data.get("jobId") == parked_job_id:
+                job_title = _title_from_session_file(config_dir, job_file)
+                if job_title:
+                    return job_title
+                break
     name = data.get("name")
     return name if isinstance(name, str) and name else None
+
+
+def claude_session_name(pid, config_dirs: list[Path] | None = None) -> str | None:
+    """Look up a running Claude Code session's title by its pid."""
+    if not pid:
+        return None
+    for config_dir in config_dirs if config_dirs is not None else _config_dirs():
+        session_file = config_dir / "sessions" / f"{pid}.json"
+        if session_file.is_file():
+            return _title_from_session_file(config_dir, session_file)
+    return None
 
 
 # ── idle time ────────────────────────────────────────────────────────────────
@@ -179,7 +262,10 @@ def build_windows_payload(
                     row["last_focused_at"], row["is_focused"], boot_epoch_s, now_epoch_s
                 ),
                 "git": git_cache.get(row["cwd"]),
-                "claude_session": claude_session_name(row.get("pid")),
+                # Only trust a pid's session file when that pid is *currently* running
+                # claude (kitty's own live process data) - a pid whose claude session
+                # ended and got reused by an unrelated process must not show a stale title.
+                "claude_session": claude_session_name(row.get("pid")) if row.get("proc") == "claude" else None,
             }
         )
     return windows

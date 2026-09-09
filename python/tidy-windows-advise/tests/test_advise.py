@@ -95,31 +95,94 @@ def test_build_rows_maps_fields_including_tab_id():
     assert row["is_focused"] is True
     assert row["last_focused_at"] == 12.5
     assert row["pid"] == 4242
+    assert row["proc"] == "nvim"
 
 
 # --- claude_session_name ---
 
 
-def test_claude_session_name_reads_matching_pid_file(tmp_path):
+def make_config_dir(base: Path, name: str = ".claude") -> Path:
+    config_dir = base / name
+    (config_dir / "sessions").mkdir(parents=True)
+    (config_dir / "projects").mkdir(parents=True)
+    return config_dir
+
+
+def write_session(config_dir: Path, pid: int, **fields) -> Path:
+    path = config_dir / "sessions" / f"{pid}.json"
+    path.write_text(json.dumps({"pid": pid, **fields}))
+    return path
+
+
+def write_transcript(config_dir: Path, session_id: str, ai_titles: list[str]) -> Path:
+    project_dir = config_dir / "projects" / "some-project"
+    project_dir.mkdir(parents=True, exist_ok=True)
+    path = project_dir / f"{session_id}.jsonl"
+    lines = [json.dumps({"type": "ai-title", "aiTitle": title}) for title in ai_titles]
+    path.write_text("\n".join(lines) + "\n" if lines else "")
+    return path
+
+
+def test_claude_session_name_prefers_ai_title_over_name_slug(tmp_path):
     module = load_module()
-    (tmp_path / "1234.json").write_text(json.dumps({"pid": 1234, "name": "my-session"}))
-    assert module.claude_session_name(1234, sessions_dir=tmp_path) == "my-session"
+    config_dir = make_config_dir(tmp_path)
+    write_session(config_dir, 1234, sessionId="sid-1", name="project-tools-8f")
+    write_transcript(config_dir, "sid-1", ["first draft title", "Window switcher fzf colors"])
+    assert module.claude_session_name(1234, config_dirs=[config_dir]) == "Window switcher fzf colors"
+
+
+def test_claude_session_name_falls_back_to_name_slug_without_ai_title(tmp_path):
+    module = load_module()
+    config_dir = make_config_dir(tmp_path)
+    write_session(config_dir, 1234, sessionId="sid-1", name="project-tools-8f")
+    assert module.claude_session_name(1234, config_dirs=[config_dir]) == "project-tools-8f"
+
+
+def test_claude_session_name_follows_parked_job_id(tmp_path):
+    module = load_module()
+    config_dir = make_config_dir(tmp_path)
+    # interactive session, parked on a background job, with no ai-title of its own yet
+    write_session(config_dir, 7121, sessionId="sid-interactive", name="context-e1", parkedJobId="job-1")
+    write_transcript(config_dir, "sid-interactive", [])
+    # the background job's own session, with a descriptive name
+    write_session(config_dir, 13848, sessionId="sid-job", name="sources/ publishing design", jobId="job-1")
+    assert module.claude_session_name(7121, config_dirs=[config_dir]) == "sources/ publishing design"
+
+
+def test_claude_session_name_prefers_own_ai_title_over_parked_job(tmp_path):
+    module = load_module()
+    config_dir = make_config_dir(tmp_path)
+    write_session(config_dir, 7121, sessionId="sid-interactive", name="context-e1", parkedJobId="job-1")
+    write_transcript(config_dir, "sid-interactive", ["actual title"])
+    write_session(config_dir, 13848, sessionId="sid-job", name="sources/ publishing design", jobId="job-1")
+    assert module.claude_session_name(7121, config_dirs=[config_dir]) == "actual title"
+
+
+def test_claude_session_name_searches_multiple_config_dirs(tmp_path):
+    module = load_module()
+    default_dir = make_config_dir(tmp_path, ".claude")
+    work_dir = make_config_dir(tmp_path, ".claude-k")
+    write_session(work_dir, 9999, sessionId="sid-work", name="work-slug")
+    assert module.claude_session_name(9999, config_dirs=[default_dir, work_dir]) == "work-slug"
 
 
 def test_claude_session_name_missing_file_returns_none(tmp_path):
     module = load_module()
-    assert module.claude_session_name(9999, sessions_dir=tmp_path) is None
+    config_dir = make_config_dir(tmp_path)
+    assert module.claude_session_name(9999, config_dirs=[config_dir]) is None
 
 
 def test_claude_session_name_no_pid_returns_none(tmp_path):
     module = load_module()
-    assert module.claude_session_name(None, sessions_dir=tmp_path) is None
+    config_dir = make_config_dir(tmp_path)
+    assert module.claude_session_name(None, config_dirs=[config_dir]) is None
 
 
 def test_claude_session_name_malformed_file_returns_none(tmp_path):
     module = load_module()
-    (tmp_path / "1234.json").write_text("not json")
-    assert module.claude_session_name(1234, sessions_dir=tmp_path) is None
+    config_dir = make_config_dir(tmp_path)
+    (config_dir / "sessions" / "1234.json").write_text("not json")
+    assert module.claude_session_name(1234, config_dirs=[config_dir]) is None
 
 
 # --- parse_boottime / idle_label ---
@@ -241,9 +304,17 @@ def test_build_windows_payload_merges_and_dedupes_git(tmp_path):
 def test_build_windows_payload_includes_claude_session(monkeypatch):
     module = load_module()
     monkeypatch.setattr(module, "claude_session_name", lambda pid: "my-session" if pid == 42 else None)
-    rows = [{"id": 1, "tab_id": 1, "cwd": "/p/a", "is_focused": False, "last_focused_at": 0.0, "pid": 42}]
+    rows = [{"id": 1, "tab_id": 1, "cwd": "/p/a", "is_focused": False, "last_focused_at": 0.0, "pid": 42, "proc": "claude"}]
     windows = module.build_windows_payload(rows, {}, boot_epoch_s=0.0, now_epoch_s=0.0)
     assert windows[0]["claude_session"] == "my-session"
+
+
+def test_build_windows_payload_skips_claude_session_lookup_for_non_claude_proc(monkeypatch):
+    module = load_module()
+    monkeypatch.setattr(module, "claude_session_name", lambda pid: "my-session")
+    rows = [{"id": 1, "tab_id": 1, "cwd": "/p/a", "is_focused": False, "last_focused_at": 0.0, "pid": 42, "proc": "vim"}]
+    windows = module.build_windows_payload(rows, {}, boot_epoch_s=0.0, now_epoch_s=0.0)
+    assert windows[0]["claude_session"] is None
 
 
 # --- project_key / project_label ---
