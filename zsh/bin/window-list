@@ -8,22 +8,130 @@
 closed_entries=$1
 order_file=$2
 
+# Claude session titles, for windows whose foreground process is a running `claude`.
+#
+# ~/.claude*/sessions/<pid>.json's "name" field is NOT the conversation title shown
+# in Claude Code's own UI/history — it's a short slug (e.g. "project-tools-8f")
+# derived at startup, used as an addressable session name elsewhere. The actual
+# human-facing title (e.g. "Window switcher fzf colors") is generated later and
+# recorded as a `{"type":"ai-title","aiTitle":"..."}` line appended to that
+# session's own transcript, at
+# <config-dir>/projects/<project-slug>/<sessionId>.jsonl (sessionId, and which
+# config dir, come from the pid's session.json — see the config-dir search
+# below). The project-slug directory name is a lossy transform of the project's
+# cwd — not just "/" but also e.g. "." becomes "-" — so rather than reproduce
+# that transform (and risk drifting from it), find the transcript by its
+# sessionId, which is unique regardless of slug. Take the *last* ai-title line
+# (the title can be regenerated as the conversation evolves). Falls back to the
+# session.json "name" slug if no ai-title has been recorded yet (e.g. a very new
+# session) or the transcript can't be found, and to nothing at all if the
+# session data is missing/malformed — consistent with treating this as unstable
+# internal state rather than an error.
+#
+# ~/.claude*/sessions/<pid>.json is also never cleaned up when the `claude`
+# process exits, so a pid can later be reused by an unrelated process — matching
+# on pid alone would then attach a stale title to whatever now happens to be
+# running in that window. Guard against this the same way the `(proc)` fallback
+# already identifies a claude window — kitty's own live
+# `foreground_processes[-1].cmdline[0]` — callers only look up a title when that
+# process actually is `claude` right now. (A pid reused by a *new* claude process
+# needs no such guard: that process overwrites its own session file with fresh
+# data as soon as it starts.)
+#
+# An interactive session can also delegate to a background job (a separate
+# claude process, with its own pid and sessions/<pid>.json, "kind":"bg") and
+# "park" on it — the interactive session's own file then carries a
+# "parkedJobId" matching the job's own "jobId". While parked, the interactive
+# session's own transcript typically has no ai-title yet (nothing's been said
+# in it since the job started), so its window would otherwise show the
+# interactive session's bare derived slug (e.g. "context-e1") even though the
+# job's own "name" (e.g. "sources/ publishing design") is the descriptive title
+# actually visible in that terminal. So: prefer this session's own ai-title;
+# failing that, follow parkedJobId to the job's session file (scanning sibling
+# session files in the same config dir for a matching "jobId") and use its
+# title by the same rule (its own ai-title, else its "name"); failing that,
+# fall back to this session's own "name" slug.
+_window_list_claude_title() {
+  local pid=$1
+  [[ -z "$pid" ]] && return
+  # A `claude` process may be running under a non-default config dir (e.g.
+  # CLAUDE_CONFIG_DIR=~/.claude-k for a separate work profile) — its
+  # sessions/projects live entirely under that dir instead of ~/.claude, so
+  # every ~/.claude* directory that looks like a config dir has to be checked.
+  local -a config_dirs
+  config_dirs=(~/.claude*(N/))
+  local config_dir session_file
+  for config_dir in "${config_dirs[@]}"; do
+    [[ -r "$config_dir/sessions/$pid.json" ]] && { session_file="$config_dir/sessions/$pid.json"; break }
+  done
+  [[ -z "$session_file" ]] && return
+  _window_list_title_from_session_file "$config_dir" "$session_file"
+}
+
+# Given a config dir and one of its sessions/<pid>.json files, prints the best
+# available title for it — see the "parked on a background job" note above.
+_window_list_title_from_session_file() {
+  local config_dir=$1 session_file=$2
+  local session_id name parked_job_id
+  session_id=$(jq -r '.sessionId // empty' "$session_file" 2>/dev/null)
+  name=$(jq -r '.name // empty' "$session_file" 2>/dev/null)
+  parked_job_id=$(jq -r '.parkedJobId // empty' "$session_file" 2>/dev/null)
+  if [[ -n "$session_id" ]]; then
+    local transcript
+    transcript=$(find "$config_dir/projects" -mindepth 2 -maxdepth 2 -name "$session_id.jsonl" -print -quit 2>/dev/null)
+    if [[ -n "$transcript" ]]; then
+      local title
+      title=$(jq -r 'select(.type == "ai-title") | .aiTitle' "$transcript" 2>/dev/null | tail -1)
+      [[ -n "$title" ]] && { print -r -- "$title"; return }
+    fi
+  fi
+  if [[ -n "$parked_job_id" ]]; then
+    local f job_file
+    for f in "$config_dir"/sessions/*.json(N); do
+      [[ "$f" == "$session_file" ]] && continue
+      [[ "$(jq -r '.jobId // empty' "$f" 2>/dev/null)" == "$parked_job_id" ]] && { job_file=$f; break }
+    done
+    if [[ -n "$job_file" ]]; then
+      local job_title
+      job_title=$(_window_list_title_from_session_file "$config_dir" "$job_file")
+      [[ -n "$job_title" ]] && { print -r -- "$job_title"; return }
+    fi
+  fi
+  [[ -n "$name" ]] && print -r -- "$name"
+}
+
+# Builds one fzf row label from a window's tab title, cwd, foreground-process
+# basename, and pid — shared by the "close" case and the live-list case below.
+_window_list_label() {
+  local tab=$1 cwd=$2 proc=$3 pid=$4
+  local base=${cwd:t}
+  local label=$([[ -n "$base" ]] && print -r -- "$tab > $base" || print -r -- "$tab")
+  local title=""
+  [[ "$proc" == "claude" ]] && title=$(_window_list_claude_title "$pid")
+  if [[ -n "$title" ]]; then
+    label+=" "$'\033[1;36m'"[$title]"$'\033[0m'
+  elif [[ -n "$proc" ]]; then
+    label+=" ($proc)"
+  fi
+  print -r -- "$label"
+}
+
 if [[ $3 == close ]]; then
   window_id="${4#closed:}"
   awk -F'\t' -v id="$window_id" '$1==id{exit 1}' "$closed_entries" || exit 0
-  label=$(kitty @ ls 2>/dev/null | jq -r --argjson wid "$window_id" '
-    .[].tabs[] | . as $tab | .windows[] | select(.id == $wid) |
-    [($tab.title), (.foreground_processes[0].cwd // .title // ""),
-     (.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last)
+  local row tab cwd proc pid label
+  row=$(kitty @ ls 2>/dev/null | jq -r --argjson wid "$window_id" '
+    .[].tabs[] | . as $tab | .windows[] | select(.id == $wid) | . as $w |
+    [($tab.title), ($w.foreground_processes[0].cwd // $w.title // ""),
+     ($w.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last),
+     ($w.foreground_processes[-1].pid // "" | tostring)
     ] | join("\t")
-  ' | awk -F'\t' '{
-    tab=$1; cwd=$2; proc=$3
-    n=split(cwd, parts, "/")
-    base = (n > 0) ? parts[n] : cwd
-    label = (base != "") ? tab " > " base : tab
-    if (proc != "") label = label " (" proc ")"
-    print label
-  }')
+  ')
+  label=""
+  if [[ -n "$row" ]]; then
+    IFS=$'\t' read -r tab cwd proc pid <<< "$row"
+    label=$(_window_list_label "$tab" "$cwd" "$proc" "$pid")
+  fi
   [[ -n "$label" ]] && printf '%s\t%s\n' "$window_id" "$label" >> "$closed_entries"
   kitty @ close-window --match "id:$window_id" 2>/dev/null
   exit 0
@@ -31,19 +139,15 @@ fi
 
 # Build the live window list: id<TAB>label, in kitty's natural order
 live_list=$(kitty @ ls 2>/dev/null | jq -r '
-  .[].tabs[] | . as $tab | .windows[] | select(.is_self | not) |
-  [(.id | tostring), ($tab.title),
-   (.foreground_processes[0].cwd // .title // ""),
-   (.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last)
+  .[].tabs[] | . as $tab | .windows[] | select(.is_self | not) | . as $w |
+  [($w.id | tostring), ($tab.title),
+   ($w.foreground_processes[0].cwd // $w.title // ""),
+   ($w.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last),
+   ($w.foreground_processes[-1].pid // "" | tostring)
   ] | join("\t")
-' | awk -F'\t' '{
-  id=$1; tab=$2; cwd=$3; proc=$4
-  n=split(cwd, parts, "/")
-  base = (n > 0) ? parts[n] : cwd
-  label = (base != "") ? tab " > " base : tab
-  if (proc != "") label = label " (" proc ")"
-  print id "\t" label
-}')
+' | while IFS=$'\t' read -r id tab cwd proc pid; do
+  printf '%s\t%s\n' "$id" "$(_window_list_label "$tab" "$cwd" "$proc" "$pid")"
+done)
 
 if [[ -s "$order_file" ]]; then
   # Reload after a close: use the saved order so closed entries stay in place
