@@ -64,7 +64,7 @@ _project_scan() {
       paths+=("${gitdir:h}")
       (( count++ ))
       [[ $show_progress -eq 1 ]] && printf '\rScanning... %d repos found' "$count" >&2
-    done < <(fd --hidden --type d --max-depth 4 --glob '.git' "$root" 2>/dev/null)
+    done < <(fd --hidden --type d --max-depth 6 --glob '.git' "$root" 2>/dev/null)
   done < <(_project_parse_roots)
 
   [[ $show_progress -eq 1 ]] && printf '\r\033[K' >&2
