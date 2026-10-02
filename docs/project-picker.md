@@ -4,7 +4,8 @@
 
 - `project [query]` — opens an fzf picker over all git repos found under `$PROJECT_ROOTS`. Key bindings: `enter` focuses or opens the project, `ctrl-t` opens in a new kitty tab, `ctrl-i` opens the IDE, `ctrl-w` closes the project IDE, `ctrl-y` copies the path. Projects with open kitty windows are shown first (prefixed with `*`) in an _Open_ group; the rest appear under _All_. Preview pane shows open kitty windows then README/CLAUDE.md/ls.
 - `current-project` — prints the git root of `$PWD`.
-- `_project_build_list` — builds the tab-delimited `PATH<TAB>LABEL` list (with group headers) fed to fzf. Open projects detected from kitty CWDs.
+- `_project_build_list` — builds the tab-delimited `PATH<TAB>LABEL` list (with group headers) fed to fzf. Open projects detected from kitty CWDs. Both groups are ranked by zoxide frecency (third arg, from `_project_zoxide_scores`; highest first, ties and never-visited repos alphabetical by label) — see "zoxide ranking" below.
+- `_project_zoxide_scores` — runs `zoxide query --list --score` and emits `SCORE<TAB>DIR<TAB>KIND` per entry, where `KIND` is `repo` (has a `.git` dir), `wt:<main>` (linked worktree, main repo resolved from its `.git` file's `gitdir: <main>/.git/worktrees/<name>`), or empty (plain dir, submodule). No output if zoxide isn't installed, which leaves the list alphabetical.
 - `_project_preview_dir` — preview command: shows open kitty windows for the project (bold, with divider), then `bat` output of README/CLAUDE.md or `ls`.
 - `_project_preview_windows` — reads pre-fetched `kitty @ ls` JSON from a temp file, returns bold-formatted window list for a given project path.
 - `_project_picker` — runs fzf with all bindings; pre-fetches `kitty @ ls` once at startup into a temp file to avoid hangs in preview subprocesses.
@@ -30,9 +31,19 @@ Session files are never deleted when the `claude` process exits, so a pid can la
 
 `python/tidy-windows-advise/advise`'s `claude_session_name()` mirrors all of the above (ai-title lookup, config-dir search, parked-job fallback) — see its own doc comment for the Python-side details. It gets its staleness guard the same way `bin/window-list` does: `build_windows_payload` only calls it when the row's `proc` (the frontmost foreground process's cmdline basename, from `build_rows`) is `"claude"`.
 
+## zoxide ranking
+
+The `fd` scan cache stays the source of truth for projects; zoxide only adds to it and orders it. Rules applied in `_project_build_list`'s awk:
+
+- **Discovery** — a zoxide `repo` dir missing from the cache (i.e. outside `PROJECT_ROOTS`, e.g. `~/claude_certification`) is added, labelled with its `~`-abbreviated absolute path. A worktree's main repo is added the same way. Worktrees, submodules and non-git dirs (`/`, `~/gitlab.kfplc.com`, …) are never listed as projects. This is done per picker launch, not in the cache, since zoxide changes constantly and the cache only refreshes on `--refresh`.
+- **Roll-up** — each zoxide score is credited to the innermost repo containing that dir (walking up the path), with a worktree counting as its main repo. So time in `context/src/foo` or in a sibling `order-sourcing-service-worktrees/rod-plan` ranks `context` / `order-sourcing-service`. Scores for dirs outside any repo are dropped.
+- **Open detection** uses the same walk-up, so a kitty window in a worktree marks its main project *Open*. It marks every enclosing repo (not just the innermost), preserving the earlier prefix-match behaviour for nested repos. Worktrees zoxide has never seen can't be mapped without a `git` call per cwd, so a window in one of those doesn't count — worktree drill-down is tracked as beads `pt-bun.6`.
+- `fd --type d --glob .git` never matched worktrees anyway (their `.git` is a file), so they weren't listed before this either.
+- `zoxide query` also tries to age its database on every query; a failed write (e.g. in a sandbox) still prints results, so stderr is discarded.
+
 ## Conventions
 
-- `_project_build_list` uses BSD awk with roots and CWDs fed via process substitution (separated by `---` sentinel) to avoid newline-in-`-v` issues.
+- `_project_build_list` uses BSD awk with roots, CWDs and zoxide scores fed via process substitution (separated by `---` sentinels) to avoid newline-in-`-v` issues. BSD awk has no `asort`, so it emits `GROUP<TAB>SCORE<TAB>LABEL<TAB>PATH` rows, pipes them through `LC_ALL=C sort`, and a second awk adds the group headers.
 - `kitty @ ls` JSON is pre-fetched once at picker startup and written to a temp file; preview subprocesses read the file rather than calling `kitty @`. With tty-based remote control (no `listen_on`), `kitty @` blocks in subprocesses; with `listen_on` configured (socket-based), `KITTY_LISTEN_ON` is inherited and `kitty @` works in subprocesses — `bin/window` relies on this for its live preview.
 - `null` CWDs in kitty ls JSON are guarded with `// empty` before `startswith()` to avoid jq type errors.
 - `FZF_PREVIEW_COLUMNS` (not `$COLUMNS`) is used for preview pane width — fzf sets it in the preview subprocess.

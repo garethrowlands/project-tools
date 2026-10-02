@@ -72,55 +72,100 @@ _project_scan() {
   printf '%s\n' "${paths[@]}" | sort -u > "$cache_file"
 }
 
+_project_zoxide_scores() {
+  # Outputs SCORE<TAB>DIR<TAB>KIND for every zoxide entry. KIND is "repo" for a
+  # dir with a .git directory, "wt:MAIN" for a linked worktree (resolved from
+  # its .git file's "gitdir: MAIN/.git/worktrees/NAME"), else empty (plain
+  # dirs, submodules). Outputs nothing if zoxide isn't installed.
+  whence zoxide >/dev/null || return 0
+  local score dir kind line gitdir
+  # zoxide also tries to age its database on query; a failed write is harmless.
+  zoxide query --list --score 2>/dev/null | while read -r score dir; do
+    kind=""
+    if [[ -d "$dir/.git" ]]; then
+      kind=repo
+    elif [[ -f "$dir/.git" ]] && read -r line < "$dir/.git"; then
+      gitdir="${line#gitdir: }"
+      [[ "$gitdir" != /* ]] && gitdir="${${:-$dir/$gitdir}:a}"
+      [[ "$gitdir" == */.git/worktrees/* ]] && kind="wt:${gitdir%/.git/worktrees/*}"
+    fi
+    printf '%s\t%s\t%s\n' "$score" "$dir" "$kind"
+  done
+}
+
 _project_build_list() {
   # Outputs PATH<TAB>LABEL lines for fzf, with group headers (empty PATH field).
-  # Args: cache_file [kitty_cwds]
+  # Args: cache_file [kitty_cwds] [zoxide_scores]
   # kitty_cwds: newline-separated list of open cwds; empty = skip open detection.
+  # zoxide_scores: _project_zoxide_scores output; empty = alphabetical order.
   local cache_file="$1"
   local kitty_cwds="${2:-}"
+  local zoxide_scores="${3:-}"
 
-  # BSD awk rejects newlines in -v values, so roots and cwds are fed as file
-  # input via a single process substitution, separated by a "---" sentinel.
+  # BSD awk rejects newlines in -v values, so roots, cwds and scores are fed as
+  # file input via a single process substitution, separated by "---" sentinels.
   # FNR==NR identifies this first file; the cache is the second file.
-  awk '
-  function make_label(path,    i, pfx) {
+  # Emits GROUP<TAB>SCORE<TAB>LABEL<TAB>PATH rows, sorted then formatted below.
+  awk -F '\t' '
+  function make_label(path,    i, pfx, home) {
     for (i = 1; i <= n_roots; i++) {
       pfx = root_arr[i] "/"
       if (substr(path, 1, length(pfx)) == pfx)
         return substr(path, length(pfx) + 1)
     }
+    home = ENVIRON["HOME"] "/"
+    if (home != "/" && substr(path, 1, length(home)) == home)
+      return "~/" substr(path, length(home) + 1)
     return path
   }
-  function is_open(path,    i, c) {
-    for (i = 1; i <= n_cwds; i++) {
-      c = cwd_arr[i]
-      if (c == path || substr(c, 1, length(path) + 1) == path "/")
-        return 1
+  function add_repo(path) {
+    if (!(path in is_repo)) { is_repo[path] = 1; paths[++n] = path }
+  }
+  function parent(p) {
+    sub(/\/[^\/]*$/, "", p)
+    return p
+  }
+  # Walks up from dir to the repos containing it (a worktree counts as its
+  # main repo). Fills found[1..] innermost first; returns how many.
+  function owners(dir,    p, k) {
+    k = 0
+    for (p = dir; p != ""; p = parent(p)) {
+      if (p in wt_main)      found[++k] = wt_main[p]
+      else if (p in is_repo) found[++k] = p
     }
-    return 0
+    return k
   }
   FNR == NR {
-    if ($0 == "---") { in_cwds = 1; next }
-    if (in_cwds) { if (NF) cwd_arr[++n_cwds] = $0 }
-    else root_arr[++n_roots] = $0
+    if ($0 == "---") { section++; next }
+    if (!NF) next
+    if (section == 0)      root_arr[++n_roots] = $0
+    else if (section == 1) cwd_arr[++n_cwds] = $0
+    else {
+      z_score[++n_z] = $1; z_dir[n_z] = $2
+      if ($3 == "repo") add_repo($2)
+      else if (substr($3, 1, 3) == "wt:") { wt_main[$2] = substr($3, 4); add_repo(wt_main[$2]) }
+    }
     next
   }
-  NF {
-    paths[++n] = $0
-    labels[n]  = make_label($0)
-    open[n]    = (n_cwds > 0) ? is_open($0) : 0
-  }
+  NF { add_repo($0) }
   END {
-    has_open = 0
-    for (i = 1; i <= n; i++) if (open[i]) { has_open = 1; break }
-    if (has_open) {
-      print "\t── Open ──"
-      for (i = 1; i <= n; i++) if (open[i])  print paths[i] "\t* " labels[i]
+    for (i = 1; i <= n_z; i++)
+      if (owners(z_dir[i])) score[found[1]] += z_score[i]
+    for (i = 1; i <= n_cwds; i++)
+      for (k = owners(cwd_arr[i]); k > 0; k--) open[found[k]] = 1
+    for (i = 1; i <= n; i++) {
+      p = paths[i]
+      printf "%d\t%.4f\t%s\t%s\n", (p in open) ? 0 : 1, score[p] + 0, make_label(p), p
     }
-    print "\t── All ──"
-    for (i = 1; i <= n; i++) if (!open[i]) print paths[i] "\t" labels[i]
   }
-  ' <({ _project_parse_roots; printf -- '---\n'; printf '%s' "$kitty_cwds"; }) "$cache_file"
+  ' <({ _project_parse_roots; print -- '---'; print -r -- "$kitty_cwds"; print -- '---'; print -r -- "$zoxide_scores"; }) "$cache_file" \
+  | LC_ALL=C sort -t $'\t' -k1,1n -k2,2gr -k3,3 \
+  | awk -F '\t' '
+  $1 == 0 && !open_hdr { print "\t── Open ──"; open_hdr = 1 }
+  $1 == 1 && !all_hdr  { print "\t── All ──";  all_hdr = 1 }
+  { print $4 "\t" ($1 == 0 ? "* " : "") $3 }
+  END { if (!all_hdr) print "\t── All ──" }
+  '
 }
 
 _project_preview_windows() {
@@ -180,7 +225,7 @@ _project_picker() {
 
   local result
   result=$(
-    _project_build_list "$cache_file" "$kitty_cwds" | fzf \
+    _project_build_list "$cache_file" "$kitty_cwds" "$(_project_zoxide_scores)" | fzf \
       --query "$query" \
       --prompt='Project> ' \
       --delimiter $'\t' \
