@@ -7,16 +7,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```zsh
 zsh functions/notes-tests.zsh
 zsh functions/project-tests.zsh
+zsh functions/sw-tests.zsh
 (cd ../python/tidy-windows-advise && uv run pytest)
 ```
 
-Each zsh suite exits with code 1 if any test fails. `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic.
+Each zsh suite exits with code 1 if any test fails. `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `sw-tests.zsh` tests `sw` against a temp repo with worktrees. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic.
 
 ## Architecture
 
 Zsh shell tools for navigating projects and notes. Details are split out by area:
 
-- **[docs/project-picker.md](docs/project-picker.md)** — `functions/project.zsh`, `bin/switch-project`, `bin/window`(-list), `bin/tidy-windows` and `python/tidy-windows-advise/advise`, and how Claude Code session names/titles are looked up for the window switcher.
+- **[docs/project-picker.md](docs/project-picker.md)** — `functions/project.zsh`, `functions/sw.zsh`, `bin/switch-project`, `bin/window`(-list), `bin/tidy-windows` and `python/tidy-windows-advise/advise`, and how Claude Code session names/titles are looked up for the window switcher.
 - **[docs/notes.md](docs/notes.md)** — `functions/notes-lib.zsh`, `functions/web.zsh`, `bin/web`, `bin/note`: the notes vault (`$HOME/notes`) tooling.
 - **[docs/ide-tools.md](docs/ide-tools.md)** — `bin/ide`, `bin/close-project`, `bin/project-web`.
 
