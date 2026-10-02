@@ -194,3 +194,17 @@ echo "source $PWD/kitty/kitty-cd-link.zsh" >> ~/.zshrc
 ```
 
 `open-actions.conf` replaces any existing one; move yours aside first.
+
+---
+
+## kitty shaders
+
+`kitty/shaders/gentle.pipeline` combines toned-down versions of kitty's shipped [custom shaders](https://sw.kovidgoyal.net/kitty/custom-shaders/): inactive-window dimming, a focus glow on window and tab switches, a small mouse spotlight, a click ripple and the blaze cursor trail. Each tuned value is commented with the stock value. Needs kitty 0.49+ and `cursor_trail` enabled.
+
+### Installation
+
+```zsh
+mkdir -p ~/.config/kitty/shaders
+ln -s $PWD/kitty/shaders/gentle.pipeline ~/.config/kitty/shaders/gentle.pipeline
+echo 'custom_shaders gentle' >> ~/.config/kitty/kitty.conf
+```

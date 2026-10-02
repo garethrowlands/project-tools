@@ -1,6 +1,6 @@
 ---
 name: install-scripts
-description: Install this repo's zsh scripts (ide, close-project, switch-project, window, tidy-windows, project-web, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh). Use when setting up a new machine or adding a symlink for a newly added bin script.
+description: Install this repo's zsh scripts (ide, close-project, switch-project, window, tidy-windows, project-web, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh) and the custom shader pipeline in kitty/shaders/. Use when setting up a new machine or adding a symlink for a newly added bin script.
 ---
 
 ## Installation
@@ -57,3 +57,15 @@ echo "source $PWD/kitty/kitty-cd-link.zsh" >> ~/.zshrc
 ```
 
 Then reload kitty's config (Cmd+Ctrl+,) and start a new shell. Needs kitty's shell integration and `micro`, `glow`, `yazi` on `PATH`. See `docs/kitty-links.md`.
+
+## kitty shaders (`kitty/shaders/`)
+
+Symlink the pipeline into kitty's `shaders/` config directory and enable it (kitty 0.49+; the cursor trail group needs `cursor_trail` > 0 in `kitty.conf`). Move any existing `~/.config/kitty/shaders/gentle.pipeline` aside first.
+
+```zsh
+mkdir -p ~/.config/kitty/shaders
+ln -s $PWD/kitty/shaders/gentle.pipeline ~/.config/kitty/shaders/gentle.pipeline
+grep -q '^custom_shaders' ~/.config/kitty/kitty.conf || echo 'custom_shaders gentle' >> ~/.config/kitty/kitty.conf
+```
+
+Then reload kitty's config (Cmd+Ctrl+,).
