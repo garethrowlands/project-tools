@@ -167,3 +167,30 @@ note [query]
 ln -s $PWD/zsh/bin/web ~/.local/bin/web
 ln -s $PWD/zsh/bin/note ~/.local/bin/note
 ```
+
+---
+
+## kitty link handling
+
+Clicking a file or directory link (e.g. from `eza --hyperlink`) opens it in a TUI instead of a GUI app; clicking a directory `cd`s the shell in that pane.
+
+- Directory: `cd` in the pane's zsh when it is idle at a prompt, otherwise `yazi`
+- `file#LINE` (from `rg --hyperlink-format=kitty`): `micro` at that line
+- Markdown: `glow` (`e` to edit, `o` to open in Obsidian when the note is in a vault)
+- Other text: `micro`; anything else: `yazi` with the file selected
+- `Cmd+click` opens links without kitty's double-click delay
+- `Cmd+P` shows a menu of hint modes, including `p`: insert the quoted path of a listed file
+
+Needs kitty 0.49+, zsh with kitty's shell integration, and `micro`, `glow` and `yazi`. Details and the kitty quirks involved: [docs/kitty-links.md](docs/kitty-links.md).
+
+### Installation
+
+```zsh
+for f in open_local.py hint_menu.py open-actions.conf links.conf; do
+  ln -s $PWD/kitty/$f ~/.config/kitty/$f
+done
+echo 'include links.conf' >> ~/.config/kitty/kitty.conf
+echo "source $PWD/kitty/kitty-cd-link.zsh" >> ~/.zshrc
+```
+
+`open-actions.conf` replaces any existing one; move yours aside first.

@@ -1,6 +1,6 @@
 ---
 name: install-scripts
-description: Install this repo's zsh scripts (ide, close-project, switch-project, window, tidy-windows, project-web, web, note) onto PATH via symlinks, and set up kitty.conf for bin/window's live preview and key bindings. Use when setting up a new machine or adding a symlink for a newly added bin script.
+description: Install this repo's zsh scripts (ide, close-project, switch-project, window, tidy-windows, project-web, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh). Use when setting up a new machine or adding a symlink for a newly added bin script.
 ---
 
 ## Installation
@@ -43,3 +43,17 @@ map kitty_mod+i       launch --type=overlay --cwd=current ide
 map kitty_mod+n       launch --type=overlay --cwd=current note
 map kitty_mod+b       launch --type=overlay --cwd=current project-web
 ```
+
+## kitty link handling (`kitty/`)
+
+Symlink the kittens and config into the kitty config directory (kitty follows the symlinks), include the mappings, and source the zsh side. Move any existing `~/.config/kitty/open-actions.conf` aside first — this one replaces it.
+
+```zsh
+for f in open_local.py hint_menu.py open-actions.conf links.conf; do
+  ln -s $PWD/kitty/$f ~/.config/kitty/$f
+done
+echo 'include links.conf' >> ~/.config/kitty/kitty.conf
+echo "source $PWD/kitty/kitty-cd-link.zsh" >> ~/.zshrc
+```
+
+Then reload kitty's config (Cmd+Ctrl+,) and start a new shell. Needs kitty's shell integration and `micro`, `glow`, `yazi` on `PATH`. See `docs/kitty-links.md`.
