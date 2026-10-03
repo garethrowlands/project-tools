@@ -30,12 +30,19 @@ startgroup
     animation_curve ease-in
     animation_step 16
     # brightness boost inside the window (stock: 0.30)
-    var float HIGHLIGHT_INTENSITY = 0.15
-    # border glow strength (stock: 0.55)
-    var float BORDER_GLOW = 0.35
+    var float HIGHLIGHT_INTENSITY = 0.08
+    # stock multiplicative edge glow off (stock: 0.55); the additive glow
+    # below shows on dark backgrounds too
+    var float BORDER_GLOW = 0
+    # additive edge glow (local shader options; stock: off)
+    var float GLOW_STRENGTH = 0.5
+    # active_border_color #e7e7e7 in linear RGB
+    var float3 GLOW_COLOR = float3(0.8)
+    var float GLOW_WIDTH_PX = 8.0
     var float INACTIVE_DIM = 1.0
     var bool INCLUDE_WINDOW_PADDING = true
-    shaders focus-highlight
+    # local copy of focus-highlight with an additive edge glow
+    shaders focus-highlight-local
 endgroup
 
 # 3. Spotlight around the mouse pointer. Hidden while the pointer is hidden

@@ -199,13 +199,13 @@ echo "source $PWD/kitty/kitty-cd-link.zsh" >> ~/.zshrc
 
 ## kitty shaders
 
-`kitty/shaders/gentle.pipeline` combines toned-down versions of kitty's shipped [custom shaders](https://sw.kovidgoyal.net/kitty/custom-shaders/): inactive-window dimming, a focus glow on window and tab switches, a small mouse spotlight, a click ripple and the blaze cursor trail. Each tuned value is commented with the stock value. The trail uses `cursor-trail-blaze-local.slang`, a reworked copy of kitty's blaze shader: a short comet that travels to the cursor (driven by kitty's own trail animation, so `cursor_trail_decay` sets its speed), blended at reduced opacity, and no trail when focus moves to another window. Needs kitty 0.49+ and `cursor_trail` enabled.
+`kitty/shaders/gentle.pipeline` combines toned-down versions of kitty's shipped [custom shaders](https://sw.kovidgoyal.net/kitty/custom-shaders/): inactive-window dimming, a focus glow on window and tab switches, a small mouse spotlight, a click ripple and the blaze cursor trail. Each tuned value is commented with the stock value. The trail uses `cursor-trail-blaze-local.slang`, a reworked copy of kitty's blaze shader: a short comet that travels to the cursor (driven by kitty's own trail animation, so `cursor_trail_decay` sets its speed), blended at reduced opacity, and no trail when focus moves to another window. The focus glow uses `focus-highlight-local.slang`, a copy of kitty's focus-highlight that adds a light band at the window's edges, so it shows on dark backgrounds. Needs kitty 0.49+ and `cursor_trail` enabled.
 
 ### Installation
 
 ```zsh
 mkdir -p ~/.config/kitty/shaders
-for f in gentle.pipeline cursor-trail-blaze-local.slang; do
+for f in gentle.pipeline cursor-trail-blaze-local.slang focus-highlight-local.slang; do
   ln -s $PWD/kitty/shaders/$f ~/.config/kitty/shaders/$f
 done
 echo 'custom_shaders gentle' >> ~/.config/kitty/kitty.conf

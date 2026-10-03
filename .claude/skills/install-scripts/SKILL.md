@@ -60,11 +60,11 @@ Then reload kitty's config (Cmd+Ctrl+,) and start a new shell. Needs kitty's she
 
 ## kitty shaders (`kitty/shaders/`)
 
-Symlink the pipeline and its local shader into kitty's `shaders/` config directory and enable it (kitty 0.49+; the cursor trail group needs `cursor_trail` > 0 in `kitty.conf`). Move any existing files of the same names aside first.
+Symlink the pipeline and its local shaders into kitty's `shaders/` config directory and enable it (kitty 0.49+; the cursor trail group needs `cursor_trail` > 0 in `kitty.conf`). Move any existing files of the same names aside first.
 
 ```zsh
 mkdir -p ~/.config/kitty/shaders
-for f in gentle.pipeline cursor-trail-blaze-local.slang; do
+for f in gentle.pipeline cursor-trail-blaze-local.slang focus-highlight-local.slang; do
   ln -s $PWD/kitty/shaders/$f ~/.config/kitty/shaders/$f
 done
 grep -q '^custom_shaders' ~/.config/kitty/kitty.conf || echo 'custom_shaders gentle' >> ~/.config/kitty/kitty.conf
