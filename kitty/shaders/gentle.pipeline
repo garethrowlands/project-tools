@@ -44,11 +44,11 @@ startgroup
     animation_start os-window-focus-in | user-activity
     animation_stop os-window-focus-out | user-idle
     # brightness outside the spot (stock: 0.5)
-    var float AMBIENT_LIGHT = 0.88
+    var float AMBIENT_LIGHT = 0.75
     # spot radius in UV units (stock: 0.25)
-    var float SPOTLIGHT_RADIUS = 0.12
+    var float SPOTLIGHT_RADIUS = 0.2
     # lower = softer edge (stock: 20); edge width is 1/SOFTNESS, keep it < RADIUS
-    var float SPOTLIGHT_SOFTNESS = 14.0
+    var float SPOTLIGHT_SOFTNESS = 10.0
     shaders spotlight
 endgroup
 
