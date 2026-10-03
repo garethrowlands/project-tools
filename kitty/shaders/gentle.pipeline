@@ -77,12 +77,19 @@ endgroup
 startgroup
     animation_start cursor-trail-move
     animation_stop cursor-trail-stop
-    # trail lifetime in seconds (stock: 0.5)
-    var float DURATION = 0.35
+    # ~60fps while the trail animates (default 50ms looks laggy)
+    animation_step 16
+    # speed/length come from cursor_trail_decay in kitty.conf (the local shader
+    # follows kitty's own trail animation instead of blaze's DURATION)
     # colours are painted fully opaque, so tone down via the colours (linear RGB)
     # fill, stock: float4(1.0, 0.725, 0.161, 1.0)
     var float4 TRAIL_COLOR = float4(0.8, 0.5, 0.12, 1.0)
-    # edge accent, stock: float4(1.0, 0.0, 0.0, 1.0)
-    var float4 TRAIL_COLOR_ACCENT = float4(0.75, 0.1, 0.05, 1.0)
-    shaders cursor-trail-blaze
+    # edge accent uses the cursor colour (local shader option; stock edge is
+    # TRAIL_COLOR_ACCENT = float4(1.0, 0.0, 0.0, 1.0))
+    var bool ACCENT_FROM_CURSOR = true
+    # blend with the text underneath (local shader option; stock: 1.0)
+    var float TRAIL_OPACITY = 0.6
+    # cap the visible tail at ~6 line heights (local shader option; stock: unlimited)
+    var float MAX_TRAIL_LENGTH = 6.0    # local copy of cursor-trail-blaze that skips trails on window switches
+    shaders cursor-trail-blaze-local
 endgroup
