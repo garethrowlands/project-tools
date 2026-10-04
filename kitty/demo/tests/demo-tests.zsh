@@ -506,7 +506,8 @@ zsh $DEMO_ROOT/play 2 --dry-run >/dev/null 2>&1 && ok 'chapter 2 dry-runs' || ba
 shape() { zsh $DEMO_ROOT/play 2 --dry-run --only $1 2>&1 | grep -E '^(press|wait-layout|wait-own-tab)' | paste -sd, - }
 is 'ch2 beat 1 opens A and B with the real key' "$(shape 1)" 'press-new A cmd+shift+enter,press-new B cmd+shift+enter'
 [[ $(zsh $DEMO_ROOT/play 2 --dry-run --only 1 2>&1) != *card* ]] && ok 'ch2 beat 1 opens no director panes' || bad 'ch2 beat 1 still opens cards'
-is 'ch2 beat 2 hops focus'                 "$(shape 2)" 'press-focus cmd+right,press-focus cmd+up,press-focus cmd+left'
+is 'ch2 beat 2 hops focus from B, where beat 1 left it' "$(shape 2)" 'press-focus cmd+up,press-focus cmd+left,press-focus cmd+right,press-focus cmd+down'
+zsh $DEMO_ROOT/play 2 --dry-run --only 2 2>&1 | grep -q '^focus ' && bad 'ch2 beat 2 moves focus without a key' || ok 'ch2 beat 2 moves focus only with keys'
 is 'ch2 beat 3 moves a pane and back'      "$(shape 3)" 'press-reorders cmd+shift+right,press-reorders cmd+shift+left'
 is 'ch2 beat 4 tours the layouts back to tall' "$(shape 4)" 'press cmd+f,wait-layout fat,press cmd+g,wait-layout grid,press cmd+s,wait-layout stack,press cmd+t,wait-layout tall'
 is 'ch2 beat 5 zooms and back'             "$(shape 5)" 'press ctrl+alt+z,wait-layout stack,press ctrl+alt+z,wait-layout tall'
