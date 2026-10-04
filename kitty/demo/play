@@ -8,6 +8,10 @@
 # plays beats/NN-*.zsh against it. Its log is $TMPDIR/kitty-demo/play.log.
 # Abort with Ctrl+Alt+Cmd+. (Hammerspoon) or by quitting presenterm, which
 # makes play signal the director.
+#
+# A chapter with an `instance` file (chapter 3) runs in a kitty instance of
+# its own: play builds the chapter's world, starts that kitty on the world's
+# session, and the session's deck window runs `play CHAPTER --inside …`.
 
 setopt extended_glob
 zmodload zsh/system
@@ -109,8 +113,10 @@ demo_preflight() {
     print -u2 'play: kitten @ cannot reach kitty (allow_remote_control socket-only and listen_on in kitty.conf)'
     return 1
   fi
-  [[ $(demo_kitten ls | jq "[.[].tabs[] | select(any(.windows[]; .id == $deck)) | .windows[]] | length") == 1 ]] \
-    || { print -u2 'play: run me in a pane that is alone in its tab'; ok=0 }
+  if [[ ! -r $DEMO_CHAPTER_DIR/instance ]]; then
+    [[ $(demo_kitten ls | jq "[.[].tabs[] | select(any(.windows[]; .id == $deck)) | .windows[]] | length") == 1 ]] \
+      || { print -u2 'play: run me in a pane that is alone in its tab'; ok=0 }
+  fi
   for cmd in presenterm micro eza rg jq hs; do
     (( $+commands[$cmd] )) || { print -u2 "play: $cmd is not on PATH"; ok=0 }
   done
@@ -136,6 +142,54 @@ demo_preflight() {
   (( ok ))
 }
 
+# demo_inside_socket_ok: inside an instance, kitten @ must reach the demo's
+# own kitty, never the user's (tidy-windows there would close real windows).
+demo_inside_socket_ok() {
+  [[ $KITTY_LISTEN_ON == unix:$DEMO_STATE/kitty.sock* ]] \
+    || { print -ru2 -- "play: --inside, but kitten @ would reach ${KITTY_LISTEN_ON:-no kitty}, not $DEMO_STATE/kitty.sock"; return 1 }
+}
+
+# What an instance chapter needs beyond demo_preflight's checks.
+demo_preflight_instance() {
+  local ok=1 cmd app
+  local claude_dir=${CLAUDE_DEMO_DIR:-$HOME/.claude-demo} world=${DEMO_WORLD:-$HOME/kitty-demo}
+  for cmd in kitty zoxide claude code gh uv git; do
+    (( $+commands[$cmd] )) || { print -u2 "play: $cmd is not on PATH"; ok=0 }
+  done
+  [[ -n ${ANTHROPIC_API_KEY:-} ]] || { print -u2 'play: ANTHROPIC_API_KEY is not set (tidy-windows needs it)'; ok=0 }
+  [[ -r $claude_dir/kitty-demo-sessions ]] \
+    || { print -u2 "play: no Claude demo sessions: log in once with CLAUDE_CONFIG_DIR=$claude_dir claude, then run $DEMO_CHAPTER_DIR/setup-claude"; ok=0 }
+  [[ ! -e $world || -e $world/.kitty-demo-world ]] \
+    || { print -u2 "play: $world exists and isn't a kitty demo world (set DEMO_WORLD)"; ok=0 }
+  for app in com.microsoft.VSCode com.microsoft.edgemac; do
+    [[ $(demo_hs "return hs.application.pathForBundleID('$app') ~= nil" 2>/dev/null) == true ]] \
+      || { print -u2 "play: $app is not installed"; ok=0 }
+  done
+  (( ok ))
+}
+
+# demo_instance_cmd WORLD: the command that starts the chapter's kitty, in
+# $reply: the user's kitty.conf, the demo's own socket and session, the
+# world's environment, and none of the outer kitty's variables.
+demo_instance_cmd() {
+  reply=(env -u KITTY_WINDOW_ID -u KITTY_LISTEN_ON -u KITTY_PID -u KITTY_PUBLIC_KEY
+    ZDOTDIR=$DEMO_STATE/zdotdir PROJECT_ROOTS=$1 PROJECT_CACHE=$DEMO_STATE/projects.txt
+    _ZO_DATA_DIR=$DEMO_STATE/zoxide CLAUDE_CONFIG_DIR=${CLAUDE_DEMO_DIR:-$HOME/.claude-demo}
+    kitty --listen-on unix:$DEMO_STATE/kitty.sock --start-as=maximized
+    -o confirm_os_window_close=0 -o macos_quit_when_last_window_closed=yes
+    --session $DEMO_STATE/session.kitty)
+}
+
+# demo_run_instance OPTION...: build the world, start its kitty (whose deck
+# runs play --inside with the same OPTIONs) and wait for it to quit.
+demo_run_instance() {
+  local world=${DEMO_WORLD:-$HOME/kitty-demo}
+  mkdir -p $DEMO_STATE
+  zsh $DEMO_CHAPTER_DIR/build-world $world $DEMO_STATE -- $DEMO_ROOT/play ${DEMO_CHAPTER_DIR:t} --inside "$@" || return 1
+  demo_instance_cmd $world
+  "${reply[@]}"
+}
+
 # demo_present DIRECTOR_PID: show the deck until the viewer quits presenterm,
 # then stop the director (its EXIT trap cleans up). Not exec: play runs under
 # the pane's shell, which outlives presenterm, so the pane never closes.
@@ -154,7 +208,8 @@ demo_direct() {
 }
 
 demo_play_main() {
-  local from=0 only=
+  local from=0 only= inside=0
+  local -a passthrough
   local -a beats
   if (( ! $# )); then
     print -r -- 'chapters:'
@@ -178,12 +233,17 @@ demo_play_main() {
         esac
         shift 2 ;;
       --dry-run) DEMO_DRY=1; shift ;;
+      --inside)  inside=1; shift ;;
       -h|--help) demo_usage; return 0 ;;
       *)         demo_usage >&2; return 2 ;;
     esac
   done
   [[ $from == <-> && ( -z $only || $only == <-> ) && $DEMO_SLOW == [0-9.]## ]] \
     || { demo_usage >&2; return 2 }
+  passthrough=()
+  (( from )) && passthrough+=(--from $from)
+  [[ -n $only ]] && passthrough+=(--only $only)
+  [[ $DEMO_SLOW != 1 ]] && passthrough+=(--slow $DEMO_SLOW)
   beats=( ${(f)"$(demo_select_beats $DEMO_CHAPTER_DIR/beats $from $only)"} )
   (( $#beats )) || { print -u2 'play: no beats selected'; return 2 }
 
@@ -193,6 +253,15 @@ demo_play_main() {
     return
   fi
 
+  if [[ -r $DEMO_CHAPTER_DIR/instance ]] && (( ! inside )); then
+    demo_preflight && demo_preflight_instance || return 1
+    demo_run_instance $passthrough
+    return
+  fi
+  if (( inside )); then
+    demo_inside_socket_ok || return 1
+    DEMO_INSIDE=1
+  fi
   demo_preflight || return 1
   DEMO_IDS[deck]=$KITTY_WINDOW_ID
   [[ -r $DEMO_CHAPTER_DIR/layout ]] && typeset -g DEMO_START_LAYOUT=$(<$DEMO_CHAPTER_DIR/layout)

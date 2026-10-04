@@ -15,6 +15,7 @@ typeset -g  DEMO_DRY=${DEMO_DRY:-0} DEMO_SLOW=${DEMO_SLOW:-1} DEMO_BEAT=${DEMO_B
 typeset -g  DEMO_STATE=${DEMO_STATE:-${TMPDIR:-/tmp}/kitty-demo}
 typeset -g  DEMO_TIMEOUT=${DEMO_TIMEOUT:-5}   # seconds a readiness poll may take
 typeset -g  DEMO_LAYOUT=''                    # the deck tab's layout before the run
+typeset -g  DEMO_INSIDE=${DEMO_INSIDE:-0}     # 1: running in a chapter's own kitty instance
 
 # The outside world, as functions the tests replace.
 demo_kitten() { command kitten @ "$@" }
@@ -230,6 +231,10 @@ demo_cleanup() {
     demo_kitten goto-layout --match window_id:$deck $DEMO_LAYOUT >/dev/null 2>&1
   fi
   demo_hs 'return demoStage.finish()' >/dev/null 2>&1
+  # In a chapter's own kitty instance, closing the deck's OS window quits the
+  # instance (macos_quit_when_last_window_closed); it ends this process too,
+  # so it comes last.
+  (( DEMO_INSIDE )) && demo_kitten close-os-window --match id:$deck >/dev/null 2>&1
   return 0
 }
 

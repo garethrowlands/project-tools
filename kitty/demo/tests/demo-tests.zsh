@@ -345,6 +345,12 @@ is 'section-sign badge' "$(demo_press_args cmd+§)" '{"cmd"}, "§", "⌘§"'
 is 'adopt dry-runs' "$(DEMO_DRY=1 adopt x 'var:demo=x')" 'adopt x var:demo=x'
 grep -q 'if tiled then M.closeTiled() end' $DEMO_ROOT/stage.lua && ok 'finish closes a tiled app' || bad 'finish leaves a tiled app open'
 
+# cleanup inside the instance closes the deck's OS window, last
+reset_stubs; DEMO_INSIDE=1
+demo_cleanup
+is 'inside cleanup closes the instance last' "$(tail -1 $T/kcalls)" 'close-os-window --match id:7'
+DEMO_INSIDE=0
+
 # --- play -------------------------------------------------------------------------
 # Sourcing play re-sources lib.zsh, which replaces the stubs above with the
 # real kitty/Hammerspoon functions; sections from here on run play as a
@@ -622,6 +628,37 @@ PATH=$T/bin3:$PATH CLAUDE_DEMO_DIR=$T/cd3 DEMO_WORLD=$T/w7 TMPDIR=$T/tmp3 \
 is 'setup-claude records both sessions' "$(<$T/cd3/kitty-demo-sessions)" $'shop-api sid-shop-api\ninfra sid-infra'
 CLAUDE_DEMO_DIR=$T/absent zsh $C3/setup-claude >/dev/null 2>$T/sc.err
 [[ $? == 1 && $(<$T/sc.err) == *'claude'* ]] && ok 'setup-claude asks for a login first' || bad "setup-claude without profile: $(<$T/sc.err)"
+
+# --- instance mode ---------------------------------------------------------------------
+DEMO_STATE=$T/st9
+demo_instance_cmd $T/w9
+cmd=" ${reply[*]} "
+for want in ' -u KITTY_LISTEN_ON ' ' -u KITTY_WINDOW_ID ' ' -u KITTY_PID ' " ZDOTDIR=$T/st9/zdotdir " \
+            " --listen-on unix:$T/st9/kitty.sock " ' -o confirm_os_window_close=0 ' \
+            ' -o macos_quit_when_last_window_closed=yes ' " --session $T/st9/session.kitty " " PROJECT_ROOTS=$T/w9 "; do
+  [[ $cmd == *$want* ]] && ok "instance command has${want% }" || bad "instance command lacks${want% }: $cmd"
+done
+# the whole outer run, with build-world and kitty faked
+mkdir -p $T/ch9/beats $T/bin9
+print -r -- '' >| $T/ch9/instance
+print -r -- 'print -r -- "$*" >| '$T'/bw9.args' >| $T/ch9/build-world
+print -r -- '#!/bin/zsh
+print -r -- "$ZDOTDIR|${KITTY_LISTEN_ON:-unset}|$*" >| '$T'/kitty9.args' >| $T/bin9/kitty
+chmod +x $T/bin9/kitty
+( DEMO_CHAPTER_DIR=$T/ch9 DEMO_WORLD=$T/w9 KITTY_LISTEN_ON=unix:/outer PATH=$T/bin9:$PATH demo_run_instance --from 2 )
+is 'outer run builds the world with an inner play' "$(<$T/bw9.args)" "$T/w9 $T/st9 -- $DEMO_ROOT/play ch9 --inside --from 2"
+[[ $(<$T/kitty9.args) == "$T/st9/zdotdir|unset|"*"--session $T/st9/session.kitty"* ]] \
+  && ok 'outer run starts kitty without the outer socket' || bad "kitty ran with: $(<$T/kitty9.args)"
+# the inner play refuses any socket but the demo's
+KITTY_LISTEN_ON=unix:/Users/x/.config/kitty/kitty-1.sock demo_inside_socket_ok 2>/dev/null \
+  && bad 'inner play accepted the outer kitty' || ok 'inner play refuses the outer kitty'
+KITTY_LISTEN_ON=unix:$T/st9/kitty.sock demo_inside_socket_ok && ok 'inner play accepts the demo socket' || bad 'inner play refused its own socket'
+# pre-flight for an instance chapter
+demo_hs() { print -r -- false }   # no Hammerspoon here
+out=$(CLAUDE_DEMO_DIR=$T/none DEMO_WORLD=$T/mine DEMO_CHAPTER_DIR=$C3 demo_preflight_instance 2>&1)
+[[ $out == *setup-claude* ]] && ok 'pre-flight points at setup-claude' || bad "pre-flight: $out"
+[[ $out == *DEMO_WORLD* ]] && ok 'pre-flight refuses an unmarked world' || bad "pre-flight: $out"
+zsh $DEMO_ROOT/play 1 --inside --dry-run >/dev/null 2>&1; is '--inside is accepted' $? 0
 
 # (later tasks add sections above this line)
 exit $fail
