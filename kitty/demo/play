@@ -74,6 +74,33 @@ demo_already_running() {
   [[ $pid == <-> ]] && kill -0 $pid 2>/dev/null
 }
 
+# demo_conf_maps CONF: the map lines of a kitty config and the files it
+# includes (relative includes resolve against the including file).
+demo_conf_maps() {
+  local conf=$1 line inc
+  [[ -r $conf ]] || return 0
+  while IFS= read -r line; do
+    line=${line//$'\t'/ }
+    case $line in
+      'map '*) print -r -- "$line" ;;
+      'include '*)
+        inc=${~${line#include }}
+        [[ $inc == /* ]] || inc=${conf:h}/$inc
+        demo_conf_maps $inc ;;
+    esac
+  done < $conf
+}
+
+# demo_missing_mappings REQUIRES CONF: required actions with no map line.
+demo_missing_mappings() {
+  local maps req
+  maps=$(demo_conf_maps $2)
+  while IFS= read -r req; do
+    [[ -z $req || $req == '#'* ]] && continue
+    grep -qE -- " ${req}( |\$)" <<<$maps || print -r -- $req
+  done < $1
+}
+
 # Everything a run needs, checked before anything visible happens.
 demo_preflight() {
   local ok=1 cmd deck=$KITTY_WINDOW_ID
@@ -99,6 +126,13 @@ demo_preflight() {
   fi
   grep -q '^custom_shaders gentle' ~/.config/kitty/kitty.conf 2>/dev/null \
     || print -u2 'play: warning: custom_shaders gentle is not in kitty.conf'
+  if [[ -r $DEMO_CHAPTER_DIR/requires ]]; then
+    [[ $(demo_hs 'return hs.application.frontmostApplication():bundleID()') == net.kovidgoyal.kitty ]] \
+      || { print -u2 'play: kitty must be the frontmost app (this chapter presses real keys)'; ok=0 }
+    local missing
+    missing=$(demo_missing_mappings $DEMO_CHAPTER_DIR/requires ~/.config/kitty/kitty.conf)
+    [[ -z $missing ]] || { print -u2 "play: kitty.conf has no mapping for: ${(j:, :)${(f)missing}}"; ok=0 }
+  fi
   (( ok ))
 }
 

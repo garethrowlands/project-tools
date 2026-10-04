@@ -329,6 +329,13 @@ zsh $DEMO_ROOT/play 9 --dry-run >/dev/null 2>&1; is 'unknown chapter is a usage 
 zsh $DEMO_ROOT/play --only 3 >/dev/null 2>&1; is 'an option before the chapter is a usage error' $? 2
 [[ $(zsh $DEMO_ROOT/play 1-shaders --dry-run --only 0 2>&1) == *"slide goto 1 'kitty, with shaders'"* ]] \
   && ok 'chapter by name dry-runs' || bad 'chapter by name does not dry-run'
+mkdir -p $T/kconf
+print -r -- $'map cmd+t goto_layout tall\nmap\tcmd+left\tneighboring_window left\ninclude extra.conf' >| $T/kconf/kitty.conf
+print -r -- 'map cmd+f kitten micro_keys.py cmd+f find -- goto_layout fat' >| $T/kconf/extra.conf
+print -r -- $'# needed\ngoto_layout tall\nneighboring_window left\ngoto_layout fat\ngoto_layout grid' >| $T/kconf/requires
+is 'mappings in included files count' "$(demo_missing_mappings $T/kconf/requires $T/kconf/kitty.conf)" 'goto_layout grid'
+print -r -- 'goto_layout tal' >| $T/kconf/requires2
+is 'a mapping must match whole words' "$(demo_missing_mappings $T/kconf/requires2 $T/kconf/kitty.conf)" 'goto_layout tal'
 
 # hs -c mirrors Hammerspoon's console log (e.g. "hotkey: Enabled hotkey")
 # before the returned value; demo_hs (the real one, restored by sourcing
