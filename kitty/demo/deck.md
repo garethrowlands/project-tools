@@ -40,10 +40,14 @@ watch the right-hand pane
 
 <!-- end_slide -->
 
-<!-- jump_to_middle -->
-
 Your mouse gets a spotlight
 ===========================
+
+Wherever the pointer goes, the text around it stays bright
+and everything else dims a little. It is gentle on purpose,
+and it lights only what is there: on an empty background
+there is nothing to light, so it shows best over text,
+like this paragraph, a page of code, logs or a man page.
 
 <!-- end_slide -->
 
