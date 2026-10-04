@@ -36,7 +36,7 @@ kitty only.
 | Keys | Real keystrokes posted by Hammerspoon, so the user's own `kitty.conf` mappings act |
 | Showing keys | On-screen badge (e.g. ⌘→) for each `press`, drawn by Hammerspoon at the bottom centre, ~1.2 s |
 | Narration | As chapter 1: one state per slide, each slide shown before its change, with a pause to read |
-| Panes | A and B are labelled `card` panes; C is a real shell opened by Cmd+Shift+Enter |
+| Panes | A and B are real shells, both opened by Cmd+Shift+Enter (badged; director-opened panes looked unexplained); each prints its directory and its name. No third pane |
 | Starting layout | Each chapter may name one in a `layout` file (default splits, which chapter 1 needs). Chapter 2 starts in **tall**, the user's own layout (they don't use splits); kitty places the panes as it would the user's: slides left, A, B, C stacked right. Focus hops → ↑ ↑ ←; the layout tour goes F, G, S, T and ends back on tall |
 | Left out | Cmd+F7 (pick a pane by number; the user doesn't use it), pressing Cmd+Shift+↓ (its "where to?" menu; mentioned on a slide only), Hammerspoon keys |
 
