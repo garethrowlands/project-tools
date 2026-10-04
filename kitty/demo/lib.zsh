@@ -388,7 +388,8 @@ press() {
   demo_dry press "$@" && return 0
   demo_deck_alive || return
   local args; args=$(demo_press_args $1) || { demo_err "press $1: bad keys"; return 1 }
-  [[ $(demo_hs "return demoStage.press($args)") == ok ]] || { demo_err "press $1 failed"; return 1 }
+  local reply; reply=$(demo_hs "return demoStage.press($args)")
+  [[ $reply == ok ]] || { demo_err "press $(demo_badge $1): ${reply:-no reply}"; return 1 }
 }
 
 demo_badge() { demo_press_args $1 | sed 's/.*, "\(.*\)"$/\1/' }

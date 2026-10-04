@@ -5,6 +5,7 @@ neighboring_window left
 neighboring_window up
 neighboring_window down
 move_window_forward
+move_window_backward
 goto_layout tall
 goto_layout fat
 goto_layout stack

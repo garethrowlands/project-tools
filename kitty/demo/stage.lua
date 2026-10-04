@@ -49,6 +49,12 @@ end
 -- Post a real keystroke (mods e.g. {"shift","cmd"}, key e.g. "return") to
 -- the frontmost app, showing `label` as the badge.
 function M.press(mods, key, label)
+  -- Never send keys to another app: a stray Cmd+T or Cmd+Shift+Enter there
+  -- would act before the beat's next wait noticed anything.
+  local front = hs.application.frontmostApplication()
+  if not (front and front:bundleID() == "net.kovidgoyal.kitty") then
+    return "kitty is not the frontmost app"
+  end
   showBadge(label)
   hs.eventtap.keyStroke(mods, key, 20000)
   return "ok"

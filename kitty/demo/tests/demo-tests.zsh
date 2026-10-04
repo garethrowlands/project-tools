@@ -150,6 +150,8 @@ demo_press_args hyper+x >/dev/null 2>&1 && bad 'unknown modifier accepted' || ok
 reset_stubs
 press cmd+t
 is 'press posts the key with its badge' "$(grep press $T/hcalls)" 'return demoStage.press({"cmd"}, "t", "⌘T")'
+HSREPLY='kitty is not the frontmost app' press cmd+t 2>$T/err && bad 'press accepted a refusal' || ok 'press fails when Hammerspoon refuses'
+[[ $(<$T/err) == *'⌘T'*'kitty is not the frontmost app'* ]] && ok 'press failure names the key and the reason' || bad "press failure: $(<$T/err)"
 
 # ls JSON helpers: one tab holding the given window ids, the first focused.
 # Verbs call demo_hs inside $(...), a subshell, so the fake kitty state lives
@@ -482,13 +484,19 @@ done
 zsh $DEMO_ROOT/play 2 --dry-run >/dev/null 2>&1 && ok 'chapter 2 dry-runs' || bad 'chapter 2 fails its dry run'
 shape() { zsh $DEMO_ROOT/play 2 --dry-run --only $1 2>&1 | grep -E '^(press|wait-layout|wait-tabs)' | paste -sd, - }
 is 'ch2 beat 1 opens C with the real key'  "$(shape 1)" 'press-new C cmd+shift+enter'
-is 'ch2 beat 2 hops focus'                 "$(shape 2)" 'press-focus cmd+right,press-focus cmd+down,press-focus cmd+left,press-focus cmd+up'
-is 'ch2 beat 3 moves a pane'               "$(shape 3)" 'press-reorders cmd+shift+right,press-reorders cmd+shift+right'
+is 'ch2 beat 2 hops focus'                 "$(shape 2)" 'press-focus cmd+right,press-focus cmd+right,press-focus cmd+up,press-focus cmd+left'
+is 'ch2 beat 3 moves a pane and back'      "$(shape 3)" 'press-reorders cmd+shift+right,press-reorders cmd+shift+left'
 is 'ch2 beat 4 switches layouts'           "$(shape 4)" 'press cmd+t,wait-layout tall,press cmd+f,wait-layout fat,press cmd+s,wait-layout stack,press cmd+g,wait-layout grid'
 is 'ch2 beat 5 zooms and back'             "$(shape 5)" 'press ctrl+alt+z,wait-layout stack,press ctrl+alt+z,wait-layout grid'
 is 'ch2 beat 6 detaches a pane'            "$(shape 6)" 'press cmd+shift+up,wait-tabs 2'
-is 'ch2 beat 7 switches tabs'              "$(shape 7)" 'press-focus ctrl+tab,press-focus ctrl+shift+tab'
-for req in new_window_with_cwd 'neighboring_window right' move_window_forward 'goto_layout grid' 'toggle_layout stack' 'detach_window new-tab'; do
+is 'ch2 beat 7 returns, then shows its slide, then switches' \
+  "$(zsh $DEMO_ROOT/play 2 --dry-run --only 7 2>&1 | grep -E '^(slide|press)' | awk '{print $1, $2}' | paste -sd, -)" \
+  'press-focus ctrl+tab,slide goto,press-focus ctrl+tab,press-focus ctrl+shift+tab'
+# C splits B (not the slides), so the slides keep half the screen and the
+# focus hops have a known neighbour each time
+is 'ch2 beat 1 focuses B before Cmd+Shift+Enter' \
+  "$(zsh $DEMO_ROOT/play 2 --dry-run --only 1 2>&1 | grep -B1 '^press-new' | head -1)" 'focus B'
+for req in new_window_with_cwd 'neighboring_window right' move_window_forward move_window_backward 'goto_layout grid' 'toggle_layout stack' 'detach_window new-tab'; do
   grep -qx -- $req $C2/requires && ok "chapter 2 requires $req" || bad "chapter 2 requires lacks $req"
 done
 
