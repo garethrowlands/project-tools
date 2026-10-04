@@ -33,6 +33,7 @@ Design: `docs/superpowers/specs/2026-10-04-kitty-shader-demo-design.md`.
 kitty/demo/play                    # list the chapters
 kitty/demo/play 1                  # chapter 1: shaders (~2 min)
 kitty/demo/play 2                  # chapter 2: windows, panes and tabs
+kitty/demo/play 3                  # chapter 3: getting around projects (its own kitty instance)
 kitty/demo/play 2 --only 4         # one beat
 kitty/demo/play 2 --from 4         # from beat 4 on
 kitty/demo/play 1 --slow 2         # every pause doubled
@@ -42,6 +43,21 @@ kitty/demo/play 1 --dry-run        # print every verb, touch nothing
 Chapter 2's beats 2–7 use the panes beat 1 opens, so rehearse them with
 `--from 1` rather than `--only`.
 
+## Chapter 3 setup (once)
+
+Chapter 3 runs in a kitty instance of its own, against a staged world in
+`~/kitty-demo` (override with `DEMO_WORLD`; play refuses a directory it
+didn't make), so the window switcher and tidy-windows never see your real
+windows. It also needs:
+
+1. A separate Claude Code login for the demo panes:
+   `CLAUDE_CONFIG_DIR=~/.claude-demo claude` (log in, `/exit`). It must stay
+   under `~/.claude*`: the window switcher looks for titles only there.
+2. The two recorded conversations: `kitty/demo/chapters/3-projects/setup-claude`
+   (two `claude -p` calls, a few cents; rerun to re-record).
+3. `ANTHROPIC_API_KEY` set (tidy-windows makes one real call per take),
+   VS Code, and Microsoft Edge as the default browser (⌘B's page opens there).
+
 ## Chapters
 
 Each chapter is `chapters/N-name/` with a `deck.md`, `beats/`, an optional
@@ -49,6 +65,13 @@ Each chapter is `chapters/N-name/` with a `deck.md`, `beats/`, an optional
 `requires`: the kitty actions its keystrokes rely on, one per line. When a
 chapter has `requires`, pre-flight checks each action is mapped in
 `kitty.conf` or a file it includes, and that kitty is the frontmost app.
+
+A chapter with an `instance` file (chapter 3) runs in a kitty instance of its
+own: play runs the chapter's `build-world` (staged repos, zoxide db, a zdotdir
+wrapping your own startup files, and a kitty session file), starts kitty on
+that session with its own socket, and the session's deck window runs `play
+CHAPTER --inside`. Quitting the deck quits that instance; your own kitty is
+never touched.
 
 Start a screen recording (Cmd+Shift+5) first, then hands off. Abort with
 **Ctrl+Alt+Cmd+.** or by quitting presenterm (`q`); either way the demo closes
@@ -83,6 +106,9 @@ left open.
 | `press-new NAME KEYS` | press, adopt the one new window as NAME |
 | `wait-layout NAME` / `wait-own-tab NAME` | readiness after a layout key / after sending NAME to its own tab |
 | `beat-pause SECONDS` | pacing (scaled by `--slow`) |
+| `adopt NAME MATCH` | name the one window matching MATCH (`var:demo=stray`, `cmdline:(^\|/)window$`) |
+| `wait-gone NAME` / `wait-in-tab NAME TITLE` / `wait-tab TITLE` | readiness after a tool closes or moves windows / switches tab |
+| `stage tile-next BUNDLE TITLE` / `stage wait-tiled` / `stage close-tiled` | tile a launcher's app window on the right half, then close it (Edge: only its tab) |
 
 ## Tests
 
