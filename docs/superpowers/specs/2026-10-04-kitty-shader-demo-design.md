@@ -128,9 +128,9 @@ Loaded from `~/.hammerspoon/init.lua` and exposed as `demoStage`:
    window's position within the OS window) together with the cell size.
 
 The conversion is a pure function (frame + ls JSON + percentages → point),
-tested against fixture JSON. Before beat 0 the main window is set to a fixed
-frame (centred, 1600×1000 points) so takes are consistent; its original frame
-is restored at cleanup.
+tested against fixture JSON. Before beat 0 the main window is made to fill
+the screen (the user tiles windows full, half or quarter screen), so takes
+are consistent; its original frame is restored at cleanup.
 
 ## Beat script
 
@@ -146,7 +146,7 @@ Panes: **deck** (presenterm), **A**, **B**, **C** (`card` unless noted).
 | 5 | *Clicks ripple* | The slide carries a paragraph and the ripple's pipeline group; three clicks on words in it, a pause after each. The ripple only bends existing text (on empty background it is invisible), so clicks always aim at text. ~8 s | deck, C |
 | 6 | *Which pane rang?* | Open A ("I'll ring in 3… 2… 1…"); it rings while focus stays on the deck. Close A. ~10 s | deck, C |
 | 7 | *…even in another tab* | C counts down and rings in tab 2: the tab area flashes and 🔔 shows on its tab title. Close C (and tab 2). ~8 s | deck |
-| 8 | *Which window am I typing in?* | Open a second OS window beside the main one ("I'm a separate kitty window. When I have focus, I get the amber edge."). Alternate focus between windows twice. Close it. ~14 s | deck |
+| 8 | *Which window am I typing in?* | Open a second OS window and tile the screen: main on the left half, the new window on the right ("I'm a separate kitty window. When I have focus, I get the amber edge."). Alternate focus between windows twice. Close it; main fills the screen again. ~14 s | deck |
 | 9 | *Click a link, land in a terminal app* | Open A: a shell in `scene/repo` that runs `eza --hyperlink` and `rg --hyperlink-format=kitty TODO`. Glide to an `rg` hit, Cmd+click → micro opens at that line; Esc. Glide to a directory in the `eza` listing, Cmd+click → the shell cds. Close A. ~14 s | deck |
 | 10 | **gentle.pipeline** / *kitty ≥ 0.49 · custom_shaders* | One last glide and click on the title text, then stillness for a fade. ~8 s | deck |
 

@@ -122,7 +122,7 @@ KLSJSON='[{"tabs":[{"layout":"tall","windows":[{"id":7}]}]}]'
 demo_begin $T/play.pid && ok 'demo_begin succeeds' || bad 'demo_begin failed'
 is 'demo_begin remembers the layout' "$DEMO_LAYOUT" 'tall'
 grep -qx 'goto-layout --match window_id:7 splits' $T/kcalls && ok 'demo_begin switches to splits' || bad 'no splits layout'
-is 'demo_begin pins the window'     "$(<$T/hcalls)" "return demoStage.begin(\"$T/play.pid\", 1600, 1000)"
+is 'demo_begin pins the window full screen' "$(<$T/hcalls)" "return demoStage.begin(\"$T/play.pid\")"
 HSREPLY='no focused window' demo_begin $T/play.pid 2>/dev/null && bad 'demo_begin ignored Hammerspoon' || ok 'demo_begin needs Hammerspoon'
 HSREPLY='no focused window' demo_begin $T/play.pid 2>$T/err
 [[ $(<$T/err) == *"Hammerspoon could not pin the kitty window: no focused window"* ]] \
@@ -197,16 +197,16 @@ is 'mouse click passes modifiers' "$(grep click $T/hcalls)" 'return demoStage.cl
 : >| $T/hcalls
 mouse click
 is 'plain mouse click' "$(grep click $T/hcalls)" 'return demoStage.click({})'
-stage place-beside 'kitty demo W'
-is 'stage place-beside' "$(grep placeBeside $T/hcalls)" 'return demoStage.placeBeside("kitty demo W")'
-HSREPLY='no window titled kitty demo W' DEMO_TIMEOUT=0.2 stage place-beside 'kitty demo W' 2>/dev/null \
-  && bad 'place-beside without the window accepted' || ok 'place-beside waits, then fails'
+stage tile-beside 'kitty demo W'
+is 'stage tile-beside' "$(grep tileBeside $T/hcalls)" 'return demoStage.tileBeside("kitty demo W")'
+HSREPLY='no window titled kitty demo W' DEMO_TIMEOUT=0.2 stage tile-beside 'kitty demo W' 2>/dev/null \
+  && bad 'tile-beside without the window accepted' || ok 'tile-beside waits, then fails'
 KGEOM= HSFRAME=
 
 # --- final-review fixes that need the stubs -------------------------------------------
 reset_stubs
-stage raise 'kitty demo W'
-is 'stage raise brings a window forward without focus' "$(grep raise $T/hcalls)" 'return demoStage.raise("kitty demo W")'
+stage fill
+is 'stage fill gives the main window the whole screen' "$(grep fill $T/hcalls)" 'return demoStage.fill()'
 
 # demo_sleep must let a trapped TERM act at once (the abort hotkey), not
 # after the whole pause. Run it in a separate zsh with the real lib.zsh.
@@ -341,7 +341,9 @@ dry=$(zsh $DEMO_ROOT/play --dry-run --only 9 2>&1)
 [[ $(cd $DEMO_ROOT/scene/repo && rg --hyperlink-format=kitty --color=always --heading -n TODO .) \
    == *$'main.py#5\e\\'*5*$'\e]8;;\e\\:#'* ]] && ok 'rg links the line number 5' || bad 'rg no longer links the line number'
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 8 2>&1)
-is 'beat 8 raises W after each deck focus' "$(print -r -- $dry | grep -A1 '^focus deck' | grep -c '^stage raise')" 2
+is 'beat 8 tiles W beside the deck, then fills again' \
+  "$(print -r -- $dry | grep -E '^(card open|stage|pane close)' | awk '{print $1, $2}' | paste -sd, -)" \
+  'card open,stage tile-beside,pane close,stage fill'
 is 'scene repo has one TODO' "$(rg -c TODO $DEMO_ROOT/scene/repo | paste -sd' ' -)" "$DEMO_ROOT/scene/repo/main.py:1"
 grep -rq glitter $DEMO_ROOT/scene/repo/main.py && bad 'glitter appears in rg output' || ok 'glitter only in the eza listing'
 

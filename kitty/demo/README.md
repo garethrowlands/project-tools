@@ -61,8 +61,8 @@ left open.
 | `keys NAME KEY…` / `type-text NAME TEXT` | input to its program (`focused` = whichever has focus) |
 | `wait-text NAME TEXT` / `wait-window MATCH` | readiness |
 | `mouse glide NAME X% Y% [MS]` / `mouse glide-text NAME TEXT [MS]` / `mouse click [cmd]` | the real pointer |
-| `stage place-beside TITLE` | float a second OS window over the main one |
-| `stage raise TITLE` | bring it in front again without focusing it |
+| `stage tile-beside TITLE` | tile the screen: main window left half, TITLE right half |
+| `stage fill` | main window back to the whole screen |
 | `beat-pause SECONDS` | pacing (scaled by `--slow`) |
 
 ## Tests

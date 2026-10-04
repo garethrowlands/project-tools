@@ -17,16 +17,15 @@ local function stopGlide()
   if glideTimer then glideTimer:stop(); glideTimer = nil end
 end
 
--- Pin the focused (kitty) window, centre it at w x h points on its screen,
--- park the pointer in its middle and arm Ctrl+Alt+Cmd+. to abort the run.
-function M.begin(pidPath, w, h)
+-- Pin the focused (kitty) window, make it fill its screen (the user tiles
+-- windows full, half or quarter screen), park the pointer in its middle and
+-- arm Ctrl+Alt+Cmd+. to abort the run.
+function M.begin(pidPath)
   main = hs.window.focusedWindow()
   if not main then return "no focused window" end
   pidFile = pidPath
   savedFrame = main:frame()
-  local s = main:screen():frame()
-  w, h = math.min(w, s.w), math.min(h, s.h)
-  main:setFrame({x = s.x + (s.w - w) / 2, y = s.y + (s.h - h) / 2, w = w, h = h}, 0)
+  main:setFrame(main:screen():frame(), 0)
   local f = main:frame()
   postMove({x = f.x + f.w / 2, y = f.y + f.h / 2})
   abortKey = abortKey or hs.hotkey.bind({"ctrl", "alt", "cmd"}, ".", M.abort)
@@ -39,20 +38,21 @@ function M.frame()
   return hs.json.encode({x = f.x, y = f.y, w = f.w, h = f.h})
 end
 
--- Float the window titled `title` over the right part of the pinned one.
-function M.placeBeside(title)
+-- Tile the screen: the pinned window on the left half, the window titled
+-- `title` on the right half.
+function M.tileBeside(title)
   local win = hs.window.get(title)
   if not (main and win) then return "no window titled " .. title end
-  local f = main:frame()
-  win:setFrame({x = f.x + f.w * 0.55, y = f.y + f.h * 0.15, w = f.w * 0.4, h = f.h * 0.55}, 0)
+  local s = main:screen():frame()
+  main:setFrame({x = s.x, y = s.y, w = s.w / 2, h = s.h}, 0)
+  win:setFrame({x = s.x + s.w / 2, y = s.y, w = s.w / 2, h = s.h}, 0)
   return "ok"
 end
 
--- Bring the window titled `title` to the front without giving it focus.
-function M.raise(title)
-  local win = hs.window.get(title)
-  if not win then return "no window titled " .. title end
-  win:raise()
+-- Give the pinned window its whole screen again.
+function M.fill()
+  if not main then return "no pinned window" end
+  main:setFrame(main:screen():frame(), 0)
   return "ok"
 end
 

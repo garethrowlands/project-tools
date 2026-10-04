@@ -190,9 +190,9 @@ beat-pause() {
 }
 
 # Start of a real run: the deck's tab goes to the splits layout (beats use
-# vsplit/hsplit) and Hammerspoon pins the focused kitty OS window, centres it
-# at 1600x1000 points, parks the pointer in it and arms the abort hotkey,
-# which signals the pid in PIDFILE.
+# vsplit/hsplit) and Hammerspoon pins the focused kitty OS window, makes it
+# fill the screen, parks the pointer in it and arms the abort hotkey, which
+# signals the pid in PIDFILE.
 demo_begin() {
   local deck=${DEMO_IDS[deck]} pidfile=$1
   DEMO_LAYOUT=$(demo_kitten ls --match id:$deck \
@@ -201,7 +201,7 @@ demo_begin() {
   demo_kitten goto-layout --match window_id:$deck splits >/dev/null \
     || { demo_err "cannot switch to the splits layout (is it in enabled_layouts?)"; return 1 }
   local reply
-  reply=$(demo_hs "return demoStage.begin($(demo_lua_str $pidfile), 1600, 1000)" 2>&1)
+  reply=$(demo_hs "return demoStage.begin($(demo_lua_str $pidfile))" 2>&1)
   [[ $reply == ok ]] || { demo_err "Hammerspoon could not pin the kitty window: ${reply:-no reply}"; return 1 }
 }
 
@@ -324,19 +324,17 @@ demo_glide() {
   demo_sleep $(( $3 / 1000.0 + 0.05 ))
 }
 
-demo_place_beside() { [[ $(demo_hs "return demoStage.placeBeside($(demo_lua_str $1))") == ok ]] }
+demo_tile_beside() { [[ $(demo_hs "return demoStage.tileBeside($(demo_lua_str $1))") == ok ]] }
 
-# stage place-beside TITLE: float the OS window titled TITLE over the right of
-#   the main window, so both are in shot. Waits for it to appear.
-# stage raise TITLE: bring it in front again without focusing it (focusing
-#   the main window raises the main window over it).
+# stage tile-beside TITLE: tile the screen: the main window on the left half,
+#   the OS window titled TITLE on the right half. Waits for it to appear.
+# stage fill: give the main window the whole screen again.
 stage() {
   demo_dry stage "$@" && return 0
   case $1 in
-    place-beside) demo_poll "an OS window titled '$2'" demo_place_beside $2 ;;
-    raise)
-      [[ $(demo_hs "return demoStage.raise($(demo_lua_str $2))") == ok ]] \
-        || demo_err "stage raise: no window titled '$2'" ;;
+    tile-beside) demo_poll "an OS window titled '$2'" demo_tile_beside $2 ;;
+    fill)
+      [[ $(demo_hs 'return demoStage.fill()') == ok ]] || demo_err "stage fill failed" ;;
     *) demo_err "stage: unknown subcommand $1" ;;
   esac
 }
