@@ -30,12 +30,25 @@ Design: `docs/superpowers/specs/2026-10-04-kitty-shader-demo-design.md`.
 ## Running
 
 ```
-kitty/demo/play                 # the whole show (~100 s)
-kitty/demo/play --only 6        # one beat
-kitty/demo/play --from 6        # from beat 6 on
-kitty/demo/play --slow 2        # every pause doubled
-kitty/demo/play --dry-run       # print every verb, touch nothing
+kitty/demo/play                    # list the chapters
+kitty/demo/play 1                  # chapter 1: shaders (~2 min)
+kitty/demo/play 2                  # chapter 2: windows, panes and tabs
+kitty/demo/play 2 --only 4         # one beat
+kitty/demo/play 2 --from 4         # from beat 4 on
+kitty/demo/play 1 --slow 2         # every pause doubled
+kitty/demo/play 1 --dry-run        # print every verb, touch nothing
 ```
+
+Chapter 2's beats 2–7 use the panes beat 1 opens, so rehearse them with
+`--from 1` rather than `--only`.
+
+## Chapters
+
+Each chapter is `chapters/N-name/` with a `deck.md`, `beats/`, an optional
+`scene/` (beats refer to it as `$DEMO_CHAPTER_DIR/scene`) and an optional
+`requires`: the kitty actions its keystrokes rely on, one per line. When a
+chapter has `requires`, pre-flight checks each action is mapped in
+`kitty.conf` or a file it includes, and that kitty is the frontmost app.
 
 Start a screen recording (Cmd+Shift+5) first, then hands off. Abort with
 **Ctrl+Alt+Cmd+.** or by quitting presenterm (`q`); either way the demo closes
@@ -44,7 +57,7 @@ log is `$TMPDIR/kitty-demo/play.log`; failures also show as a notification.
 
 ## Writing a beat
 
-A beat is `beats/NN-name.zsh`, sourced in numeric order with ERR_RETURN, so
+A beat is `chapters/N-name/beats/NN-name.zsh`, sourced in numeric order with ERR_RETURN, so
 the first failing verb stops the run. Start each with `slide goto N TEXT` so
 `--from`/`--only` work, and use `ensure` for panes an earlier beat would have
 left open.
@@ -65,6 +78,10 @@ left open.
 | `stage focus-other TITLE` / `stage focus-main` | move focus between TextEdit's window and kitty |
 | `stage close-other TITLE` | close that window (and TextEdit, if the demo started it) |
 | `stage fill` | main window back to the whole screen |
+| `press KEYS` | the real keystroke (e.g. `cmd+shift+enter`), with an on-screen badge |
+| `press-focus KEYS` / `press-reorders KEYS` | press, then wait for focus / the pane order to change |
+| `press-new NAME KEYS` | press, adopt the one new window as NAME |
+| `wait-layout NAME` / `wait-tabs N` | readiness after a layout or tab key |
 | `beat-pause SECONDS` | pacing (scaled by `--slow`) |
 
 ## Tests
