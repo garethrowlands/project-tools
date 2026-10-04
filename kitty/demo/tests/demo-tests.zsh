@@ -539,5 +539,48 @@ out=$(python3 $DEMO_ROOT/tests/lua_blocks.py $DEMO_ROOT/stage.lua) && ok 'stage.
 print -r -- $'function f()\n  if x then y() end\nend\nend' >| $T/bad.lua
 python3 $DEMO_ROOT/tests/lua_blocks.py $T/bad.lua >/dev/null && bad 'lua_blocks missed a stray end' || ok 'lua_blocks catches a stray end'
 
+# --- chapter 3 world -----------------------------------------------------------------
+C3=$DEMO_ROOT/chapters/3-projects
+W=$T/world3 S=$T/state3 CD=$T/claude3
+mkdir -p $CD/projects/-x
+print -r -- $'shop-api sid-shop\ninfra sid-infra' >| $CD/kitty-demo-sessions
+print -r -- '{"type":"user","sessionId":"sid-shop"}' >| $CD/projects/-x/sid-shop.jsonl
+print -r -- '{"type":"user","sessionId":"sid-infra"}' >| $CD/projects/-x/sid-infra.jsonl
+bw() { CLAUDE_DEMO_DIR=$CD zsh $C3/build-world "$@" }
+bw $W $S -- echo 'the deck' >/dev/null 2>$T/bw.err; is 'build-world succeeds' $? 0
+for p in shop-api web-app infra docs blog; do
+  [[ -d $W/$p/.git && -z $(git -C $W/$p status --porcelain) ]] && ok "$p is clean" || bad "$p is dirty"
+  is "$p has nothing unpushed" "$(git -C $W/$p rev-list --count @{u}..HEAD)" 0
+done
+is 'blog points at the real repo' "$(git -C $W/blog remote get-url origin)" https://github.com/garethrowlands/project-tools.git
+is 'shop-api points at a fake host' "$(git -C $W/shop-api remote get-url origin)" git@example.com:demo/shop-api.git
+(( $(git -C $W/docs log -1 --format=%ct) < EPOCHSECONDS - 30 * 86400 )) && ok 'docs looks stale' || bad 'docs commits are recent'
+(( $(git -C $W/shop-api log -1 --format=%ct) > EPOCHSECONDS - 86400 )) && ok 'shop-api looks fresh' || bad 'shop-api commits are old'
+is 'zoxide ranks the projects' "$(_ZO_DATA_DIR=$S/zoxide zoxide query --list | sed 's:.*/::' | paste -sd' ' -)" 'shop-api web-app infra docs blog'
+[[ ! -e $S/projects.txt ]] && ok 'project cache is cleared' || bad 'project cache left behind'
+grep -qx "launch --var demo=deck 'echo' 'the deck'" $S/session.kitty && ok 'deck window runs the deck command' || bad "deck line: $(grep demo=deck $S/session.kitty)"
+grep -qx 'launch --var demo=shop-claude claude --resume sid-shop' $S/session.kitty && ok 'shop-api tab resumes its session' || bad 'no shop-api claude line'
+grep -qx 'launch --var demo=infra-claude claude --resume sid-infra' $S/session.kitty && ok 'infra tab resumes its session' || bad 'no infra claude line'
+is 'session tabs' "$(sed -n 's/^new_tab //p' $S/session.kitty | paste -sd' ' -)" 'web-app shop-api infra docs scratch'
+grep -qx 'focus_tab 0' $S/session.kitty && ok 'session starts on the deck tab' || bad 'session does not focus tab 0'
+is 'stray shell sits in shop-api' "$(grep -B1 'demo=stray' $S/session.kitty | head -1)" "cd $W/shop-api"
+title() { jq -r 'select(.type == "ai-title") | .aiTitle' $CD/projects/-x/$1.jsonl }
+is 'shop-api transcript gets its title' "$(title sid-shop)" 'Add rate limiting to orders endpoint'
+is 'infra transcript gets its title' "$(title sid-infra)" 'Move Terraform state to S3'
+bw $W $S -- echo 'the deck' >/dev/null 2>&1
+is 'a second run adds no second title' "$(title sid-shop | wc -l | tr -d ' ')" 1
+# the user's own .zshenv exports PROJECT_ROOTS unconditionally; the zdotdir wins
+mkdir -p $T/home3; print -r -- 'export PROJECT_ROOTS=/wrong' >| $T/home3/.zshenv
+is 'zdotdir overrides PROJECT_ROOTS' "$(env -i HOME=$T/home3 ZDOTDIR=$S/zdotdir /bin/zsh -c 'print -r -- $PROJECT_ROOTS')" $W
+is 'zdotdir sets the Claude profile' "$(env -i HOME=$T/home3 ZDOTDIR=$S/zdotdir /bin/zsh -c 'print -r -- $CLAUDE_CONFIG_DIR')" $CD
+mkdir -p $T/mine; print hi >| $T/mine/keep.txt
+bw $T/mine $S -- true >/dev/null 2>$T/bw.err; is 'an unmarked world is refused' $? 1
+[[ -f $T/mine/keep.txt && $(<$T/bw.err) == *DEMO_WORLD* ]] && ok 'refusal names DEMO_WORLD, touches nothing' || bad "refusal: $(<$T/bw.err)"
+CLAUDE_DEMO_DIR=$T/nothing zsh $C3/build-world $T/w4 $T/s4 -- true >/dev/null 2>$T/bw.err
+[[ $? == 1 && $(<$T/bw.err) == *setup-claude* ]] && ok 'no sessions file points at setup-claude' || bad "no sessions: $(<$T/bw.err)"
+CLAUDE_DEMO_DIR=$T/nothing zsh $C3/build-world --no-claude $T/w5 $T/s5 -- true >/dev/null 2>&1
+is '--no-claude builds without sessions' $? 0
+zsh $C3/build-world $T/w6 >/dev/null 2>&1; is 'build-world without a deck command is a usage error' $? 2
+
 # (later tasks add sections above this line)
 exit $fail

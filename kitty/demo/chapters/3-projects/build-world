@@ -1,0 +1,129 @@
+#!/usr/bin/env zsh
+# build-world: (re)build chapter 3's staged world (see the chapter 3 spec).
+#
+#   build-world [--no-claude] WORLD STATE -- DECK-CMD...
+#
+# WORLD (play passes ${DEMO_WORLD:-~/kitty-demo}) gets five small git repos;
+# STATE (play's $DEMO_STATE) gets the zoxide db, zdotdir/ and session.kitty,
+# whose deck window runs DECK-CMD. Unless --no-claude, the two Claude Code
+# sessions named in $CLAUDE_DEMO_DIR/kitty-demo-sessions (setup-claude
+# writes it) get their fixed ai-title. WORLD is only ever replaced if it is
+# absent or carries the .kitty-demo-world marker.
+
+setopt err_exit pipe_fail
+zmodload zsh/datetime
+
+fail()  { print -ru2 -- "build-world: $*"; exit 1 }
+usage() { print -ru2 -- 'usage: build-world [--no-claude] WORLD STATE -- DECK-CMD...'; exit 2 }
+
+claude=1
+[[ ${1:-} == --no-claude ]] && { claude=0; shift }
+(( $# >= 4 )) && [[ $3 == -- ]] || usage
+world=${1:a} state=${2:a}; shift 3
+claude_dir=${CLAUDE_DEMO_DIR:-$HOME/.claude-demo}
+marker=$world/.kitty-demo-world
+
+PROJECTS=(shop-api web-app infra docs blog)
+# zoxide visits per project: the order the picker ranks them in
+typeset -A VISITS=(shop-api 9 web-app 7 infra 5 docs 3 blog 1)
+typeset -A WORK=(shop-api 'Orders endpoint' web-app 'Landing page' infra 'Terraform skeleton'
+                 docs 'Release runbook' blog 'First post')
+typeset -A TITLES=(shop-api 'Add rate limiting to orders endpoint' infra 'Move Terraform state to S3')
+typeset -A SID
+
+# Checks first, so a refusal leaves everything as it was.
+[[ ! -e $world || -e $marker ]] \
+  || fail "$world exists and isn't a kitty demo world; move it or set DEMO_WORLD"
+if (( claude )); then
+  sessions=$claude_dir/kitty-demo-sessions
+  [[ -r $sessions ]] || fail "no $sessions: log in once with CLAUDE_CONFIG_DIR=$claude_dir claude, then run ${0:A:h}/setup-claude"
+  while read -r name id; do
+    [[ -n $name && $name != '#'* ]] && SID[$name]=$id
+  done < $sessions
+  for p in ${(k)TITLES}; do
+    [[ -n ${SID[$p]:-} ]] || fail "$sessions names no $p session; run ${0:A:h}/setup-claude again"
+  done
+fi
+
+# make_repo NAME ORIGIN EPOCH: a clean repo with two commits at EPOCH whose
+# main tracks origin/main at HEAD, so nothing looks unpushed.
+make_repo() {
+  local dir=$world/$1 when="$3 +0000"
+  rm -rf $dir && mkdir -p $dir
+  git -C $dir init -q -b main
+  print -r -- "# $1" >| $dir/README.md
+  git -C $dir add -A
+  GIT_AUTHOR_DATE=$when GIT_COMMITTER_DATE=$when \
+    git -C $dir -c user.name=Demo -c user.email=demo@example.com commit -q -m 'Initial commit'
+  print -r -- "$WORK[$1]" >| $dir/NOTES.md
+  git -C $dir add -A
+  GIT_AUTHOR_DATE=$when GIT_COMMITTER_DATE=$when \
+    git -C $dir -c user.name=Demo -c user.email=demo@example.com commit -q -m $WORK[$1]
+  git -C $dir remote add origin $2
+  git -C $dir update-ref refs/remotes/origin/main HEAD
+  git -C $dir branch -q --set-upstream-to=origin/main main
+}
+
+mkdir -p $world $state
+: >| $marker
+for p in $PROJECTS; do
+  url=git@example.com:demo/$p.git
+  [[ $p == blog ]] && url=https://github.com/garethrowlands/project-tools.git
+  when=$EPOCHSECONDS
+  [[ $p == docs ]] && when=$(( EPOCHSECONDS - 42 * 86400 ))
+  make_repo $p $url $when
+done
+
+# zoxide: a fresh db, more visits for the projects the picker should rank first
+rm -rf $state/zoxide && mkdir -p $state/zoxide
+for p in $PROJECTS; do
+  repeat $VISITS[$p] _ZO_DATA_DIR=$state/zoxide zoxide add $world/$p
+done
+rm -f $state/projects.txt
+
+# zdotdir: the user's own startup files, then the world on top (their
+# .zshenv exports PROJECT_ROOTS unconditionally, so it must come after)
+z=$state/zdotdir
+mkdir -p $z
+{
+  print -r -- '# kitty demo chapter 3: the staged world (written by build-world)'
+  print -r -- "export PROJECT_ROOTS=${(q)world} PROJECT_CACHE=${(q)state}/projects.txt"
+  print -r -- "export _ZO_DATA_DIR=${(q)state}/zoxide CLAUDE_CONFIG_DIR=${(q)claude_dir}"
+} >| $z/world.zsh
+for f in .zshenv .zprofile .zshrc .zlogin; do
+  {
+    print -r -- "# kitty demo chapter 3: the user's own $f, then the staged world"
+    print -r -- "[[ -r \$HOME/$f ]] && source \$HOME/$f"
+    print -r -- "source ${(q)z}/world.zsh"
+  } >| $z/$f
+done
+
+# the session: five tabs, every window tagged with a demo= user var
+{
+  print -r -- '# kitty session for chapter 3 (written by build-world)'
+  print -r -- 'new_tab web-app'; print -r -- 'layout tall'; print -r -- "cd $world/web-app"
+  print -r -- "launch --var demo=deck ${(j: :)${(qq)@}}"
+  print -r -- 'focus'
+  print -r -- 'launch --var demo=web-shell'
+  print -r -- 'new_tab shop-api'; print -r -- 'layout tall'; print -r -- "cd $world/shop-api"
+  print -r -- "launch --var demo=shop-claude claude --resume ${SID[shop-api]:-none}"
+  print -r -- 'launch --var demo=shop-shell'
+  print -r -- 'new_tab infra'; print -r -- 'layout tall'; print -r -- "cd $world/infra"
+  print -r -- "launch --var demo=infra-claude claude --resume ${SID[infra]:-none}"
+  print -r -- 'new_tab docs'; print -r -- 'layout tall'; print -r -- "cd $world/docs"
+  print -r -- 'launch --var demo=docs-log git log'
+  print -r -- 'new_tab scratch'; print -r -- 'layout tall'; print -r -- "cd $world/shop-api"
+  print -r -- 'launch --var demo=stray'
+  print -r -- 'focus_tab 0'
+} >| $state/session.kitty
+
+# the fixed titles, appended once: bin/window-list shows the last ai-title
+if (( claude )); then
+  for p in ${(k)TITLES}; do
+    t=$(find $claude_dir/projects -mindepth 2 -maxdepth 2 -name "$SID[$p].jsonl" -print -quit 2>/dev/null)
+    [[ -n $t ]] || fail "no transcript for $p's session $SID[$p] under $claude_dir/projects"
+    last=$(jq -r 'select(.type == "ai-title") | .aiTitle' $t | tail -1)
+    [[ $last == $TITLES[$p] ]] \
+      || jq -cn --arg t $TITLES[$p] --arg s $SID[$p] '{type: "ai-title", aiTitle: $t, sessionId: $s}' >> $t
+  done
+fi
