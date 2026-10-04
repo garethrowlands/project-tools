@@ -582,5 +582,15 @@ CLAUDE_DEMO_DIR=$T/nothing zsh $C3/build-world --no-claude $T/w5 $T/s5 -- true >
 is '--no-claude builds without sessions' $? 0
 zsh $C3/build-world $T/w6 >/dev/null 2>&1; is 'build-world without a deck command is a usage error' $? 2
 
+mkdir -p $T/bin3 $T/cd3
+print -r -- '#!/bin/zsh
+print -r -- "{\"session_id\":\"sid-${PWD:t}\",\"result\":\"ok\"}"' >| $T/bin3/claude
+chmod +x $T/bin3/claude
+PATH=$T/bin3:$PATH CLAUDE_DEMO_DIR=$T/cd3 DEMO_WORLD=$T/w7 TMPDIR=$T/tmp3 \
+  zsh -f $C3/setup-claude >/dev/null 2>$T/sc.err; is 'setup-claude succeeds' $? 0
+is 'setup-claude records both sessions' "$(<$T/cd3/kitty-demo-sessions)" $'shop-api sid-shop-api\ninfra sid-infra'
+CLAUDE_DEMO_DIR=$T/absent zsh $C3/setup-claude >/dev/null 2>$T/sc.err
+[[ $? == 1 && $(<$T/sc.err) == *'claude'* ]] && ok 'setup-claude asks for a login first' || bad "setup-claude without profile: $(<$T/sc.err)"
+
 # (later tasks add sections above this line)
 exit $fail

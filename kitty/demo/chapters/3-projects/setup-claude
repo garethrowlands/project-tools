@@ -1,0 +1,31 @@
+#!/usr/bin/env zsh
+# setup-claude: record chapter 3's two Claude Code conversations, once.
+#
+# First log in to the demo profile (a separate login, kept in ~/.claude-demo):
+#   CLAUDE_CONFIG_DIR=~/.claude-demo claude      (log in, then /exit)
+# Then run this. It builds the staged world, asks one question in shop-api
+# and one in infra (claude -p: a few cents) and writes their session ids to
+# ~/.claude-demo/kitty-demo-sessions, which build-world reads on every run.
+
+setopt err_exit pipe_fail
+here=${0:A:h}
+claude_dir=${CLAUDE_DEMO_DIR:-$HOME/.claude-demo}
+world=${DEMO_WORLD:-$HOME/kitty-demo}
+state=${TMPDIR:-/tmp}/kitty-demo
+
+[[ -d $claude_dir ]] || { print -ru2 -- "setup-claude: log in first: CLAUDE_CONFIG_DIR=$claude_dir claude"; exit 1 }
+zsh $here/build-world --no-claude $world $state -- true
+
+typeset -A QUESTION=(
+  shop-api 'Outline, in three short bullets, how you would add rate limiting to the orders endpoint. Do not change any files.'
+  infra    'Outline, in three short bullets, how you would move this Terraform state to S3. Do not change any files.'
+)
+out=$claude_dir/kitty-demo-sessions
+: >| $out.tmp
+for p in shop-api infra; do
+  id=$(cd $world/$p && CLAUDE_CONFIG_DIR=$claude_dir claude -p --output-format json $QUESTION[$p] | jq -r '.session_id // empty')
+  [[ -n $id ]] || { print -ru2 -- "setup-claude: claude gave no session id for $p"; rm -f $out.tmp; exit 1 }
+  print -r -- "$p $id" >> $out.tmp
+done
+mv -f $out.tmp $out
+print -r -- "recorded in $out:"; cat $out
