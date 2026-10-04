@@ -362,3 +362,93 @@ stage() {
     demo_poll "the other app's window to be placed" demo_other_placed
   fi
 }
+
+# demo_press_args KEYS: Lua arguments for demoStage.press from KEYS such as
+# cmd+shift+enter: the modifiers, Hammerspoon's key name and the badge
+# label, modifiers in Mac order (⌃⌥⇧⌘).
+demo_press_args() {
+  local -a parts=(${(s:+:)1}) mods
+  local key=$parts[-1] m label=''
+  local -A glyph=(ctrl ⌃ alt ⌥ shift ⇧ cmd ⌘)
+  local -A hsname=(enter return)
+  local -A keyglyph=(left ← right → up ↑ down ↓ enter ↩ return ↩ tab ⇥)
+  for m in $parts[1,-2]; do
+    [[ -n $glyph[$m] ]] || { print -ru2 -- "unknown modifier $m in $1"; return 1 }
+  done
+  for m in ctrl alt shift cmd; do
+    if (( ${parts[1,-2][(Ie)$m]} )); then mods+=("\"$m\""); label+=$glyph[$m]; fi
+  done
+  label+=${keyglyph[$key]:-${(U)key}}
+  print -r -- "{${(j:,:)mods}}, \"${hsname[$key]:-$key}\", \"$label\""
+}
+
+# press KEYS: Hammerspoon posts the real keystroke to the frontmost app
+# (kitty), so the user's own mappings act, and shows its badge.
+press() {
+  demo_dry press "$@" && return 0
+  demo_deck_alive || return
+  local args; args=$(demo_press_args $1) || { demo_err "press $1: bad keys"; return 1 }
+  [[ $(demo_hs "return demoStage.press($args)") == ok ]] || { demo_err "press $1 failed"; return 1 }
+}
+
+demo_badge() { demo_press_args $1 | sed 's/.*, "\(.*\)"$/\1/' }
+
+demo_ls_ids()     { demo_kitten ls | jq -r '[.[].tabs[].windows[].id] | sort | .[]' }
+demo_focused_id() { demo_kitten ls | jq -r '[.[].tabs[].windows[] | select(.is_focused)][0].id // empty' }
+demo_tab_order()  { demo_kitten ls | jq -c --argjson d ${DEMO_IDS[deck]:-0} '[.[].tabs[] | select(any(.windows[]; .id == $d)) | .windows[].id]' }
+
+# press-focus KEYS: press, then wait until kitty's focused window changes.
+press-focus() {
+  demo_dry press-focus "$@" && return 0
+  local before; before=$(demo_focused_id)
+  press $1 || return
+  demo_poll "$(demo_badge $1) to move focus" demo_focus_differs "$before"
+}
+demo_focus_differs() { [[ $(demo_focused_id) != "$1" ]] }
+
+# press-reorders KEYS: press, then wait until the deck tab's window order changes.
+press-reorders() {
+  demo_dry press-reorders "$@" && return 0
+  local before; before=$(demo_tab_order)
+  press $1 || return
+  demo_poll "$(demo_badge $1) to move the pane" demo_order_differs "$before"
+}
+demo_order_differs() { [[ $(demo_tab_order) != "$1" ]] }
+
+# press-new NAME KEYS: press KEYS, which opens a kitty window; adopt exactly
+# one new window as NAME (and clean it up like any other).
+press-new() {
+  demo_dry press-new "$@" && return 0
+  local name=$1 keys=$2
+  local -a before after new
+  before=(${(f)"$(demo_ls_ids)"})
+  press $keys || return
+  local i
+  for (( i = 0; i < DEMO_TIMEOUT * 10; i++ )); do
+    after=(${(f)"$(demo_ls_ids)"})
+    new=(${after:|before})
+    (( $#new )) && break
+    demo_sleep 0.1
+  done
+  (( $#new == 1 )) || { demo_err "press-new $name: $(demo_badge $keys) opened ${#new} windows, not 1"; return 1 }
+  DEMO_IDS[$name]=$new[1]
+  DEMO_CREATED+=($new[1])
+}
+
+# wait-layout NAME: wait until the deck's tab uses layout NAME.
+wait-layout() {
+  demo_dry wait-layout "$@" && return 0
+  demo_poll "layout $1" demo_layout_is $1
+}
+demo_layout_is() {
+  [[ $(demo_kitten ls | jq -r --argjson d ${DEMO_IDS[deck]:-0} '.[].tabs[] | select(any(.windows[]; .id == $d)) | .layout') == $1 ]]
+}
+
+# wait-tabs N: wait until the deck's OS window has N tabs.
+wait-tabs() {
+  demo_dry wait-tabs "$@" && return 0
+  demo_poll "$1 tabs" demo_tabs_are $1
+}
+demo_tabs_are() {
+  [[ $(demo_kitten ls | jq --argjson d ${DEMO_IDS[deck]:-0} '[.[] | select(any(.tabs[].windows[]; .id == $d)) | .tabs[]] | length') == $1 ]]
+}

@@ -25,6 +25,35 @@ local function stopGlide()
   if glideTimer then glideTimer:stop(); glideTimer = nil end
 end
 
+-- Key badge: the keys the director just pressed, at the bottom centre of
+-- the screen, above kitty's tab bar; a new press replaces it.
+local badge, badgeTimer
+
+local function showBadge(label)
+  if badgeTimer then badgeTimer:stop() end
+  if badge then badge:delete() end
+  local s = (main and main:screen() or hs.screen.mainScreen()):frame()
+  local w, h = 240, 84
+  badge = hs.canvas.new({x = s.x + (s.w - w) / 2, y = s.y + s.h - h - 70, w = w, h = h})
+  badge:appendElements(
+    {type = "rectangle", action = "fill", fillColor = {white = 0.08, alpha = 0.85},
+     roundedRectRadii = {xRadius = 16, yRadius = 16}},
+    {type = "text", frame = {x = 0, y = 12, w = w, h = h - 12},
+     text = hs.styledtext.new(label, {font = {name = "Menlo", size = 40}, color = {white = 0.95},
+                                      paragraphStyle = {alignment = "center"}})})
+  badge:level(hs.canvas.windowLevels.overlay)
+  badge:show()
+  badgeTimer = hs.timer.doAfter(1.2, function() if badge then badge:hide(0.3) end end)
+end
+
+-- Post a real keystroke (mods e.g. {"shift","cmd"}, key e.g. "return") to
+-- the frontmost app, showing `label` as the badge.
+function M.press(mods, key, label)
+  showBadge(label)
+  hs.eventtap.keyStroke(mods, key, 20000)
+  return "ok"
+end
+
 -- Pin the focused (kitty) window, make it fill its screen (the user tiles
 -- windows full, half or quarter screen), park the pointer in its middle and
 -- arm Ctrl+Alt+Cmd+. to abort the run.
@@ -168,6 +197,7 @@ end
 -- End of a run (play's cleanup): restore the frame and disarm the hotkey.
 function M.finish()
   stopGlide()
+  if badge then badge:delete(); badge = nil end
   if otherTitle then M.closeOther(otherTitle) end
   if main and savedFrame then main:setFrame(savedFrame, 0) end
   if abortKey then abortKey:delete(); abortKey = nil end
@@ -189,6 +219,7 @@ function M.selftest()
     i = i + 1
     M.glide(corners[i][1], corners[i][2], 300)
   end, 0.4)
+  showBadge("⌘→")
   return hs.json.encode({frame = {x = f.x, y = f.y, w = f.w, h = f.h}, accessibility = hs.accessibilityState()})
 end
 

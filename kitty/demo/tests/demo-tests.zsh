@@ -140,6 +140,61 @@ is 'cleanup restores the layout'    "$(grep '^goto-layout' $T/kcalls)" 'goto-lay
 is 'cleanup forgets everything but the deck' "${(kv)DEMO_IDS} ${#DEMO_CREATED}" 'deck 7 0'
 grep -q 'demoStage.finish' $T/hcalls && ok 'cleanup restores the frame' || bad 'cleanup did not call finish'
 
+# --- real keys ------------------------------------------------------------------
+is 'press args: cmd+shift+enter' "$(demo_press_args cmd+shift+enter)" '{"shift","cmd"}, "return", "⇧⌘↩"'
+is 'press args: ctrl+alt+z'      "$(demo_press_args ctrl+alt+z)"      '{"ctrl","alt"}, "z", "⌃⌥Z"'
+is 'press args: ctrl+shift+tab'  "$(demo_press_args ctrl+shift+tab)"  '{"ctrl","shift"}, "tab", "⌃⇧⇥"'
+is 'press args: cmd+right'       "$(demo_press_args cmd+right)"       '{"cmd"}, "right", "⌘→"'
+demo_press_args hyper+x >/dev/null 2>&1 && bad 'unknown modifier accepted' || ok 'unknown modifier rejected'
+
+reset_stubs
+press cmd+t
+is 'press posts the key with its badge' "$(grep press $T/hcalls)" 'return demoStage.press({"cmd"}, "t", "⌘T")'
+
+# ls JSON helpers: one tab holding the given window ids, the first focused.
+# Verbs call demo_hs inside $(...), a subshell, so the fake kitty state lives
+# in a file ($T/ls.json) that a stubbed press can rewrite.
+lsjson() {
+  local -a w; local id f=true
+  for id in "$@"; do w+=("{\"id\":$id,\"is_focused\":$f}"); f=false; done
+  print -r -- "[{\"tabs\":[{\"layout\":\"${LAYOUT:-splits}\",\"windows\":[${(j:,:)w}]}]}]"
+}
+kls() { print -r -- "$1" >| $T/ls.json }
+functions[orig_kitten]=$functions[demo_kitten]
+functions[orig_hs]=$functions[demo_hs]
+demo_kitten() { print -r -- "$*" >> $T/kcalls; [[ $1 == ls ]] && { cat $T/ls.json; return }; return 0 }
+# AFTER: the ls JSON a press leaves behind (empty: the press changes nothing)
+demo_hs() { print -r -- "$1" >> $T/hcalls; [[ $1 == *press* && -n $AFTER ]] && kls "$AFTER"; print ok }
+reset_stubs
+
+kls "$(lsjson 7 5 6)"; AFTER=$(lsjson 7 5 6 9)
+press-new C cmd+shift+enter && ok 'press-new adopts the new window' || bad 'press-new failed'
+is 'press-new names it and cleans it up' "$DEMO_IDS[C] ${DEMO_CREATED[-1]}" '9 9'
+kls "$(lsjson 7 5 6 9)"; AFTER=$(lsjson 7 5 6 9 10 11)
+press-new D cmd+shift+enter 2>$T/err && bad 'press-new fails on two new windows' || ok 'press-new fails on two new windows'
+kls "$(lsjson 7 5 6 9)"; AFTER=''
+press-new E cmd+shift+enter 2>$T/err && bad 'press-new without a new window accepted' || ok 'press-new fails when no window appears'
+[[ $(<$T/err) == *'⇧⌘↩'* ]] && ok 'press-new failure names the key' || bad "press-new failure: $(<$T/err)"
+
+# press-focus: focus must move
+kls "$(lsjson 7 5 6)"; AFTER=$(lsjson 5 7 6)
+press-focus cmd+right && ok 'press-focus sees focus move' || bad 'press-focus failed'
+kls "$(lsjson 7 5 6)"; AFTER=''
+press-focus cmd+right 2>/dev/null && bad 'press-focus accepted no move' || ok 'press-focus fails when focus does not move'
+
+# press-reorders, wait-layout, wait-tabs
+kls "$(lsjson 7 5 6)"; AFTER=$(lsjson 7 6 5)
+press-reorders cmd+shift+right && ok 'press-reorders sees the order change' || bad 'press-reorders failed'
+kls "$(LAYOUT=tall lsjson 7 5 6)"
+wait-layout tall && ok 'wait-layout sees the layout' || bad 'wait-layout failed'
+wait-layout grid 2>/dev/null && bad 'wait-layout accepted the wrong layout' || ok 'wait-layout times out on the wrong layout'
+kls '[{"tabs":[{"layout":"splits","windows":[{"id":7,"is_focused":true}]},{"layout":"splits","windows":[{"id":6,"is_focused":true}]}]}]'
+wait-tabs 2 && ok 'wait-tabs counts the tabs' || bad 'wait-tabs failed'
+wait-tabs 3 2>/dev/null && bad 'wait-tabs accepted the wrong count' || ok 'wait-tabs times out on the wrong count'
+AFTER=''
+functions[demo_kitten]=$functions[orig_kitten]
+functions[demo_hs]=$functions[orig_hs]
+
 # --- card ---------------------------------------------------------------------
 source $DEMO_ROOT/card
 is 'card centres one line'   "$(card_render 20 5 hi)" $'\e[2J\e[3;10H\e[1mhi\e[22m'
