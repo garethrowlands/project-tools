@@ -25,12 +25,30 @@ local function stopGlide()
   if glideTimer then glideTimer:stop(); glideTimer = nil end
 end
 
--- Key badge: the keys the director just pressed, at the bottom centre of
--- the screen, above kitty's tab bar; a new press replaces it.
-local badge, badgeTimer
+-- Key badge: the keys the director is about to press, at the bottom centre
+-- of the screen, above kitty's tab bar; a new press replaces it. It appears
+-- BADGE_LEAD seconds before the keystroke, so viewers read the key first,
+-- and stays BADGE_HOLD seconds after it.
+local BADGE_LEAD, BADGE_HOLD = 0.7, 1.2
+local badge, badgeTimer, pressTimer
 
-local function showBadge(label)
+local function showBadge(label, hold)
   if badgeTimer then badgeTimer:stop() end
+  if badge then badge:delete() end
+  local s = (main and main:screen() or hs.screen.mainScreen()):frame()
+  local w, h = 360, 120
+  badge = hs.canvas.new({x = s.x + (s.w - w) / 2, y = s.y + s.h - h - 70, w = w, h = h})
+  badge:appendElements(
+    {type = "rectangle", action = "strokeAndFill", fillColor = {white = 0.08, alpha = 0.9},
+     strokeColor = {red = 0.93, green = 0.73, blue = 0.38}, strokeWidth = 3,
+     roundedRectRadii = {xRadius = 20, yRadius = 20}},
+    {type = "text", frame = {x = 0, y = 18, w = w, h = h - 18},
+     text = hs.styledtext.new(label, {font = {name = "Menlo", size = 64}, color = {white = 0.97},
+                                      paragraphStyle = {alignment = "center"}})})
+  badge:level(hs.canvas.windowLevels.overlay)
+  badge:show()
+  badgeTimer = hs.timer.doAfter(hold or BADGE_HOLD, function() if badge then badge:hide(0.3) end end)
+end
   if badge then badge:delete() end
   local s = (main and main:screen() or hs.screen.mainScreen()):frame()
   local w, h = 240, 84
@@ -55,8 +73,15 @@ function M.press(mods, key, label)
   if not (front and front:bundleID() == "net.kovidgoyal.kitty") then
     return "kitty is not the frontmost app"
   end
-  showBadge(label)
-  hs.eventtap.keyStroke(mods, key, 20000)
+  -- The keystroke follows the badge after BADGE_LEAD, on a timer (a blocking
+  -- sleep would stop the badge drawing); every press in a beat is followed by
+  -- a wait for its effect, so the director needs no change.
+  showBadge(label, BADGE_LEAD + BADGE_HOLD)
+  if pressTimer then pressTimer:stop() end
+  pressTimer = hs.timer.doAfter(BADGE_LEAD, function()
+    pressTimer = nil
+    hs.eventtap.keyStroke(mods, key, 20000)
+  end)
   return "ok"
 end
 
@@ -192,6 +217,7 @@ end
 -- Stop gliding and signal play's director; its trap then cleans up.
 function M.abort()
   stopGlide()
+  if pressTimer then pressTimer:stop(); pressTimer = nil end
   local f = pidFile and io.open(pidFile)
   if not f then return "not running" end
   local pid = f:read("l")
@@ -204,6 +230,7 @@ end
 function M.finish()
   stopGlide()
   if badge then badge:delete(); badge = nil end
+  if pressTimer then pressTimer:stop(); pressTimer = nil end
   if otherTitle then M.closeOther(otherTitle) end
   if main and savedFrame then main:setFrame(savedFrame, 0) end
   if abortKey then abortKey:delete(); abortKey = nil end
