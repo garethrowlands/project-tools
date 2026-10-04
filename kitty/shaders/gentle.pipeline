@@ -52,8 +52,10 @@ endgroup
 startgroup
     animation_start os-window-focus-in | user-activity
     animation_stop os-window-focus-out | user-idle
-    # brightness outside the spot (stock: 0.5)
-    var float AMBIENT_LIGHT = 0.85
+    # brightness outside the spot, linear light: 0.92 looks about 3.5% darker
+    # (stock: 0.5). Over text this contrast is most of the spot; the glow
+    # below is what shows it over empty background
+    var float AMBIENT_LIGHT = 0.92
     # spot radius in UV units (stock: 0.25)
     var float SPOTLIGHT_RADIUS = 0.2
     # lower = softer edge (stock: 20); edge width is 1/SOFTNESS, keep it < RADIUS
