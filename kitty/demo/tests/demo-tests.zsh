@@ -171,5 +171,33 @@ trap - USR1
 rm -f $DEMO_STATE/card-A.pid
 bell A 2>/dev/null && bad 'bell without a running card accepted' || ok 'bell needs a running card'
 
+# --- mouse and stage ------------------------------------------------------------
+reset_stubs
+KGEOM=$GEOM HSFRAME=$FRAME
+DEMO_IDS[A]=5 DEMO_IDS[B]=6
+mouse glide A 50 50 && ok 'mouse glide succeeds' || bad 'mouse glide failed'
+is 'mouse glide moves to the pane point' "$(grep glide $T/hcalls)" 'return demoStage.glide(500, 578, 700)'
+: >| $T/hcalls
+KSCREEN=$'$ rg TODO\n\nxx make it sparkle'
+mouse glide-text B 'make it sparkle' 900
+is 'mouse glide-text aims at the text' "$(grep glide $T/hcalls)" 'return demoStage.glide(970, 128, 900)'
+: >| $T/hcalls
+mouse glide-text B 'not on screen' 2>$T/err && bad 'glide-text to absent text accepted' || ok 'glide-text to absent text fails'
+[[ $(<$T/err) == *"'not on screen' is not on screen"* ]] && ok 'absent-text message' || bad "absent-text message: $(<$T/err)"
+grep -q glide $T/hcalls && bad 'pointer moved towards absent text' || ok 'pointer stays put for absent text'
+DEMO_IDS[Z]=99
+mouse glide Z 50 50 2>/dev/null && bad 'glide into an unknown window accepted' || ok 'glide into an unknown window fails'
+grep -q glide $T/hcalls && bad 'pointer moved for an unknown window' || ok 'pointer stays put for an unknown window'
+mouse click cmd
+is 'mouse click passes modifiers' "$(grep click $T/hcalls)" 'return demoStage.click({"cmd"})'
+: >| $T/hcalls
+mouse click
+is 'plain mouse click' "$(grep click $T/hcalls)" 'return demoStage.click({})'
+stage place-beside 'kitty demo W'
+is 'stage place-beside' "$(grep placeBeside $T/hcalls)" 'return demoStage.placeBeside("kitty demo W")'
+HSREPLY='no window titled kitty demo W' DEMO_TIMEOUT=0.2 stage place-beside 'kitty demo W' 2>/dev/null \
+  && bad 'place-beside without the window accepted' || ok 'place-beside waits, then fails'
+KGEOM= HSFRAME=
+
 # (later tasks add sections above this line)
 exit $fail

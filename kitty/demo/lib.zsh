@@ -243,3 +243,75 @@ bell() {
   local pid; pid=$(<$DEMO_STATE/card-$1.pid 2>/dev/null)
   [[ $pid == <-> ]] && kill -USR1 $pid 2>/dev/null || demo_err "bell $1: its card isn't running"
 }
+
+# mouse glide NAME XPCT YPCT [MS]   ease the pointer to a point in NAME (0..100)
+# mouse glide-text NAME TEXT [MS]   ...to the first character of TEXT on NAME's screen
+# mouse click [cmd]                 left click where the pointer is
+# The pointer moves with real events, so kitty's spotlight and ripple react.
+# NAME must be a pane in the main OS window (the one demo_begin pinned).
+mouse() {
+  demo_dry mouse "$@" && return 0
+  local sub=$1; shift
+  demo_deck_alive || return
+  local id point pos
+  case $sub in
+    glide)
+      id=$(demo_id $1) || return
+      point=$(demo_screen_point $id pane $2 $3) || return
+      demo_glide ${=point} ${4:-700} ;;
+    glide-text)
+      id=$(demo_id $1) || return
+      pos=$(demo_find_text "$(demo_kitten get-text --match id:$id)" "$2") \
+        || { demo_err "mouse glide-text $1: '$2' is not on screen"; return 1 }
+      point=$(demo_screen_point $id cell ${=pos}) || return
+      demo_glide ${=point} ${3:-700} ;;
+    click)
+      local mods='{}'
+      [[ -n $1 ]] && mods="{\"$1\"}"
+      [[ $(demo_hs "return demoStage.click($mods)") == ok ]] || { demo_err "mouse click failed"; return 1 }
+      demo_sleep 0.1 ;;
+    *)
+      demo_err "mouse: unknown subcommand $sub" ;;
+  esac
+}
+
+# demo_screen_point ID pane XPCT YPCT | ID cell ROW COL -> "x y" in screen points
+demo_screen_point() {
+  local id=$1 kind=$2 geom frame point
+  geom=$(demo_geometry) || return
+  frame=$(demo_hs 'return demoStage.frame()') && [[ $frame == \{* ]] \
+    || { demo_err "Hammerspoon has no frame for the kitty window"; return 1 }
+  if [[ $kind == pane ]]; then
+    point=$(demo_point_in_pane $geom $frame $id $3 $4)
+  else
+    point=$(demo_point_at_cell $geom $frame $id $3 $4)
+  fi
+  [[ -n $point ]] || { demo_err "no geometry for window $id"; return 1 }
+  print -r -- $point
+}
+
+# Every window's pixel rectangle, from the geometry kitten inside kitty.
+demo_geometry() {
+  local out=$DEMO_STATE/geometry.json
+  mkdir -p $DEMO_STATE && rm -f $out
+  demo_kitten kitten $DEMO_ROOT/demo_geometry.py $out >/dev/null 2>&1 \
+    || { demo_err "the geometry kitten failed to run"; return 1 }
+  demo_poll "the geometry kitten's output" test -s $out || return
+  print -r -- "$(<$out)"
+}
+
+# demo_glide X Y MS: start the glide and wait for it to finish.
+demo_glide() {
+  [[ $(demo_hs "return demoStage.glide($1, $2, $3)") == ok ]] || { demo_err "mouse glide failed"; return 1 }
+  demo_sleep $(( $3 / 1000.0 + 0.05 ))
+}
+
+demo_place_beside() { [[ $(demo_hs "return demoStage.placeBeside($(demo_lua_str $1))") == ok ]] }
+
+# stage place-beside TITLE: float the OS window titled TITLE over the right of
+# the main window, so both are in shot. Waits for it to appear.
+stage() {
+  demo_dry stage "$@" && return 0
+  [[ $1 == place-beside ]] || { demo_err "stage: unknown subcommand $1"; return 1 }
+  demo_poll "an OS window titled '$2'" demo_place_beside $2
+}
