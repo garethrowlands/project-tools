@@ -45,18 +45,29 @@ startgroup
     shaders focus-highlight-local
 endgroup
 
-# 3. Spotlight around the mouse pointer. Hidden while the pointer is hidden
+# 3. Spotlight around the mouse pointer: a faint glow brightens the spot and
+#    the rest dims a little (the stock spotlight only dims, so over an empty
+#    dark background it showed nothing). Hidden while the pointer is hidden
 #    (mouse_hide_wait) or outside the window.
 startgroup
     animation_start os-window-focus-in | user-activity
     animation_stop os-window-focus-out | user-idle
-    # brightness outside the spot (stock: 0.5)
-    var float AMBIENT_LIGHT = 0.75
+    # brightness outside the spot, linear light: 0.92 looks about 3.5% darker
+    # (stock: 0.5). Over text this contrast is most of the spot; the glow
+    # below is what shows it over empty background
+    var float AMBIENT_LIGHT = 0.92
     # spot radius in UV units (stock: 0.25)
     var float SPOTLIGHT_RADIUS = 0.2
     # lower = softer edge (stock: 20); edge width is 1/SOFTNESS, keep it < RADIUS
     var float SPOTLIGHT_SOFTNESS = 10.0
-    shaders spotlight
+    # additive glow inside the spot, peaking at the centre (local shader
+    # options; stock: off). Linear light: strength x colour is the light
+    # added, so this is about sRGB #1d1a14 on black at the centre. The colour
+    # is a soft warm white (less blue than green than red)
+    var float GLOW_STRENGTH = 0.015
+    var float3 GLOW_COLOR = float3(0.8, 0.65, 0.45)
+    # local copy of spotlight with the additive glow
+    shaders spotlight-local
 endgroup
 
 # 4. Ripple on left click, smaller and less shiny than stock, with a faint
@@ -89,9 +100,10 @@ startgroup
     var float SPECULAR_STRENGTH = 0.06
     var float DIFFUSE_STRENGTH = 0.015
     # additive crest glow (local shader options; stock: off). Linear light, so
-    # 0.04 x 0.8 peaks around sRGB #333 on black; raise it for a brighter ring
-    var float GLOW_STRENGTH = 0.04
-    var float3 GLOW_COLOR = float3(0.8)
+    # the crest peaks around sRGB #1d1a14 on black; same warm white as the
+    # spotlight; raise the strength for a brighter ring
+    var float GLOW_STRENGTH = 0.015
+    var float3 GLOW_COLOR = float3(0.8, 0.65, 0.45)
     # local copy of pond-ripple with the additive crest glow
     shaders pond-ripple-local
 endgroup
