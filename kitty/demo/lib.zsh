@@ -396,7 +396,12 @@ press() {
 demo_badge() { demo_press_args $1 | sed 's/.*, "\(.*\)"$/\1/' }
 
 demo_ls_ids()     { demo_kitten ls | jq -r '[.[].tabs[].windows[].id] | sort | .[]' }
-demo_focused_id() { demo_kitten ls | jq -r '[.[].tabs[].windows[] | select(.is_focused)][0].id // empty' }
+# The focused pane: the active pane of the active tab in the deck's OS window
+# (kitty marks every tab's active pane is_focused, so that alone is not enough).
+demo_focused_id() {
+  demo_kitten ls | jq -r --argjson d ${DEMO_IDS[deck]:-0} '[.[] | select(any(.tabs[].windows[]; .id == $d))
+    | .tabs[] | select(.is_active) | .windows[] | select(.is_active)][0].id // empty'
+}
 demo_tab_order()  { demo_kitten ls | jq -c --argjson d ${DEMO_IDS[deck]:-0} '[.[].tabs[] | select(any(.windows[]; .id == $d)) | .windows[].id]' }
 
 # press-focus KEYS: press, then wait until kitty's focused window changes.

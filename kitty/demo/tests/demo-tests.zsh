@@ -161,8 +161,8 @@ HSREPLY='kitty is not the frontmost app' press cmd+t 2>$T/err && bad 'press acce
 # in a file ($T/ls.json) that a stubbed press can rewrite.
 lsjson() {
   local -a w; local id f=true
-  for id in "$@"; do w+=("{\"id\":$id,\"is_focused\":$f}"); f=false; done
-  print -r -- "[{\"tabs\":[{\"layout\":\"${LAYOUT:-splits}\",\"windows\":[${(j:,:)w}]}]}]"
+  for id in "$@"; do w+=("{\"id\":$id,\"is_focused\":$f,\"is_active\":$f}"); f=false; done
+  print -r -- "[{\"tabs\":[{\"is_active\":true,\"layout\":\"${LAYOUT:-splits}\",\"windows\":[${(j:,:)w}]}]}]"
 }
 kls() { print -r -- "$1" >| $T/ls.json }
 functions[orig_kitten]=$functions[demo_kitten]
@@ -196,6 +196,12 @@ wait-layout grid 2>/dev/null && bad 'wait-layout accepted the wrong layout' || o
 kls '[{"tabs":[{"layout":"splits","windows":[{"id":7,"is_focused":true}]},{"layout":"splits","windows":[{"id":6,"is_focused":true}]}]}]'
 wait-tabs 2 && ok 'wait-tabs counts the tabs' || bad 'wait-tabs failed'
 wait-tabs 3 2>/dev/null && bad 'wait-tabs accepted the wrong count' || ok 'wait-tabs times out on the wrong count'
+# kitty marks each tab's active pane is_focused; the one that matters is the
+# active pane of the active tab in the deck's OS window
+kls '[{"tabs":[{"is_active":true,"layout":"grid","windows":[{"id":21,"is_focused":true,"is_active":true}]}]},
+      {"tabs":[{"is_active":false,"layout":"tall","windows":[{"id":184,"is_focused":true,"is_active":true}]},
+               {"is_active":true,"layout":"tall","windows":[{"id":7,"is_focused":false,"is_active":false},{"id":262,"is_focused":true,"is_active":true}]}]}]'
+is "focus is read from the deck's window and tab" "$(demo_focused_id)" 262
 AFTER=''
 functions[demo_kitten]=$functions[orig_kitten]
 functions[demo_hs]=$functions[orig_hs]
