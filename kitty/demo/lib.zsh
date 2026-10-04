@@ -335,6 +335,7 @@ demo_glide() {
   demo_sleep $(( $3 / 1000.0 + 0.05 ))
 }
 
+demo_tiled_placed() { [[ $(demo_hs 'return demoStage.tiledPlaced()') == ok ]] }
 demo_other_placed() { [[ $(demo_hs 'return demoStage.otherPlaced()') == ok ]] }
 
 # stage open-other FILE: make room (the main window takes the left half of
@@ -345,6 +346,10 @@ demo_other_placed() { [[ $(demo_hs 'return demoStage.otherPlaced()') == ok ]] }
 # stage close-other TITLE: close that window (and TextEdit, if the demo
 #   started it).
 # stage fill: give the main window the whole screen again.
+# stage tile-next BUNDLE TITLE: before a launcher key, arm Hammerspoon to
+#   tile the app's window (title containing TITLE) on the right half.
+# stage wait-tiled: wait (up to 30 s: an IDE starts slowly) until it has.
+# stage close-tiled: close that window or tab and give kitty the screen.
 stage() {
   demo_dry stage "$@" && return 0
   local call
@@ -354,6 +359,11 @@ stage() {
     focus-other) call="demoStage.focusOther($(demo_lua_str $2))" ;;
     focus-main)  call='demoStage.focusMain()' ;;
     close-other) call="demoStage.closeOther($(demo_lua_str $2))" ;;
+    tile-next)   call="demoStage.tileNext($(demo_lua_str $2), $(demo_lua_str $3))" ;;
+    wait-tiled)  # an IDE can take a while to start; tests shorten it
+                 local DEMO_TIMEOUT=${DEMO_TIMEOUT_TILED:-30}
+                 demo_poll "the app's window to be tiled" demo_tiled_placed; return ;;
+    close-tiled) call='demoStage.closeTiled()' ;;
     *) demo_err "stage: unknown subcommand $1"; return 1 ;;
   esac
   local reply
@@ -372,7 +382,7 @@ demo_press_args() {
   local key=$parts[-1] m label=''
   local -A glyph=(ctrl ⌃ alt ⌥ shift ⇧ cmd ⌘)
   local -A hsname=(enter return)
-  local -A keyglyph=(left ← right → up ↑ down ↓ enter ↩ return ↩ tab ⇥)
+  local -A keyglyph=(left ← right → up ↑ down ↓ enter ↩ return ↩ tab ⇥ escape ⎋)
   for m in $parts[1,-2]; do
     [[ -n $glyph[$m] ]] || { print -ru2 -- "unknown modifier $m in $1"; return 1 }
   done
@@ -462,6 +472,49 @@ wait-own-tab() {
 }
 demo_alone_in_tab() {
   [[ $(demo_kitten ls | jq --argjson w $1 '[.[].tabs[] | select(any(.windows[]; .id == $w)) | .windows | length][0]') == 1 ]]
+}
+
+# adopt NAME MATCH: wait until exactly one window matches MATCH (kitty match
+# syntax, e.g. var:demo=stray or cmdline:(^|/)tidy-windows$) and call it
+# NAME. Not added to the cleanup list: a session or a tool opened it.
+adopt() {
+  demo_dry adopt "$@" && { DEMO_IDS[$1]=dry-$1; return 0 }
+  demo_poll "one window matching $2" demo_adopt_one $1 "$2"
+}
+demo_adopt_one() {
+  local -a ids
+  ids=(${(f)"$(demo_kitten ls --match "$2" 2>/dev/null | jq -r '.[].tabs[].windows[].id')"})
+  (( $#ids == 1 )) || return 1
+  DEMO_IDS[$1]=$ids[1]
+}
+
+# wait-gone NAME: wait until NAME's window has closed, then forget it.
+wait-gone() {
+  demo_dry wait-gone "$@" && { unset "DEMO_IDS[$1]"; return 0 }
+  local id; id=$(demo_id $1) || return
+  demo_poll "pane $1 to close" demo_window_gone $id || return
+  unset "DEMO_IDS[$1]"
+}
+demo_window_gone() { ! demo_window_exists $1 }
+
+# wait-in-tab NAME TITLE: wait until NAME's window is in the tab titled TITLE.
+wait-in-tab() {
+  demo_dry wait-in-tab "$@" && return 0
+  local id; id=$(demo_id $1) || return
+  demo_poll "pane $1 to be in tab $2" demo_tab_of_is $id "$2"
+}
+demo_tab_of_is() {
+  [[ $(demo_kitten ls | jq -r --argjson w $1 '[.[].tabs[] | select(any(.windows[]; .id == $w)) | .title][0] // empty') == "$2" ]]
+}
+
+# wait-tab TITLE: wait until the active tab of the deck's OS window is TITLE.
+wait-tab() {
+  demo_dry wait-tab "$@" && return 0
+  demo_poll "tab $1 to be active" demo_active_tab_is "$1"
+}
+demo_active_tab_is() {
+  [[ $(demo_kitten ls | jq -r --argjson d ${DEMO_IDS[deck]:-0} '[.[] | select(any(.tabs[].windows[]; .id == $d))
+    | .tabs[] | select(.is_active) | .title][0] // empty') == "$1" ]]
 }
 
 # demo_snapshot: one line per tab with its layout and windows (id, * for

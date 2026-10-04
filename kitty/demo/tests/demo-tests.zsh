@@ -314,6 +314,37 @@ HSREPLY=$(( mtime - 60 )) demo_stage_current && bad 'stale stage.lua not noticed
 HSREPLY=nil demo_stage_current && bad 'stage.lua without a load time accepted' || ok 'stage.lua without a load time is stale'
 grep -q 'return demoStage.loadedMtime' $T/hcalls && ok 'asks Hammerspoon for the loaded mtime' || bad 'did not ask for the loaded mtime'
 
+# --- chapter 3 verbs ------------------------------------------------------------------
+reset_stubs
+KLSJSON='[{"tabs":[{"title":"web-app","is_active":true,"windows":[{"id":7,"is_active":true}]},
+                   {"title":"shop-api","is_active":false,"windows":[{"id":21,"is_active":true}]}]}]'
+# the stub ignores --match, so give it what kitty would return: the match only
+KLSJSON='[{"tabs":[{"title":"scratch","windows":[{"id":21}]}]}]'
+adopt stray 'var:demo=stray' 2>/dev/null && is 'adopt names a lone match' ${DEMO_IDS[stray]} 21 || bad 'adopt failed'
+(( ${DEMO_CREATED[(Ie)21]} )) && bad 'adopted window would be closed at cleanup' || ok 'adopted window is not the demo'\''s to close'
+KLSJSON='[{"tabs":[{"title":"a","windows":[{"id":1},{"id":2}]}]}]'
+adopt two 'var:demo=x' 2>/dev/null && bad 'adopt took one of two matches' || ok 'adopt refuses two matches'
+KLSJSON='[{"tabs":[{"title":"web-app","is_active":true,"windows":[{"id":7,"is_active":true}]},
+                   {"title":"shop-api","is_active":false,"windows":[{"id":21,"is_active":true}]}]}]'
+wait-in-tab stray shop-api 2>/dev/null && ok 'wait-in-tab sees the tab title' || bad 'wait-in-tab missed shop-api'
+wait-in-tab stray scratch 2>/dev/null && bad 'wait-in-tab matched the wrong tab' || ok 'wait-in-tab times out on the wrong tab'
+wait-tab web-app 2>/dev/null && ok 'wait-tab sees the active tab' || bad 'wait-tab missed web-app'
+wait-tab shop-api 2>/dev/null && bad 'wait-tab matched an inactive tab' || ok 'wait-tab times out on an inactive tab'
+DEMO_IDS[log]=33
+wait-gone log 2>/dev/null && bad 'wait-gone passed while the window exists' || ok 'wait-gone waits for the window'
+print 33 >> $T/dead
+wait-gone log 2>/dev/null && [[ -z ${DEMO_IDS[log]} ]] && ok 'wait-gone forgets a closed window' || bad 'wait-gone failed on a closed window'
+reset_stubs
+stage tile-next com.microsoft.VSCode blog
+grep -qF 'demoStage.tileNext("com.microsoft.VSCode", "blog")' $T/hcalls && ok 'stage tile-next arms Hammerspoon' || bad "tile-next: $(<$T/hcalls)"
+HSREPLY=ok stage wait-tiled 2>/dev/null && ok 'stage wait-tiled passes once placed' || bad 'wait-tiled failed'
+HSREPLY='not yet' DEMO_TIMEOUT_TILED=0.2 stage wait-tiled 2>/dev/null && bad 'wait-tiled passed unplaced' || ok 'wait-tiled times out'
+stage close-tiled; grep -qF 'demoStage.closeTiled()' $T/hcalls && ok 'stage close-tiled' || bad 'close-tiled not called'
+is 'escape badge' "$(demo_press_args escape)" '{}, "escape", "⎋"'
+is 'section-sign badge' "$(demo_press_args cmd+§)" '{"cmd"}, "§", "⌘§"'
+is 'adopt dry-runs' "$(DEMO_DRY=1 adopt x 'var:demo=x')" 'adopt x var:demo=x'
+grep -q 'if tiled then M.closeTiled() end' $DEMO_ROOT/stage.lua && ok 'finish closes a tiled app' || bad 'finish leaves a tiled app open'
+
 # --- play -------------------------------------------------------------------------
 # Sourcing play re-sources lib.zsh, which replaces the stubs above with the
 # real kitty/Hammerspoon functions; sections from here on run play as a

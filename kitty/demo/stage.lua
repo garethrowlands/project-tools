@@ -15,6 +15,10 @@ local main, savedFrame, pidFile, glideTimer, abortKey
 -- already running (if not, closeOther quits it again).
 local OTHER_APP = "com.apple.TextEdit"
 local otherTitle, otherWasRunning, otherWin, placeTimer
+-- The app window a launcher key opened (VS Code, Edge), tiled beside kitty by
+-- tileNext: {bundle, win, savedFrame (if it was already open), wasRunning}.
+local EDGE = "com.microsoft.edgemac"
+local tiled, tileTimer
 local events = hs.eventtap.event
 
 local function postMove(p)
@@ -172,6 +176,71 @@ function M.closeOther(title)
   return "ok"
 end
 
+-- Arm a 10 ms watcher for a launcher key: once `bundle` is the frontmost app
+-- and its focused window's title contains `titlePart`, kitty takes the left
+-- half and that window the right. A window that was already open (an Edge
+-- window the new tab landed in) has its frame saved for closeTiled.
+function M.tileNext(bundle, titlePart)
+  if not main then return "no pinned window" end
+  if tileTimer then tileTimer:stop() end
+  local app = hs.application.get(bundle)
+  local before = {}
+  for _, w in ipairs(app and app:allWindows() or {}) do before[w:id()] = true end
+  tiled = {bundle = bundle, wasRunning = app ~= nil}
+  local deadline = hs.timer.secondsSinceEpoch() + 30
+  tileTimer = hs.timer.doEvery(0.01, function()
+    local front = hs.application.frontmostApplication()
+    local win = front and front:bundleID() == bundle and front:focusedWindow()
+    if win and win:title():find(titlePart, 1, true) then
+      tileTimer:stop(); tileTimer = nil
+      local left, right = halves()
+      if before[win:id()] then tiled.savedFrame = win:frame() end
+      tiled.win = win
+      main:setFrame(left, 0)
+      win:setFrame(right, 0)
+      return
+    end
+    if hs.timer.secondsSinceEpoch() > deadline then tileTimer:stop(); tileTimer = nil end
+  end)
+  return "ok"
+end
+
+function M.tiledPlaced()
+  return (tiled and tiled.win) and "ok" or "not yet"
+end
+
+-- Put things back: Edge loses only the demo's tab (Cmd+W; the window may
+-- hold the user's tabs) and an existing window gets its frame back; any
+-- other app's window is closed. The app quits if the demo started it.
+-- Kitty fills the screen and takes focus again.
+function M.closeTiled()
+  if tileTimer then tileTimer:stop(); tileTimer = nil end
+  if not tiled then return "ok" end
+  local t = tiled
+  tiled = nil
+  if t.win then
+    if t.bundle == EDGE then
+      t.win:focus()
+      hs.eventtap.keyStroke({"cmd"}, "w", 20000, hs.application.get(t.bundle))
+      if t.savedFrame then
+        hs.timer.usleep(200000)
+        t.win:setFrame(t.savedFrame, 0)
+      end
+    else
+      t.win:close()
+    end
+  end
+  if not t.wasRunning then
+    local app = hs.application.get(t.bundle)
+    if app then app:kill() end
+  end
+  if main then
+    main:setFrame(main:screen():frame(), 0)
+    main:focus()
+  end
+  return "ok"
+end
+
 -- Ease (in-out) the pointer to (x, y) over ms milliseconds, at about 60 Hz.
 function M.glide(x, y, ms)
   stopGlide()
@@ -218,6 +287,7 @@ function M.finish()
   if badge then badge:delete(); badge = nil end
   if pressTimer then pressTimer:stop(); pressTimer = nil end
   if otherTitle then M.closeOther(otherTitle) end
+  if tiled then M.closeTiled() end
   if main and savedFrame then main:setFrame(savedFrame, 0) end
   if abortKey then abortKey:delete(); abortKey = nil end
   main, savedFrame, pidFile = nil, nil, nil
