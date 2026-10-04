@@ -10,7 +10,7 @@ local main, savedFrame, pidFile, glideTimer, abortKey
 -- The other app's window opened by openOther, and whether that app was
 -- already running (if not, closeOther quits it again).
 local OTHER_APP = "com.apple.TextEdit"
-local otherTitle, otherWasRunning
+local otherTitle, otherWasRunning, otherWin, placeTimer
 local events = hs.eventtap.event
 
 local function postMove(p)
@@ -42,17 +42,6 @@ function M.frame()
   return hs.json.encode({x = f.x, y = f.y, w = f.w, h = f.h})
 end
 
--- Tile the screen: the pinned window on the left half, the window titled
--- `title` on the right half.
-function M.tileBeside(title)
-  local win = hs.window.get(title)
-  if not (main and win) then return "no window titled " .. title end
-  local s = main:screen():frame()
-  main:setFrame({x = s.x, y = s.y, w = s.w / 2, h = s.h}, 0)
-  win:setFrame({x = s.x + s.w / 2, y = s.y, w = s.w / 2, h = s.h}, 0)
-  return "ok"
-end
-
 -- Give the pinned window its whole screen again.
 function M.fill()
   if not main then return "no pinned window" end
@@ -60,18 +49,54 @@ function M.fill()
   return "ok"
 end
 
--- Open `path` in TextEdit in the background (-g: no focus, so the window
--- stays behind kitty until tileBeside reveals it; -F: no restored windows
--- if TextEdit wasn't running). focusOther then gives it focus.
+local function halves()
+  local s = main:screen():frame()
+  return {x = s.x, y = s.y, w = s.w / 2, h = s.h}, {x = s.x + s.w / 2, y = s.y, w = s.w / 2, h = s.h}
+end
+
+-- Is `win` the window openOther opened? Its title is the file name, or the
+-- name without its extension when Finder hides extensions.
+local function isOther(win)
+  local t = win:title()
+  return t == otherTitle or t == otherTitle:gsub("%.[^.]*$", "")
+end
+
+-- Make room (the pinned window takes the left half), then open `path` in
+-- TextEdit (-F: no restored windows if it wasn't running). A 10 ms watcher
+-- moves its window to the right half the moment it appears and focuses it,
+-- so it is never seen at TextEdit's default spot for more than a frame or
+-- two. otherPlaced() reports when that has happened.
 function M.openOther(path)
+  if not main then return "no pinned window" end
   otherWasRunning = hs.application.get(OTHER_APP) ~= nil
-  otherTitle = path:match("[^/]+$")
+  otherTitle, otherWin = path:match("[^/]+$"), nil
+  local left, right = halves()
+  main:setFrame(left, 0)
+  local deadline = hs.timer.secondsSinceEpoch() + 5
+  if placeTimer then placeTimer:stop() end
+  placeTimer = hs.timer.doEvery(0.01, function()
+    local app = hs.application.get(OTHER_APP)
+    for _, win in ipairs(app and app:allWindows() or {}) do
+      if isOther(win) then
+        win:setFrame(right, 0)
+        win:focus()
+        otherWin = win
+        placeTimer:stop(); placeTimer = nil
+        return
+      end
+    end
+    if hs.timer.secondsSinceEpoch() > deadline then placeTimer:stop(); placeTimer = nil end
+  end)
   hs.task.new("/usr/bin/open", nil, {"-g", "-F", "-b", OTHER_APP, path}):start()
   return "ok"
 end
 
+function M.otherPlaced()
+  return otherWin and "ok" or "not yet"
+end
+
 function M.focusOther(title)
-  local win = hs.window.get(title)
+  local win = otherWin or hs.window.get(title)
   if not win then return "no window titled " .. title end
   win:focus()
   return "ok"
@@ -86,13 +111,14 @@ end
 -- Close the window openOther opened (never edited, so no save prompt), and
 -- quit TextEdit if it wasn't running before.
 function M.closeOther(title)
-  local win = hs.window.get(title)
+  if placeTimer then placeTimer:stop(); placeTimer = nil end
+  local win = otherWin or hs.window.get(title)
   if win then win:close() end
   if otherWasRunning == false then
     local app = hs.application.get(OTHER_APP)
     if app then app:kill() end
   end
-  otherTitle, otherWasRunning = nil, nil
+  otherTitle, otherWasRunning, otherWin = nil, nil, nil
   return "ok"
 end
 

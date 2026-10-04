@@ -61,7 +61,9 @@ left open.
 | `keys NAME KEY…` / `type-text NAME TEXT` | input to its program (`focused` = whichever has focus) |
 | `wait-text NAME TEXT` / `wait-window MATCH` | readiness |
 | `mouse glide NAME X% Y% [MS]` / `mouse glide-text NAME TEXT [MS]` / `mouse click [cmd]` | the real pointer |
-| `stage tile-beside TITLE` | tile the screen: main window left half, TITLE right half |
+| `stage open-other FILE` | kitty takes the left half; FILE opens in TextEdit on the right half, focused |
+| `stage focus-other TITLE` / `stage focus-main` | move focus between TextEdit's window and kitty |
+| `stage close-other TITLE` | close that window (and TextEdit, if the demo started it) |
 | `stage fill` | main window back to the whole screen |
 | `beat-pause SECONDS` | pacing (scaled by `--slow`) |
 

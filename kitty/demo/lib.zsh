@@ -324,21 +324,20 @@ demo_glide() {
   demo_sleep $(( $3 / 1000.0 + 0.05 ))
 }
 
-demo_tile_beside() { [[ $(demo_hs "return demoStage.tileBeside($(demo_lua_str $1))") == ok ]] }
+demo_other_placed() { [[ $(demo_hs 'return demoStage.otherPlaced()') == ok ]] }
 
-# stage tile-beside TITLE: tile the screen: the main window on the left half,
-#   the window titled TITLE on the right half. Waits for it to appear.
-# stage fill: give the main window the whole screen again.
-# stage open-other FILE: open FILE in another app (TextEdit), which takes focus.
+# stage open-other FILE: make room (the main window takes the left half of
+#   the screen), open FILE in another app (TextEdit) and wait until
+#   Hammerspoon has put its window on the right half and given it focus.
 # stage focus-other TITLE / stage focus-main: move focus between that app's
 #   window and kitty.
 # stage close-other TITLE: close that window (and TextEdit, if the demo
 #   started it).
+# stage fill: give the main window the whole screen again.
 stage() {
   demo_dry stage "$@" && return 0
   local call
   case $1 in
-    tile-beside) demo_poll "a window titled '$2'" demo_tile_beside $2; return ;;
     fill)        call='demoStage.fill()' ;;
     open-other)  call="demoStage.openOther($(demo_lua_str $2))" ;;
     focus-other) call="demoStage.focusOther($(demo_lua_str $2))" ;;
@@ -348,5 +347,8 @@ stage() {
   esac
   local reply
   reply=$(demo_hs "return $call")
-  [[ $reply == ok ]] || demo_err "stage $*: ${reply:-no reply}"
+  [[ $reply == ok ]] || { demo_err "stage $*: ${reply:-no reply}"; return 1 }
+  if [[ $1 == open-other ]]; then
+    demo_poll "the other app's window to be placed" demo_other_placed
+  fi
 }

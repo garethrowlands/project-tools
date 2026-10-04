@@ -197,10 +197,6 @@ is 'mouse click passes modifiers' "$(grep click $T/hcalls)" 'return demoStage.cl
 : >| $T/hcalls
 mouse click
 is 'plain mouse click' "$(grep click $T/hcalls)" 'return demoStage.click({})'
-stage tile-beside 'kitty demo W'
-is 'stage tile-beside' "$(grep tileBeside $T/hcalls)" 'return demoStage.tileBeside("kitty demo W")'
-HSREPLY='no window titled kitty demo W' DEMO_TIMEOUT=0.2 stage tile-beside 'kitty demo W' 2>/dev/null \
-  && bad 'tile-beside without the window accepted' || ok 'tile-beside waits, then fails'
 KGEOM= HSFRAME=
 
 # --- final-review fixes that need the stubs -------------------------------------------
@@ -212,7 +208,9 @@ stage open-other /x/other-app.txt
 stage focus-other other-app.txt
 stage focus-main
 stage close-other other-app.txt
-is 'stage drives another app' "$(<$T/hcalls)" $'return demoStage.openOther("/x/other-app.txt")\nreturn demoStage.focusOther("other-app.txt")\nreturn demoStage.focusMain()\nreturn demoStage.closeOther("other-app.txt")'
+is 'stage drives another app' "$(<$T/hcalls)" $'return demoStage.openOther("/x/other-app.txt")\nreturn demoStage.otherPlaced()\nreturn demoStage.focusOther("other-app.txt")\nreturn demoStage.focusMain()\nreturn demoStage.closeOther("other-app.txt")'
+HSREPLY='not yet' DEMO_TIMEOUT=0.2 stage open-other /x/other-app.txt 2>$T/err \
+  && bad 'open-other returned before the window was placed' || ok 'open-other waits for the window to be placed'
 HSREPLY='no window titled other-app.txt' stage focus-other other-app.txt 2>/dev/null \
   && bad 'focus-other without its window accepted' || ok 'focus-other needs its window'
 
@@ -358,13 +356,13 @@ dry=$(zsh $DEMO_ROOT/play --dry-run --only 9 2>&1)
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 8 2>&1)
 is 'beat 8 hands focus to another app and back' \
   "$(print -r -- $dry | grep -E '^(card open|pane|stage)' | awk '{print $1, $2}' | paste -sd, -)" \
-  'stage open-other,stage tile-beside,stage focus-other,stage focus-main,stage close-other,stage fill'
+  'stage open-other,stage focus-main,stage close-other,stage fill'
 is 'beat 8 changes slide before each change of focus' \
   "$(print -r -- $dry | grep -E '^(slide|stage (open|focus))' | awk '{print $1, $2, $3}' | sed 's/ *$//' | paste -sd, -)" \
-  'slide goto 10,slide goto 11,stage open-other '"$DEMO_ROOT"'/scene/other-app.txt,stage focus-other other-app.txt,slide goto 12,stage focus-main'
+  'slide goto 10,slide goto 11,stage open-other '"$DEMO_ROOT"'/scene/other-app.txt,slide goto 12,stage focus-main'
 other=$(grep '^stage open-other' $DEMO_ROOT/beats/08-os-window.zsh | awk '{print $3}')
 [[ -f ${other/\$DEMO_ROOT/$DEMO_ROOT} ]] && ok 'beat 8 opens a scene file' || bad "beat 8 opens a missing file: $other"
-for verb in tile-beside focus-other close-other; do
+for verb in focus-other close-other; do
   for t in ${(f)"$(grep "^stage $verb" $DEMO_ROOT/beats/08-os-window.zsh | awk '{print $3}')"}; do
     is "beat 8 $verb names the opened file" ${(Q)t} ${other:t}
   done
