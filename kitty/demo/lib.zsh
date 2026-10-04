@@ -1,0 +1,205 @@
+# Verbs the kitty demo's beats are written in (see README.md), plus the run's
+# state and cleanup. Sourced by play and by tests/demo-tests.zsh.
+#
+# A verb that can't do its job prints "beat N · <what>" on stderr and returns
+# non-zero; play sources each beat with ERR_RETURN, so the first failure ends
+# the run and play's EXIT trap calls demo_cleanup.
+# With DEMO_DRY=1 every verb prints itself instead (play --dry-run).
+
+typeset -g DEMO_ROOT=${DEMO_ROOT:-${${(%):-%x}:A:h}}
+source $DEMO_ROOT/geometry.zsh
+
+typeset -gA DEMO_IDS          # pane name -> kitty window id, "deck" included
+typeset -ga DEMO_CREATED      # ids of windows the demo opened, oldest first
+typeset -g  DEMO_DRY=${DEMO_DRY:-0} DEMO_SLOW=${DEMO_SLOW:-1} DEMO_BEAT=${DEMO_BEAT:-}
+typeset -g  DEMO_STATE=${DEMO_STATE:-${TMPDIR:-/tmp}/kitty-demo}
+typeset -g  DEMO_TIMEOUT=${DEMO_TIMEOUT:-5}   # seconds a readiness poll may take
+typeset -g  DEMO_LAYOUT=''                    # the deck tab's layout before the run
+
+# The outside world, as functions the tests replace.
+demo_kitten() { command kitten @ "$@" }
+demo_hs()     { command hs -c "$1" }
+demo_sleep()  { command sleep "$1" }
+
+demo_err() { print -ru2 -- "beat ${DEMO_BEAT:-?} · $*"; return 1 }
+
+# In a dry run print the command, shell-quoted, on one line, and succeed;
+# otherwise fail so the caller goes on to do the real thing. Words with
+# control characters (newlines) get $'...' quoting, the rest only the quotes
+# they need, so --location=vsplit stays readable.
+demo_dry() {
+  (( DEMO_DRY )) || return 1
+  local -a words
+  local w
+  for w in "$@"; do
+    if [[ $w == *[[:cntrl:]]* ]]; then words+=(${(q+)w}); else words+=(${(q-)w}); fi
+  done
+  print -r -- "${(j: :)words}"
+}
+
+demo_id() {
+  [[ -n ${DEMO_IDS[$1]} ]] || { demo_err "no pane named $1"; return 1 }
+  print -r -- ${DEMO_IDS[$1]}
+}
+
+# kitty --match for a pane name; "focused" is whichever window has focus.
+demo_match() {
+  if [[ $1 == focused ]]; then
+    print -r -- state:focused
+  else
+    local id; id=$(demo_id $1) || return
+    print -r -- id:$id
+  fi
+}
+
+demo_lua_str() {
+  local s=${1//\\/\\\\}
+  print -r -- "\"${s//\"/\\\"}\""
+}
+
+# demo_poll WHAT CMD...: run CMD every 0.1 s until it succeeds, for at most
+# DEMO_TIMEOUT seconds. For readiness only; pacing is beat-pause.
+demo_poll() {
+  local what=$1 i; shift
+  for (( i = 0; i < DEMO_TIMEOUT * 10; i++ )); do
+    "$@" && return 0
+    demo_sleep 0.1
+  done
+  demo_err "timed out after ${DEMO_TIMEOUT}s waiting for $what"
+}
+
+demo_window_exists() { demo_kitten ls --match id:$1 >/dev/null 2>&1 }
+demo_kitten_match()  { demo_kitten ls --match "$1" >/dev/null 2>&1 }
+demo_has_text()      { [[ $(demo_kitten get-text --match id:$1 2>/dev/null) == *"$2"* ]] }
+
+# Quitting presenterm is how a viewer stops the show, so every verb that
+# touches kitty checks the deck first.
+demo_deck_alive() {
+  demo_window_exists ${DEMO_IDS[deck]} || demo_err "the deck pane has gone; stopping"
+}
+
+# pane open NAME [LAUNCH-OPTION...] -- CMD...
+#   Open a kitty window running CMD without taking focus (beats focus
+#   explicitly), remember it as NAME and wait until kitty lists it.
+#   LAUNCH-OPTIONs go to `kitten @ launch`: --location=vsplit|hsplit,
+#   --type=tab, --type=os-window --os-window-title=T, --cwd=DIR.
+# pane ensure NAME ... -- CMD...   open unless NAME is open (for --from/--only)
+# pane close NAME                  close it; nothing to do if it isn't open
+pane() {
+  local sub=$1 name=$2; shift 2
+  case $sub in
+    ensure)
+      [[ -n ${DEMO_IDS[$name]} ]] && return 0
+      pane open $name "$@" ;;
+    open)
+      demo_dry pane open $name "$@" && { DEMO_IDS[$name]=dry-$name; return 0 }
+      local -a opts
+      while (( $# )) && [[ $1 != -- ]]; do opts+=($1); shift; done
+      (( $# )) && shift
+      (( $# )) || { demo_err "pane open $name: no command"; return 1 }
+      demo_deck_alive || return
+      local id
+      id=$(demo_kitten launch --keep-focus --title "demo $name" $opts -- "$@") && [[ $id == <-> ]] \
+        || { demo_err "pane open $name: kitty would not launch it"; return 1 }
+      DEMO_IDS[$name]=$id
+      DEMO_CREATED+=($id)
+      demo_poll "pane $name to appear" demo_window_exists $id ;;
+    close)
+      demo_dry pane close $name && { unset "DEMO_IDS[$name]"; return 0 }
+      local id=${DEMO_IDS[$name]}
+      [[ -n $id ]] || return 0
+      unset "DEMO_IDS[$name]"
+      DEMO_CREATED=(${DEMO_CREATED:#$id})
+      demo_kitten close-window --match id:$id >/dev/null 2>&1 \
+        || demo_err "pane close $name: kitty could not close window $id" ;;
+    *)
+      demo_err "pane: unknown subcommand $sub" ;;
+  esac
+}
+
+# focus NAME: keyboard focus to NAME, switching tab or OS window if need be.
+focus() {
+  demo_dry focus "$@" && return 0
+  local id; id=$(demo_id $1) || return
+  demo_deck_alive || return
+  demo_kitten focus-window --match id:$id >/dev/null || demo_err "focus $1 failed"
+}
+
+# keys NAME KEY...: key presses (kitty names: end, ctrl+end, ctrl+f) straight
+# to NAME's program, bypassing kitty's own shortcuts.
+keys() {
+  demo_dry keys "$@" && return 0
+  local match; match=$(demo_match $1) || return
+  shift
+  demo_deck_alive || return
+  demo_kitten send-key --match $match "$@" >/dev/null || demo_err "keys $*: send-key failed"
+}
+
+# type-text NAME TEXT: TEXT to NAME's program as if typed. kitty interprets
+# escapes in it, so a literal \r (in single quotes) is Enter.
+type-text() {
+  demo_dry type-text "$@" && return 0
+  local match; match=$(demo_match $1) || return
+  demo_deck_alive || return
+  demo_kitten send-text --match $match -- "$2" >/dev/null || demo_err "type-text $1 failed"
+}
+
+# wait-text NAME TEXT: wait until TEXT is on NAME's screen.
+wait-text() {
+  demo_dry wait-text "$@" && return 0
+  local id; id=$(demo_id $1) || return
+  demo_poll "'$2' in pane $1" demo_has_text $id "$2"
+}
+
+# wait-window MATCH: wait until a kitty window matches MATCH (kitty match
+# syntax, e.g. "state:focused and cmdline:micro").
+wait-window() {
+  demo_dry wait-window "$@" && return 0
+  demo_poll "a window matching $1" demo_kitten_match "$1"
+}
+
+# slide goto N TEXT: show deck slide N (1-based; presenterm's "<N>G") and
+# wait until TEXT is on screen.
+slide() {
+  [[ $1 == goto ]] || { demo_err "slide: unknown subcommand $1"; return 1 }
+  demo_dry slide "$@" && return 0
+  type-text deck "${2}G" && wait-text deck "$3"
+}
+
+# beat-pause SECONDS: pacing, scaled by play --slow.
+beat-pause() {
+  demo_dry beat-pause "$@" && return 0
+  demo_sleep $(( $1 * DEMO_SLOW ))
+}
+
+# Start of a real run: the deck's tab goes to the splits layout (beats use
+# vsplit/hsplit) and Hammerspoon pins the focused kitty OS window, centres it
+# at 1600x1000 points, parks the pointer in it and arms the abort hotkey,
+# which signals the pid in PIDFILE.
+demo_begin() {
+  local deck=${DEMO_IDS[deck]} pidfile=$1
+  DEMO_LAYOUT=$(demo_kitten ls --match id:$deck \
+    | jq -r ".[].tabs[] | select(any(.windows[]; .id == $deck)) | .layout") \
+    && [[ -n $DEMO_LAYOUT ]] || { demo_err "cannot read the deck tab's layout"; return 1 }
+  demo_kitten goto-layout --match window_id:$deck splits >/dev/null \
+    || { demo_err "cannot switch to the splits layout (is it in enabled_layouts?)"; return 1 }
+  [[ $(demo_hs "return demoStage.begin($(demo_lua_str $pidfile), 1600, 1000)") == ok ]] \
+    || { demo_err "Hammerspoon could not pin the kitty window"; return 1 }
+}
+
+# Close every window the demo opened, newest first (ones already gone are
+# fine), then restore the deck tab's layout and the window frame. Runs from
+# play's EXIT trap, so it always succeeds.
+demo_cleanup() {
+  local id deck=${DEMO_IDS[deck]}
+  for id in ${(Oa)DEMO_CREATED}; do
+    demo_kitten close-window --match id:$id >/dev/null 2>&1
+  done
+  DEMO_CREATED=()
+  DEMO_IDS=(deck "$deck")
+  if [[ -n $DEMO_LAYOUT ]]; then
+    demo_kitten goto-layout --match window_id:$deck $DEMO_LAYOUT >/dev/null 2>&1
+  fi
+  demo_hs 'return demoStage.finish()' >/dev/null 2>&1
+  return 0
+}

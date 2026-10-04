@@ -38,5 +38,101 @@ is 'find text at row start'      "$(demo_find_text $'glitter\nmain.py' 'main.py'
 demo_find_text $'a*c\nabc' 'a*b' >/dev/null && bad 'glob chars matched as a pattern' || ok 'glob chars are literal'
 demo_find_text $'abc' 'zzz' >/dev/null && bad 'absent text found' || ok 'absent text not found'
 
+# --- verbs (kitty and Hammerspoon stubbed) -----------------------------------
+DEMO_STATE=$T/state
+source $DEMO_ROOT/lib.zsh
+
+# Stubs. Verbs call these inside $(...), so they keep their state in files.
+# kcalls: one line per kitten call; dead: window ids kitty no longer has.
+empty_stub_logs() { local f; for f in kcalls hcalls dead; do : >| $T/$f; done }
+print 100 >| $T/knext; empty_stub_logs
+demo_kitten() {
+  print -r -- "$*" >> $T/kcalls
+  case $1 in
+    launch)
+      local n=$(( $(<$T/knext) + 1 )); print $n >| $T/knext
+      [[ ${@[-2]} == */card ]] && { mkdir -p $DEMO_STATE; print 1 >| $DEMO_STATE/card-${@[-1]}.pid }
+      print $n ;;
+    ls)           [[ $2 == --match ]] && grep -qx "${3#id:}" $T/dead && return 1
+                  print -r -- ${KLSJSON:-'[]'} ;;
+    close-window) ! grep -qx "${3#id:}" $T/dead ;;
+    get-text)     print -r -- "$KSCREEN" ;;
+    kitten)       [[ -n $KGEOM ]] && print -r -- $KGEOM >| $3 ;;
+    *)            return 0 ;;
+  esac
+}
+demo_hs() {
+  print -r -- "$1" >> $T/hcalls
+  case $1 in
+    *demoStage.frame*) print -r -- ${HSFRAME:-'{}'} ;;
+    *)                 print -r -- ${HSREPLY:-ok} ;;
+  esac
+}
+demo_sleep() { : }
+reset_stubs() {
+  print 100 >| $T/knext; empty_stub_logs
+  DEMO_IDS=(deck 7); DEMO_CREATED=(); DEMO_DRY=0; DEMO_TIMEOUT=0.2; KSCREEN=''; KLSJSON=''
+}
+
+reset_stubs
+pane open A --location=vsplit -- card A hello
+is 'pane open remembers the id'     "$DEMO_IDS[A] $DEMO_CREATED" '101 101'
+is 'pane open launches without focus' "$(grep '^launch' $T/kcalls)" 'launch --keep-focus --title demo A --location=vsplit -- card A hello'
+pane ensure A --location=vsplit -- card A hello
+is 'pane ensure leaves an open pane alone' "$(grep -c '^launch' $T/kcalls)" 1
+pane open B 2>$T/err && bad 'pane open without a command accepted' || ok 'pane open needs a command'
+pane close A
+is 'pane close forgets it'          "${DEMO_IDS[A]-gone} ${#DEMO_CREATED}" 'gone 0'
+is 'pane close closes that window'  "$(grep '^close-window' $T/kcalls)" 'close-window --match id:101'
+pane close nosuch && ok 'pane close of an unknown name is a no-op' || bad 'pane close of an unknown name failed'
+
+reset_stubs
+print 7 >> $T/dead
+pane open A -- card A hi 2>$T/err && bad 'verbs ran without the deck' || ok 'verbs stop when the deck has gone'
+[[ $(<$T/err) == *'deck pane has gone'* ]] && ok 'deck-gone message' || bad "deck-gone message: $(<$T/err)"
+grep -q '^launch' $T/kcalls && bad 'launched without the deck' || ok 'nothing launched without the deck'
+
+reset_stubs
+focus nosuch 2>$T/err && bad 'focus of an unknown pane accepted' || ok 'focus of an unknown pane fails'
+DEMO_BEAT=3
+focus nosuch 2>$T/err
+is 'errors name the beat' "$(<$T/err)" 'beat 3 · no pane named nosuch'
+DEMO_BEAT=
+
+reset_stubs
+KSCREEN=$'line one\nFocus follows you'
+slide goto 2 'Focus follows you' && ok 'slide goto waits for its text' || bad 'slide goto failed'
+is 'slide goto types N then G'      "$(grep '^send-text' $T/kcalls)" 'send-text --match id:7 -- 2G'
+wait-text deck 'not there' 2>$T/err && bad 'wait-text found absent text' || ok 'wait-text times out'
+[[ $(<$T/err) == *"timed out after 0.2s waiting for 'not there' in pane deck"* ]] && ok 'timeout message' || bad "timeout message: $(<$T/err)"
+keys focused ctrl+q
+is 'keys can target the focused window' "$(grep '^send-key' $T/kcalls)" 'send-key --match state:focused ctrl+q'
+
+reset_stubs
+DEMO_DRY=1
+is 'dry run prints the verb'        "$(pane open A --location=vsplit -- card A 'two words')" "pane open A --location=vsplit -- card A 'two words'"
+lines=(${(f)"$(slide goto 2 $'two\nlines')"})
+is 'dry run keeps a multi-line argument on one line' $#lines 1
+is 'dry run calls nothing'          "$(<$T/kcalls)" ''
+
+reset_stubs
+KLSJSON='[{"tabs":[{"layout":"tall","windows":[{"id":7}]}]}]'
+demo_begin $T/play.pid && ok 'demo_begin succeeds' || bad 'demo_begin failed'
+is 'demo_begin remembers the layout' "$DEMO_LAYOUT" 'tall'
+grep -qx 'goto-layout --match window_id:7 splits' $T/kcalls && ok 'demo_begin switches to splits' || bad 'no splits layout'
+is 'demo_begin pins the window'     "$(<$T/hcalls)" "return demoStage.begin(\"$T/play.pid\", 1600, 1000)"
+HSREPLY='no focused window' demo_begin $T/play.pid 2>/dev/null && bad 'demo_begin ignored Hammerspoon' || ok 'demo_begin needs Hammerspoon'
+
+reset_stubs
+DEMO_LAYOUT=tall
+pane open A -- card A a; pane open B -- card B b; pane open C -- card C c
+print 102 >> $T/dead
+: >| $T/kcalls
+demo_cleanup && ok 'cleanup succeeds' || bad 'cleanup failed'
+is 'cleanup survives a window that has already gone' "$(grep '^close-window' $T/kcalls | awk '{print $3}' | paste -sd' ' -)" 'id:103 id:102 id:101'
+is 'cleanup restores the layout'    "$(grep '^goto-layout' $T/kcalls)" 'goto-layout --match window_id:7 tall'
+is 'cleanup forgets everything but the deck' "${(kv)DEMO_IDS} ${#DEMO_CREATED}" 'deck 7 0'
+grep -q 'demoStage.finish' $T/hcalls && ok 'cleanup restores the frame' || bad 'cleanup did not call finish'
+
 # (later tasks add sections above this line)
 exit $fail
