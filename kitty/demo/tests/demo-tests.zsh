@@ -244,5 +244,17 @@ is 'comet.txt fits a half-width pane' "$(awk 'length > 60' $DEMO_ROOT/scene/come
 (( $(wc -l < $DEMO_ROOT/scene/comet.txt) <= 35 )) && ok 'comet.txt fits a pane without scrolling' || bad 'comet.txt is too long'
 [[ $(tail -1 $DEMO_ROOT/scene/comet.txt) == *'down at the bottom'* ]] && ok 'comet.txt ends at the bottom line' || bad 'comet.txt last line'
 
+# --- beats 6-10 --------------------------------------------------------------------
+dry=$(zsh $DEMO_ROOT/play --dry-run --only 6 2>&1)
+is 'beat 6 dry-run shape' "$(print -r -- $dry | grep -v '^#' | awk '{print $1, $2}' | paste -sd, -)" \
+  'slide goto,card open,beat-pause 1,card say,beat-pause 1,card say,beat-pause 1,bell A,card say,beat-pause 2.5,pane close'
+dry=$(zsh $DEMO_ROOT/play --dry-run --only 7 2>&1)
+is '--only 7 opens C itself' "$(print -r -- $dry | grep -v '^#' | sed -n 2p | awk '{print $1, $2, $3}')" 'card open C'
+dry=$(zsh $DEMO_ROOT/play --dry-run --only 9 2>&1)
+[[ $dry == *'mouse glide-text A '*'make it sparkle'* && $dry == *'mouse click cmd'* ]] \
+  && ok 'beat 9 cmd-clicks the rg hit' || bad 'beat 9 does not cmd-click the rg hit'
+is 'scene repo has one TODO' "$(rg -c TODO $DEMO_ROOT/scene/repo | paste -sd' ' -)" "$DEMO_ROOT/scene/repo/main.py:1"
+grep -rq glitter $DEMO_ROOT/scene/repo/main.py && bad 'glitter appears in rg output' || ok 'glitter only in the eza listing'
+
 # (later tasks add sections above this line)
 exit $fail
