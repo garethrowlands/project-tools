@@ -199,5 +199,36 @@ HSREPLY='no window titled kitty demo W' DEMO_TIMEOUT=0.2 stage place-beside 'kit
   && bad 'place-beside without the window accepted' || ok 'place-beside waits, then fails'
 KGEOM= HSFRAME=
 
+# --- play -------------------------------------------------------------------------
+# Sourcing play re-sources lib.zsh, which replaces the stubs above with the
+# real kitty/Hammerspoon functions; sections from here on run play as a
+# dry-run subprocess, and any section needing the stubs goes above this one.
+source $DEMO_ROOT/play
+mkdir -p $T/beats
+for f in 00-a 01-b 10-c; do print "print ran-$f" >| $T/beats/$f.zsh; done
+print 'not a beat' >| $T/beats/02-x.txt
+is 'all beats, in numeric order' "$(demo_select_beats $T/beats 0 '' | xargs -n1 basename | paste -sd' ' -)" '00-a.zsh 01-b.zsh 10-c.zsh'
+is '--from skips earlier beats'  "$(demo_select_beats $T/beats 1 '' | xargs -n1 basename | paste -sd' ' -)" '01-b.zsh 10-c.zsh'
+is '--only picks one beat'       "$(demo_select_beats $T/beats 0 10 | xargs -n1 basename)" '10-c.zsh'
+is '--only of a missing beat'    "$(demo_select_beats $T/beats 0 5)" ''
+
+print 'print one' >| $T/beats/01-ok.zsh
+print 'false\nprint after' >| $T/beats/02-bad.zsh
+out=$(demo_run_beats $T/beats/01-ok.zsh $T/beats/02-bad.zsh 2>&1)
+st=$?
+[[ $out == *one* && $out != *after* && $st != 0 ]] && ok 'a failing verb ends the beat and the run' || bad "run_beats: status $st, output ${(q+)out}"
+
+print $$ >| $T/pid
+demo_already_running $T/pid && ok 'a live director is detected' || bad 'live director missed'
+print 999999 >| $T/pid
+demo_already_running $T/pid && bad 'a dead pid counted as running' || ok 'a dead pid is not running'
+print junk >| $T/pid
+demo_already_running $T/pid && bad 'junk pid counted as running' || ok 'junk pid is not running'
+demo_already_running $T/nosuch && bad 'missing pid file counted as running' || ok 'missing pid file is not running'
+
+zsh $DEMO_ROOT/play --from x >/dev/null 2>&1; is 'bad --from is a usage error' $? 2
+zsh $DEMO_ROOT/play --bogus  >/dev/null 2>&1; is 'unknown option is a usage error' $? 2
+zsh $DEMO_ROOT/play --dry-run --only 99 >/dev/null 2>&1; is 'no beats selected is a usage error' $? 2
+
 # (later tasks add sections above this line)
 exit $fail
