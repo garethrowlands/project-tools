@@ -189,6 +189,16 @@ beat-pause() {
   demo_sleep $(( $1 * DEMO_SLOW ))
 }
 
+# True if Hammerspoon is running the current stage.lua: it reads the file
+# only when it loads its config, so after an edit it needs a reload.
+demo_stage_current() {
+  zmodload -F zsh/stat b:zstat
+  local loaded on_disk
+  loaded=$(demo_hs 'return demoStage.loadedMtime')
+  on_disk=$(zstat +mtime $DEMO_ROOT/stage.lua) || return 1
+  [[ $loaded == <-> ]] && (( loaded >= on_disk ))
+}
+
 # Start of a real run: the deck's tab goes to the splits layout (beats use
 # vsplit/hsplit) and Hammerspoon pins the focused kitty OS window, makes it
 # fill the screen, parks the pointer in it and arms the abort hotkey, which

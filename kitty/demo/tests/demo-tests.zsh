@@ -225,6 +225,16 @@ is 'TERM during demo_sleep runs the trap' $st 3
 zsh -c "source $DEMO_ROOT/lib.zsh; setopt err_return; f() { demo_sleep 0.1; print slept }; f" | grep -q slept \
   && ok 'demo_sleep succeeds under err_return' || bad 'demo_sleep failed under err_return'
 
+# Hammerspoon reads stage.lua only when it loads its config; play must notice
+# when the file on disk is newer than the copy it is running.
+reset_stubs
+zmodload zsh/stat
+mtime=$(zstat +mtime $DEMO_ROOT/stage.lua)
+HSREPLY=$mtime demo_stage_current && ok 'loaded stage.lua matches the file' || bad 'current stage.lua reported stale'
+HSREPLY=$(( mtime - 60 )) demo_stage_current && bad 'stale stage.lua not noticed' || ok 'stale stage.lua is noticed'
+HSREPLY=nil demo_stage_current && bad 'stage.lua without a load time accepted' || ok 'stage.lua without a load time is stale'
+grep -q 'return demoStage.loadedMtime' $T/hcalls && ok 'asks Hammerspoon for the loaded mtime' || bad 'did not ask for the loaded mtime'
+
 # --- play -------------------------------------------------------------------------
 # Sourcing play re-sources lib.zsh, which replaces the stubs above with the
 # real kitty/Hammerspoon functions; sections from here on run play as a

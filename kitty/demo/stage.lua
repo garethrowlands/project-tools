@@ -6,6 +6,10 @@
 
 local M = {}
 
+-- When this file was last modified as Hammerspoon loaded it; play compares
+-- it with the file on disk and asks for a reload if the file is newer.
+M.loadedMtime = math.floor(hs.fs.attributes(debug.getinfo(1, "S").source:sub(2), "modification") or 0)
+
 local main, savedFrame, pidFile, glideTimer, abortKey
 -- The other app's window opened by openOther, and whether that app was
 -- already running (if not, closeOther quits it again).

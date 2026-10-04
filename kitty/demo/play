@@ -72,6 +72,8 @@ demo_preflight() {
   if (( $+commands[hs] )); then
     [[ $(demo_hs 'return demoStage ~= nil and hs.accessibilityState()' 2>/dev/null) == true ]] \
       || { print -u2 'play: Hammerspoon has no demoStage, or lacks Accessibility (see README)'; ok=0 }
+    demo_stage_current \
+      || { print -u2 'play: kitty/demo/stage.lua changed since Hammerspoon loaded it: reload Hammerspoon'; ok=0 }
   fi
   if demo_already_running $DEMO_STATE/play.pid; then
     print -u2 "play: already running (pid $(<$DEMO_STATE/play.pid))"
