@@ -402,7 +402,9 @@ demo_focused_id() {
   demo_kitten ls | jq -r --argjson d ${DEMO_IDS[deck]:-0} '[.[] | select(any(.tabs[].windows[]; .id == $d))
     | .tabs[] | select(.is_active) | .windows[] | select(.is_active)][0].id // empty'
 }
-demo_tab_order()  { demo_kitten ls | jq -c --argjson d ${DEMO_IDS[deck]:-0} '[.[].tabs[] | select(any(.windows[]; .id == $d)) | .windows[].id]' }
+# The deck tab's panes in layout order. kitty lists windows in creation
+# order; moving a pane swaps its group, so read the groups.
+demo_tab_order()  { demo_kitten ls | jq -c --argjson d ${DEMO_IDS[deck]:-0} '[.[].tabs[] | select(any(.windows[]; .id == $d)) | .groups[]?.windows[]]' }
 
 # press-focus KEYS: press, then wait until kitty's focused window changes.
 press-focus() {

@@ -188,8 +188,11 @@ kls "$(lsjson 7 5 6)"; AFTER=''
 press-focus cmd+right 2>/dev/null && bad 'press-focus accepted no move' || ok 'press-focus fails when focus does not move'
 
 # press-reorders, wait-layout, wait-tabs
-kls "$(lsjson 7 5 6)"; AFTER=$(lsjson 7 6 5)
-press-reorders cmd+shift+right && ok 'press-reorders sees the order change' || bad 'press-reorders failed'
+# kitty lists windows in creation order; a move swaps groups (layout order)
+grp() { print -r -- "[{\"tabs\":[{\"is_active\":true,\"layout\":\"tall\",\"windows\":[{\"id\":7,\"is_active\":true},{\"id\":5},{\"id\":6}],\"groups\":[$1]}]}]" }
+kls "$(grp '{"id":1,"windows":[7]},{"id":2,"windows":[5]},{"id":3,"windows":[6]}')"
+AFTER=$(grp '{"id":1,"windows":[7]},{"id":3,"windows":[6]},{"id":2,"windows":[5]}')
+press-reorders cmd+shift+right && ok 'press-reorders sees the groups swap' || bad 'press-reorders missed a group swap'
 kls "$(LAYOUT=tall lsjson 7 5 6)"
 wait-layout tall && ok 'wait-layout sees the layout' || bad 'wait-layout failed'
 wait-layout grid 2>/dev/null && bad 'wait-layout accepted the wrong layout' || ok 'wait-layout times out on the wrong layout'
