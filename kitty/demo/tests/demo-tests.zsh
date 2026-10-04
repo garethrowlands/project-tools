@@ -9,6 +9,7 @@
 setopt no_bg_nice
 zmodload zsh/datetime
 DEMO_ROOT=${0:A:h:h}
+C1=$DEMO_ROOT/chapters/1-shaders
 T=$(mktemp -d)
 trap 'rm -rf $T' EXIT
 fail=0
@@ -262,6 +263,18 @@ print junk >| $T/pid
 demo_already_running $T/pid && bad 'junk pid counted as running' || ok 'junk pid is not running'
 demo_already_running $T/nosuch && bad 'missing pid file counted as running' || ok 'missing pid file is not running'
 
+# chapters
+is 'chapter by number'           "$(demo_chapter_dir 1)" $C1
+is 'chapter by full name'        "$(demo_chapter_dir 1-shaders)" $C1
+demo_chapter_dir 9 >/dev/null && bad 'unknown chapter accepted' || ok 'unknown chapter rejected'
+is "chapter 1's deck title"      "$(demo_deck_title $C1/deck.md)" 'kitty, with shaders'
+out=$(zsh $DEMO_ROOT/play 2>&1); st=$?
+[[ $st == 0 && $out == *1-shaders* ]] && ok 'play alone lists the chapters' || bad "play alone: $st ${(q+)out}"
+zsh $DEMO_ROOT/play 9 --dry-run >/dev/null 2>&1; is 'unknown chapter is a usage error' $? 2
+zsh $DEMO_ROOT/play --only 3 >/dev/null 2>&1; is 'an option before the chapter is a usage error' $? 2
+[[ $(zsh $DEMO_ROOT/play 1-shaders --dry-run --only 0 2>&1) == *"slide goto 1 'kitty, with shaders'"* ]] \
+  && ok 'chapter by name dry-runs' || bad 'chapter by name does not dry-run'
+
 # hs -c mirrors Hammerspoon's console log (e.g. "hotkey: Enabled hotkey")
 # before the returned value; demo_hs (the real one, restored by sourcing
 # play) must answer with the value alone.
@@ -272,12 +285,12 @@ is 'demo_hs drops the console log' "$(PATH=$T/bin:$PATH demo_hs 'return 1')" ok
 print -r -- $'#!/bin/sh\necho "{\\"x\\":1}"' >| $T/bin/hs
 is 'demo_hs keeps a plain reply' "$(PATH=$T/bin:$PATH demo_hs 'return 1')" '{"x":1}'
 
-zsh $DEMO_ROOT/play --from x >/dev/null 2>&1; is 'bad --from is a usage error' $? 2
-zsh $DEMO_ROOT/play --bogus  >/dev/null 2>&1; is 'unknown option is a usage error' $? 2
-zsh $DEMO_ROOT/play --dry-run --only 99 >/dev/null 2>&1; is 'no beats selected is a usage error' $? 2
+zsh $DEMO_ROOT/play 1 --from x >/dev/null 2>&1; is 'bad --from is a usage error' $? 2
+zsh $DEMO_ROOT/play 1 --bogus  >/dev/null 2>&1; is 'unknown option is a usage error' $? 2
+zsh $DEMO_ROOT/play 1 --dry-run --only 99 >/dev/null 2>&1; is 'no beats selected is a usage error' $? 2
 for opt in --only --from --slow; do
   # perl's alarm turns a hang into exit 142 instead of hanging the suite
-  perl -e 'alarm 3; exec @ARGV' zsh $DEMO_ROOT/play --dry-run $opt >/dev/null 2>&1
+  perl -e 'alarm 3; exec @ARGV' zsh $DEMO_ROOT/play 1 --dry-run $opt >/dev/null 2>&1
   is "$opt without a value is a usage error" $? 2
 done
 
@@ -293,10 +306,10 @@ kill -0 $director 2>/dev/null && { bad 'quitting presenterm left the director ru
 unfunction presenterm
 
 # --- deck and beats ---------------------------------------------------------------
-is 'deck has 16 slides' "$(grep -c '^<!-- end_slide -->' $DEMO_ROOT/deck.md)" 15
+is 'deck has 16 slides' "$(grep -c '^<!-- end_slide -->' $C1/deck.md)" 15
 # Every `slide goto N TEXT` must find TEXT on slide N, or the beat times out.
-slides=("${(@ps:<!-- end_slide -->:)$(<$DEMO_ROOT/deck.md)}")
-for f in $DEMO_ROOT/beats/*.zsh; do
+slides=("${(@ps:<!-- end_slide -->:)$(<$C1/deck.md)}")
+for f in $C1/beats/*.zsh; do
   for line in ${(f)"$(grep '^slide goto' $f)"}; do
     words=(${(Q)${(z)line}})
     [[ $slides[$words[3]] == *"$words[4]"* ]] && ok "${f:t:r}: slide $words[3] says '$words[4]'" \
@@ -318,36 +331,36 @@ is 'OS-window slides fit a half-width window' "$(print -r -- $slides[10,12] | aw
 [[ $slides[5] == *'subtle trail'* ]] && ok 'cursor slide says the trail is subtle' || bad 'cursor slide lacks "subtle trail"'
 for text in 'kitty, with shaders' 'Focus follows you' 'switch tabs' 'and back again' 'cursor go?' 'spotlight' 'Clicks ripple' \
             'pane rang?' 'another tab' 'has focus?' 'Clicking links in the terminal' 'gentle.pipeline'; do
-  grep -qF -- $text $DEMO_ROOT/deck.md && ok "deck says '$text'" || bad "deck lacks '$text'"
+  grep -qF -- $text $C1/deck.md && ok "deck says '$text'" || bad "deck lacks '$text'"
 done
-dry=$(zsh $DEMO_ROOT/play --dry-run --only 2 2>&1)
+dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 2 2>&1)
 is 'beat 2 shows the new tab, switches to it, then back' "$(print -r -- $dry | grep -v '^#' | awk '{print $1, $2}' | paste -sd, -)" \
   'slide goto,beat-pause 1,card open,beat-pause 1.5,focus C,beat-pause 2.5,card say,beat-pause 1.5,slide goto,focus deck,beat-pause 2,pane close,pane close,beat-pause 1'
-dry=$(zsh $DEMO_ROOT/play --dry-run --only 1 2>&1)
+dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 1 2>&1)
 is 'beat 1 dry-run shape' "$(print -r -- $dry | grep -v '^#' | awk '{print $1, $2}' | paste -sd, -)" \
   'slide goto,beat-pause 1.5,card open,focus A,beat-pause 2,card open,focus B,card say,beat-pause 2,focus deck,card say,card say,beat-pause 2.5'
-zsh $DEMO_ROOT/play --dry-run --from 0 >/dev/null 2>&1 && ok 'every beat dry-runs' || bad 'a beat fails its dry run'
-is 'comet.txt fits a half-width pane' "$(awk 'length > 60' $DEMO_ROOT/scene/comet.txt)" ''
-(( $(wc -l < $DEMO_ROOT/scene/comet.txt) <= 35 )) && ok 'comet.txt fits a pane without scrolling' || bad 'comet.txt is too long'
-[[ $(tail -1 $DEMO_ROOT/scene/comet.txt) == *'down at the bottom'* ]] && ok 'comet.txt ends at the bottom line' || bad 'comet.txt last line'
+zsh $DEMO_ROOT/play 1 --dry-run --from 0 >/dev/null 2>&1 && ok 'every beat dry-runs' || bad 'a beat fails its dry run'
+is 'comet.txt fits a half-width pane' "$(awk 'length > 60' $C1/scene/comet.txt)" ''
+(( $(wc -l < $C1/scene/comet.txt) <= 35 )) && ok 'comet.txt fits a pane without scrolling' || bad 'comet.txt is too long'
+[[ $(tail -1 $C1/scene/comet.txt) == *'down at the bottom'* ]] && ok 'comet.txt ends at the bottom line' || bad 'comet.txt last line'
 
 # The ripple and the spotlight only bend or scale existing pixels, so over
 # empty background they show nothing: every glide must aim at deck text.
 # The one exception is a glide straight after a comment saying it targets
 # empty background: beat 5 shows the faint ring the glow gives there.
-is 'beat 5 clicks four times' "$(grep -c '^mouse click' $DEMO_ROOT/beats/05-ripple.zsh)" 4
+is 'beat 5 clicks four times' "$(grep -c '^mouse click' $C1/beats/05-ripple.zsh)" 4
 is 'beat 5 clicks empty background once' \
-  "$(grep -A1 '^#.*empty background' $DEMO_ROOT/beats/05-ripple.zsh | grep -c '^mouse glide deck')" 1
+  "$(grep -A1 '^#.*empty background' $C1/beats/05-ripple.zsh | grep -c '^mouse glide deck')" 1
 for f in 04-spotlight 05-ripple 10-finale; do
   prev=''
-  for line in "${(@f)$(<$DEMO_ROOT/beats/$f.zsh)}"; do
+  for line in "${(@f)$(<$C1/beats/$f.zsh)}"; do
     if [[ $line == 'mouse glide'* ]]; then
       words=(${(Q)${(z)line}})
       if [[ $prev == '#'*'empty background'* ]]; then
         [[ $words[2] == glide && $words[3] == deck ]] && ok "$f aims at empty background on purpose" \
           || bad "$f: empty-background glide ${(q+)line} isn't a plain deck glide"
       else
-        [[ $words[2] == glide-text && $words[3] == deck ]] && grep -qF -- $words[4] $DEMO_ROOT/deck.md \
+        [[ $words[2] == glide-text && $words[3] == deck ]] && grep -qF -- $words[4] $C1/deck.md \
           && ok "$f aims at deck text '$words[4]'" || bad "$f glides to ${(q+)line}, not to deck text"
       fi
     fi
@@ -356,41 +369,41 @@ for f in 04-spotlight 05-ripple 10-finale; do
 done
 
 # --- beats 6-10 --------------------------------------------------------------------
-dry=$(zsh $DEMO_ROOT/play --dry-run --only 6 2>&1)
+dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 6 2>&1)
 is 'beat 6 dry-run shape' "$(print -r -- $dry | grep -v '^#' | awk '{print $1, $2}' | paste -sd, -)" \
   'slide goto,card open,beat-pause 0.6,card say,beat-pause 0.6,card say,beat-pause 0.6,bell A,card say,beat-pause 2.5,pane close'
-dry=$(zsh $DEMO_ROOT/play --dry-run --only 7 2>&1)
+dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 7 2>&1)
 is '--only 7 opens C itself' "$(print -r -- $dry | grep -v '^#' | sed -n 2p | awk '{print $1, $2, $3}')" 'card open C'
-dry=$(zsh $DEMO_ROOT/play --dry-run --only 9 2>&1)
+dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 9 2>&1)
 # rg --hyperlink-format=kitty links only the heading and the line number, so
 # the click must land on the hit's line number ("5:" at column 0), not its text.
 [[ $dry == *"mouse glide-text A '5:# TODO"* && $dry == *'mouse click cmd'* ]] \
   && ok 'beat 9 cmd-clicks the rg hit' || bad 'beat 9 does not cmd-click the rg hit'
-[[ $(cd $DEMO_ROOT/scene/repo && rg --hyperlink-format=kitty --color=always --heading -n TODO .) \
+[[ $(cd $C1/scene/repo && rg --hyperlink-format=kitty --color=always --heading -n TODO .) \
    == *$'main.py#5\e\\'*5*$'\e]8;;\e\\:#'* ]] && ok 'rg links the line number 5' || bad 'rg no longer links the line number'
-dry=$(zsh $DEMO_ROOT/play --dry-run --only 8 2>&1)
+dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 8 2>&1)
 is 'beat 8 hands focus to another app and back' \
   "$(print -r -- $dry | grep -E '^(card open|pane|stage)' | awk '{print $1, $2}' | paste -sd, -)" \
   'stage open-other,stage focus-main,stage close-other,stage fill'
 is 'beat 8 changes slide before each change of focus' \
   "$(print -r -- $dry | grep -E '^(slide|stage (open|focus))' | awk '{print $1, $2, $3}' | sed 's/ *$//' | paste -sd, -)" \
-  'slide goto 10,slide goto 11,stage open-other '"$DEMO_ROOT"'/scene/other-app.txt,slide goto 12,stage focus-main'
-other=$(grep '^stage open-other' $DEMO_ROOT/beats/08-os-window.zsh | awk '{print $3}')
-[[ -f ${other/\$DEMO_ROOT/$DEMO_ROOT} ]] && ok 'beat 8 opens a scene file' || bad "beat 8 opens a missing file: $other"
+  'slide goto 10,slide goto 11,stage open-other '"$C1"'/scene/other-app.txt,slide goto 12,stage focus-main'
+other=$(grep '^stage open-other' $C1/beats/08-os-window.zsh | awk '{print $3}')
+[[ -f ${other/\$DEMO_CHAPTER_DIR/$C1} ]] && ok 'beat 8 opens a scene file' || bad "beat 8 opens a missing file: $other"
 for verb in focus-other close-other; do
-  for t in ${(f)"$(grep "^stage $verb" $DEMO_ROOT/beats/08-os-window.zsh | awk '{print $3}')"}; do
+  for t in ${(f)"$(grep "^stage $verb" $C1/beats/08-os-window.zsh | awk '{print $3}')"}; do
     is "beat 8 $verb names the opened file" ${(Q)t} ${other:t}
   done
 done
 # Beat 9 narrates one step per slide, each before the step, and proves the cd.
-dry=$(zsh $DEMO_ROOT/play --dry-run --only 9 2>&1)
+dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 9 2>&1)
 is 'beat 9 changes slide before each step' \
   "$(print -r -- $dry | grep -E '^(slide|mouse glide-text|type-text)' | awk '{ if ($1 == "type-text") print $1, $2; else print $1, $2, $3 }' | paste -sd, -)" \
   'slide goto 13,type-text A,slide goto 14,mouse glide-text A,slide goto 15,mouse glide-text A,type-text A'
 [[ $dry == *"type-text A 'pwd; cat sparkle.txt"* ]] && ok 'beat 9 shows where the click took the shell' || bad 'beat 9 does not prove the cd'
 is 'link slides fit a half-width window' "$(print -r -- $slides[13,15] | awk 'length > 48')" ''
-is 'scene repo has one TODO' "$(rg -c TODO $DEMO_ROOT/scene/repo | paste -sd' ' -)" "$DEMO_ROOT/scene/repo/main.py:1"
-grep -rq glitter $DEMO_ROOT/scene/repo/main.py && bad 'glitter appears in rg output' || ok 'glitter only in the eza listing'
+is 'scene repo has one TODO' "$(rg -c TODO $C1/scene/repo | paste -sd' ' -)" "$C1/scene/repo/main.py:1"
+grep -rq glitter $C1/scene/repo/main.py && bad 'glitter appears in rg output' || ok 'glitter only in the eza listing'
 
 # (later tasks add sections above this line)
 exit $fail

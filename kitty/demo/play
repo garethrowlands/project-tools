@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
-# play: the self-running kitty shader demo (see README.md).
+# play: the self-running kitty demo, one chapter at a time (see README.md).
 #
-#   play [--from N | --only N] [--slow FACTOR] [--dry-run]
+#   play [CHAPTER [--from N | --only N] [--slow FACTOR] [--dry-run]]
 #
 # Run it in a kitty pane that is alone in its tab: after the pre-flight
 # checks presenterm shows the deck in that pane, and a background director
@@ -15,7 +15,25 @@ DEMO_ROOT=${${(%):-%x}:A:h}
 source $DEMO_ROOT/lib.zsh
 
 demo_usage() {
-  print -r -- 'usage: play [--from N | --only N] [--slow FACTOR] [--dry-run]'
+  print -r -- 'usage: play [CHAPTER [--from N | --only N] [--slow FACTOR] [--dry-run]]'
+}
+
+# demo_chapter_dir ARG: the chapter directory for "2" or "2-windows".
+demo_chapter_dir() {
+  local d
+  for d in $DEMO_ROOT/chapters/<->-*(N/n); do
+    if [[ ${d:t} == $1 || ${${d:t}%%-*} == $1 ]]; then
+      print -r -- $d
+      return 0
+    fi
+  done
+  return 1
+}
+
+# demo_deck_title DECK: the deck's first slide title (first setext heading);
+# the director waits for it to know presenterm is up.
+demo_deck_title() {
+  awk 'prev != "" && /^=+$/ { print prev; exit } { prev = $0 }' $1
 }
 
 # demo_select_beats DIR FROM ONLY: beat files to run, in numeric order.
@@ -88,14 +106,14 @@ demo_preflight() {
 # then stop the director (its EXIT trap cleans up). Not exec: play runs under
 # the pane's shell, which outlives presenterm, so the pane never closes.
 demo_present() {
-  presenterm $DEMO_ROOT/deck.md
+  presenterm $DEMO_CHAPTER_DIR/deck.md
   kill -TERM $1 2>/dev/null
   return 0
 }
 
 # The background half of a real run, from the moment presenterm starts.
 demo_direct() {
-  demo_begin $DEMO_STATE/play.pid && wait-text deck 'kitty, with shaders' && demo_run_beats "$@" && return 0
+  demo_begin $DEMO_STATE/play.pid && wait-text deck "$(demo_deck_title $DEMO_CHAPTER_DIR/deck.md)" && demo_run_beats "$@" && return 0
   demo_hs "return demoStage.notify($(demo_lua_str "kitty demo stopped at beat ${DEMO_BEAT:-?}: see $DEMO_STATE/play.log"))" >/dev/null 2>&1
   return 1
 }
@@ -103,6 +121,17 @@ demo_direct() {
 demo_play_main() {
   local from=0 only=
   local -a beats
+  if (( ! $# )); then
+    print -r -- 'chapters:'
+    local d
+    for d in $DEMO_ROOT/chapters/<->-*(N/n); do print -r -- "  ${d:t}"; done
+    return 0
+  fi
+  [[ $1 == (-h|--help) ]] && { demo_usage; return 0 }
+  [[ $1 != -* ]] || { demo_usage >&2; return 2 }
+  typeset -g DEMO_CHAPTER_DIR
+  DEMO_CHAPTER_DIR=$(demo_chapter_dir $1) || { print -u2 "play: no chapter $1"; demo_usage >&2; return 2 }
+  shift
   while (( $# )); do
     case $1 in
       --from|--only|--slow)
@@ -120,7 +149,7 @@ demo_play_main() {
   done
   [[ $from == <-> && ( -z $only || $only == <-> ) && $DEMO_SLOW == [0-9.]## ]] \
     || { demo_usage >&2; return 2 }
-  beats=( ${(f)"$(demo_select_beats $DEMO_ROOT/beats $from $only)"} )
+  beats=( ${(f)"$(demo_select_beats $DEMO_CHAPTER_DIR/beats $from $only)"} )
   (( $#beats )) || { print -u2 'play: no beats selected'; return 2 }
 
   if (( DEMO_DRY )); then

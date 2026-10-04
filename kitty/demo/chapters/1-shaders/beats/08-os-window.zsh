@@ -6,7 +6,7 @@
 slide goto 10 'has focus?'
 beat-pause 3.5
 slide goto 11 'takes the focus'
-stage open-other $DEMO_ROOT/scene/other-app.txt
+stage open-other $DEMO_CHAPTER_DIR/scene/other-app.txt
 beat-pause 4
 slide goto 12 'back to kitty'
 stage focus-main

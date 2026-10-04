@@ -4,7 +4,7 @@
 # the eza listing cds the shell, and pwd plus the file there prove it. Needs
 # kitty-cd-link.zsh in the interactive zsh (see kitty/ and install-scripts).
 slide goto 13 'Clicking links in the terminal'
-pane open A --location=vsplit --cwd=$DEMO_ROOT/scene/repo -- zsh -i
+pane open A --location=vsplit --cwd=$DEMO_CHAPTER_DIR/scene/repo -- zsh -i
 focus A
 type-text A 'clear; eza --hyperlink -1; rg --hyperlink-format=kitty TODO\r'
 wait-text A '5:# TODO'
