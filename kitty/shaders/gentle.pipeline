@@ -59,7 +59,9 @@ startgroup
     shaders spotlight
 endgroup
 
-# 4. Ripple on left click, smaller and less shiny than stock.
+# 4. Ripple on left click, smaller and less shiny than stock, with a faint
+#    glow on the crests so a click on empty background still shows a ring
+#    (the stock ripple only bends and shades pixels that are already there).
 startgroup
     animation_start pointer-left-button-press
     # stock: 1500ms
@@ -75,7 +77,12 @@ startgroup
     # shine / shading (stock: 0.40 / 0.10)
     var float SPECULAR_STRENGTH = 0.06
     var float DIFFUSE_STRENGTH = 0.015
-    shaders pond-ripple
+    # additive crest glow (local shader options; stock: off). Linear light, so
+    # 0.04 x 0.8 peaks around sRGB #333 on black; raise it for a brighter ring
+    var float GLOW_STRENGTH = 0.04
+    var float3 GLOW_COLOR = float3(0.8)
+    # local copy of pond-ripple with the additive crest glow
+    shaders pond-ripple-local
 endgroup
 
 # 5. Cursor trail (needs cursor_trail > 0 in kitty.conf). Last so the trail
