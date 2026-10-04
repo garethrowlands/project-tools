@@ -59,23 +59,41 @@ startgroup
     shaders spotlight
 endgroup
 
-# 4. Ripple on left click, smaller and less shiny than stock.
+# 4. Ripple on left click, smaller and less shiny than stock, with a faint
+#    glow on the crests so a click on empty background still shows a ring
+#    (the stock ripple only bends and shades pixels that are already there).
 startgroup
     animation_start pointer-left-button-press
     # stock: 1500ms
     animation_stop 400
     animation_curve ease-out
     animation_step 16
-    # max ring radius in UV units (stock: 0.45)
-    var float WAVE_SPEED = 0.12
-    # ring band half-width (stock: 0.055)
-    var float WAVE_WIDTH = 0.035
-    # text displacement at the crest, UV units (stock: 0.010)
-    var float AMPLITUDE = 0.0015
+    # sizes below are in text lines (local shader option; stock measures in
+    # window heights): one line in framebuffer pixels, measured (font_size
+    # 18 at 1x). Re-measure if the font size or display changes, with
+    #   kitten @ kitten $REPO/kitty/demo/demo_geometry.py $TMPDIR/g.json
+    #   jq '[.windows[] | (.bottom - .top) / .lines]' $TMPDIR/g.json
+    var float LENGTH_UNIT_PX = 23.0
+    # max ring radius, lines. The ring fades as it spreads, so what you see
+    # is about half this: roughly six lines across
+    var float WAVE_SPEED = 6.0
+    # ring band half-width, lines
+    var float WAVE_WIDTH = 1.5
+    # ring spacing, cycles per line
+    var float WAVE_FREQUENCY = 0.35
+    # text displacement at the crest, lines
+    var float AMPLITUDE = 0.12
+    # crest slope for the shading; keeps it as gentle as before (stock: 8)
+    var float NORMAL_SCALE = 4.0
     # shine / shading (stock: 0.40 / 0.10)
     var float SPECULAR_STRENGTH = 0.06
     var float DIFFUSE_STRENGTH = 0.015
-    shaders pond-ripple
+    # additive crest glow (local shader options; stock: off). Linear light, so
+    # 0.04 x 0.8 peaks around sRGB #333 on black; raise it for a brighter ring
+    var float GLOW_STRENGTH = 0.04
+    var float3 GLOW_COLOR = float3(0.8)
+    # local copy of pond-ripple with the additive crest glow
+    shaders pond-ripple-local
 endgroup
 
 # 5. Cursor trail (needs cursor_trail > 0 in kitty.conf). Last so the trail
