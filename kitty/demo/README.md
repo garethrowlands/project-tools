@@ -62,6 +62,7 @@ left open.
 | `wait-text NAME TEXT` / `wait-window MATCH` | readiness |
 | `mouse glide NAME X% Y% [MS]` / `mouse glide-text NAME TEXT [MS]` / `mouse click [cmd]` | the real pointer |
 | `stage place-beside TITLE` | float a second OS window over the main one |
+| `stage raise TITLE` | bring it in front again without focusing it |
 | `beat-pause SECONDS` | pacing (scaled by `--slow`) |
 
 ## Tests

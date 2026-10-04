@@ -7,6 +7,7 @@
 # Exits 1 if any test fails.
 
 setopt no_bg_nice
+zmodload zsh/datetime
 DEMO_ROOT=${0:A:h:h}
 T=$(mktemp -d)
 trap 'rm -rf $T' EXIT
@@ -199,6 +200,22 @@ HSREPLY='no window titled kitty demo W' DEMO_TIMEOUT=0.2 stage place-beside 'kit
   && bad 'place-beside without the window accepted' || ok 'place-beside waits, then fails'
 KGEOM= HSFRAME=
 
+# --- final-review fixes that need the stubs -------------------------------------------
+reset_stubs
+stage raise 'kitty demo W'
+is 'stage raise brings a window forward without focus' "$(grep raise $T/hcalls)" 'return demoStage.raise("kitty demo W")'
+
+# demo_sleep must let a trapped TERM act at once (the abort hotkey), not
+# after the whole pause. Run it in a separate zsh with the real lib.zsh.
+start=$EPOCHREALTIME
+zsh -c "source $DEMO_ROOT/lib.zsh; trap 'exit 3' TERM; demo_sleep 5" &
+sleeper=$!
+sleep 0.3; kill -TERM $sleeper; wait $sleeper; st=$?
+(( EPOCHREALTIME - start < 2 )) && ok 'TERM interrupts demo_sleep' || bad "demo_sleep held TERM for $(( EPOCHREALTIME - start ))s"
+is 'TERM during demo_sleep runs the trap' $st 3
+zsh -c "source $DEMO_ROOT/lib.zsh; setopt err_return; f() { demo_sleep 0.1; print slept }; f" | grep -q slept \
+  && ok 'demo_sleep succeeds under err_return' || bad 'demo_sleep failed under err_return'
+
 # --- play -------------------------------------------------------------------------
 # Sourcing play re-sources lib.zsh, which replaces the stubs above with the
 # real kitty/Hammerspoon functions; sections from here on run play as a
@@ -229,6 +246,22 @@ demo_already_running $T/nosuch && bad 'missing pid file counted as running' || o
 zsh $DEMO_ROOT/play --from x >/dev/null 2>&1; is 'bad --from is a usage error' $? 2
 zsh $DEMO_ROOT/play --bogus  >/dev/null 2>&1; is 'unknown option is a usage error' $? 2
 zsh $DEMO_ROOT/play --dry-run --only 99 >/dev/null 2>&1; is 'no beats selected is a usage error' $? 2
+for opt in --only --from --slow; do
+  # perl's alarm turns a hang into exit 142 instead of hanging the suite
+  perl -e 'alarm 3; exec @ARGV' zsh $DEMO_ROOT/play --dry-run $opt >/dev/null 2>&1
+  is "$opt without a value is a usage error" $? 2
+done
+
+# Quitting presenterm ends the show: play waits for presenterm (no exec,
+# since the pane's shell outlives it), then signals the director.
+presenterm() { : }
+sleep 30 &
+director=$!
+demo_present $director
+sleep 0.2
+kill -0 $director 2>/dev/null && { bad 'quitting presenterm left the director running'; kill $director } \
+  || ok 'quitting presenterm stops the director'
+unfunction presenterm
 
 # --- deck and beats ---------------------------------------------------------------
 is 'deck has 11 slides' "$(grep -c '^<!-- end_slide -->' $DEMO_ROOT/deck.md)" 10
@@ -251,8 +284,14 @@ is 'beat 6 dry-run shape' "$(print -r -- $dry | grep -v '^#' | awk '{print $1, $
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 7 2>&1)
 is '--only 7 opens C itself' "$(print -r -- $dry | grep -v '^#' | sed -n 2p | awk '{print $1, $2, $3}')" 'card open C'
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 9 2>&1)
-[[ $dry == *'mouse glide-text A '*'make it sparkle'* && $dry == *'mouse click cmd'* ]] \
+# rg --hyperlink-format=kitty links only the heading and the line number, so
+# the click must land on the hit's line number ("5:" at column 0), not its text.
+[[ $dry == *"mouse glide-text A '5:# TODO"* && $dry == *'mouse click cmd'* ]] \
   && ok 'beat 9 cmd-clicks the rg hit' || bad 'beat 9 does not cmd-click the rg hit'
+[[ $(cd $DEMO_ROOT/scene/repo && rg --hyperlink-format=kitty --color=always --heading -n TODO .) \
+   == *$'main.py#5\e\\'*5*$'\e]8;;\e\\:#'* ]] && ok 'rg links the line number 5' || bad 'rg no longer links the line number'
+dry=$(zsh $DEMO_ROOT/play --dry-run --only 8 2>&1)
+is 'beat 8 raises W after each deck focus' "$(print -r -- $dry | grep -A1 '^focus deck' | grep -c '^stage raise')" 2
 is 'scene repo has one TODO' "$(rg -c TODO $DEMO_ROOT/scene/repo | paste -sd' ' -)" "$DEMO_ROOT/scene/repo/main.py:1"
 grep -rq glitter $DEMO_ROOT/scene/repo/main.py && bad 'glitter appears in rg output' || ok 'glitter only in the eza listing'
 

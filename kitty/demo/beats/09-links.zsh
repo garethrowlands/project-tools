@@ -5,9 +5,10 @@ slide goto 10 'land in a terminal app'
 pane open A --location=vsplit --cwd=$DEMO_ROOT/scene/repo -- zsh -i
 focus A
 type-text A 'clear; eza --hyperlink -1; rg --hyperlink-format=kitty TODO\r'
-wait-text A 'make it sparkle'
+wait-text A '5:# TODO'
 beat-pause 1.5
-mouse glide-text A 'make it sparkle' 900
+# rg links only the heading and the line number, so click the hit's "5"
+mouse glide-text A '5:# TODO' 900
 mouse click cmd
 wait-window 'state:focused and cmdline:micro'
 beat-pause 2.5

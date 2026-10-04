@@ -4,9 +4,10 @@
 #   play [--from N | --only N] [--slow FACTOR] [--dry-run]
 #
 # Run it in a kitty pane that is alone in its tab: after the pre-flight
-# checks that pane becomes the presenterm deck, and a background director
+# checks presenterm shows the deck in that pane, and a background director
 # plays beats/NN-*.zsh against it. Its log is $TMPDIR/kitty-demo/play.log.
-# Abort with Ctrl+Alt+Cmd+. (Hammerspoon) or by quitting presenterm.
+# Abort with Ctrl+Alt+Cmd+. (Hammerspoon) or by quitting presenterm, which
+# makes play signal the director.
 
 setopt extended_glob
 zmodload zsh/system
@@ -81,6 +82,15 @@ demo_preflight() {
   (( ok ))
 }
 
+# demo_present DIRECTOR_PID: show the deck until the viewer quits presenterm,
+# then stop the director (its EXIT trap cleans up). Not exec: play runs under
+# the pane's shell, which outlives presenterm, so the pane never closes.
+demo_present() {
+  presenterm $DEMO_ROOT/deck.md
+  kill -TERM $1 2>/dev/null
+  return 0
+}
+
 # The background half of a real run, from the moment presenterm starts.
 demo_direct() {
   demo_begin $DEMO_STATE/play.pid && wait-text deck 'kitty, with shaders' && demo_run_beats "$@" && return 0
@@ -93,9 +103,14 @@ demo_play_main() {
   local -a beats
   while (( $# )); do
     case $1 in
-      --from)    from=$2; shift 2 ;;
-      --only)    only=$2; shift 2 ;;
-      --slow)    DEMO_SLOW=$2; shift 2 ;;
+      --from|--only|--slow)
+        (( $# >= 2 )) || { demo_usage >&2; return 2 }
+        case $1 in
+          --from) from=$2 ;;
+          --only) only=$2 ;;
+          --slow) DEMO_SLOW=$2 ;;
+        esac
+        shift 2 ;;
       --dry-run) DEMO_DRY=1; shift ;;
       -h|--help) demo_usage; return 0 ;;
       *)         demo_usage >&2; return 2 ;;
@@ -119,12 +134,12 @@ demo_play_main() {
   (
     print -r -- $sysparams[pid] >| $DEMO_STATE/play.pid
     # EXIT traps in zsh functions fire on return, so these live here, in the
-    # subshell itself. HUP: the deck pane closed (presenterm quit).
+    # subshell itself. TERM: presenterm quit, or the abort hotkey.
     trap 'demo_cleanup; rm -f $DEMO_STATE/play.pid' EXIT
     trap 'exit 1' HUP INT TERM
     demo_direct $beats
   ) >>$DEMO_STATE/play.log 2>&1 </dev/null &!
-  exec presenterm $DEMO_ROOT/deck.md
+  demo_present $!
 }
 
 [[ $ZSH_EVAL_CONTEXT == toplevel ]] && { demo_play_main "$@"; exit }

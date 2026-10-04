@@ -19,7 +19,17 @@ typeset -g  DEMO_LAYOUT=''                    # the deck tab's layout before the
 # The outside world, as functions the tests replace.
 demo_kitten() { command kitten @ "$@" }
 demo_hs()     { command hs -c "$1" }
-demo_sleep()  { command sleep "$1" }
+# zsh runs a trap only once a foreground command finishes, so a plain sleep
+# would hold the abort hotkey's TERM for the whole pause. The wait builtin
+# returns as soon as a trapped signal arrives.
+demo_sleep() {
+  setopt local_options no_bg_nice
+  command sleep $1 &
+  local pid=$!
+  wait $pid || :
+  kill $pid 2>/dev/null || :
+  return 0
+}
 
 demo_err() { print -ru2 -- "beat ${DEMO_BEAT:-?} · $*"; return 1 }
 
@@ -309,9 +319,16 @@ demo_glide() {
 demo_place_beside() { [[ $(demo_hs "return demoStage.placeBeside($(demo_lua_str $1))") == ok ]] }
 
 # stage place-beside TITLE: float the OS window titled TITLE over the right of
-# the main window, so both are in shot. Waits for it to appear.
+#   the main window, so both are in shot. Waits for it to appear.
+# stage raise TITLE: bring it in front again without focusing it (focusing
+#   the main window raises the main window over it).
 stage() {
   demo_dry stage "$@" && return 0
-  [[ $1 == place-beside ]] || { demo_err "stage: unknown subcommand $1"; return 1 }
-  demo_poll "an OS window titled '$2'" demo_place_beside $2
+  case $1 in
+    place-beside) demo_poll "an OS window titled '$2'" demo_place_beside $2 ;;
+    raise)
+      [[ $(demo_hs "return demoStage.raise($(demo_lua_str $2))") == ok ]] \
+        || demo_err "stage raise: no window titled '$2'" ;;
+    *) demo_err "stage: unknown subcommand $1" ;;
+  esac
 }

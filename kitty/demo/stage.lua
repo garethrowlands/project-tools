@@ -48,6 +48,14 @@ function M.placeBeside(title)
   return "ok"
 end
 
+-- Bring the window titled `title` to the front without giving it focus.
+function M.raise(title)
+  local win = hs.window.get(title)
+  if not win then return "no window titled " .. title end
+  win:raise()
+  return "ok"
+end
+
 -- Ease (in-out) the pointer to (x, y) over ms milliseconds, at about 60 Hz.
 function M.glide(x, y, ms)
   stopGlide()
