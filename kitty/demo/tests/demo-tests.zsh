@@ -660,5 +660,40 @@ out=$(CLAUDE_DEMO_DIR=$T/none DEMO_WORLD=$T/mine DEMO_CHAPTER_DIR=$C3 demo_prefl
 [[ $out == *DEMO_WORLD* ]] && ok 'pre-flight refuses an unmarked world' || bad "pre-flight: $out"
 zsh $DEMO_ROOT/play 1 --inside --dry-run >/dev/null 2>&1; is '--inside is accepted' $? 0
 
+# --- chapter 3 -----------------------------------------------------------------------
+slides3=("${(@ps:<!-- end_slide -->:)$(<$C3/deck.md)}")
+is 'chapter 3 has 8 slides' $#slides3 8
+is 'chapter 3 slides fit beside a pane' "$(awk 'length > 40' $C3/deck.md)" ''
+for f in $C3/beats/*.zsh; do
+  for line in ${(f)"$(grep '^slide goto' $f)"}; do
+    words=(${(Q)${(z)line}})
+    [[ $slides3[$words[3]] == *"$words[4]"* ]] && ok "ch3 ${f:t:r}: slide $words[3] says '$words[4]'" \
+      || bad "ch3 ${f:t:r}: slide $words[3] doesn't say '$words[4]'"
+  done
+done
+zsh $DEMO_ROOT/play 3 --dry-run >/dev/null 2>&1 && ok 'chapter 3 dry-runs' || bad 'chapter 3 fails its dry run'
+shape3() { zsh $DEMO_ROOT/play 3 --dry-run --only $1 2>&1 | grep -E '^(press|adopt|wait-|type-text|stage)' | awk '{print $1, $2}' | paste -sd, - }
+is 'ch3 beat 1 jumps to shop-api and back' "$(shape3 1)" \
+  'press cmd+§,adopt picker,wait-text picker,type-text picker,press enter,wait-tab shop-api,press ctrl+shift+tab,wait-tab web-app'
+is 'ch3 beat 2 browses the switcher and leaves' "$(shape3 2)" \
+  'press alt+tab,adopt switcher,wait-text switcher,press down,press down,press escape,wait-gone switcher'
+is 'ch3 beat 3 tidies with the real key' "$(shape3 3)" \
+  'adopt docs-log,adopt stray,press cmd+shift+w,adopt tidy,wait-text tidy,press enter,wait-gone docs-log,wait-in-tab stray'
+is 'ch3 beat 4 opens blog beside the slides' "$(shape3 4)" \
+  'press cmd+§,adopt picker,wait-text picker,type-text picker,press-new blog,type-text blog,wait-text blog'
+is 'ch3 beat 5 tiles the IDE' "$(shape3 5)" 'stage tile-next,press cmd+i,stage wait-tiled,stage close-tiled'
+is 'ch3 beat 6 tiles the browser' "$(shape3 6)" 'stage tile-next,press cmd+b,stage wait-tiled,stage close-tiled'
+zsh $DEMO_ROOT/play 3 --dry-run 2>&1 | grep -q '^focus ' && bad 'ch3 moves focus without a key' || ok 'ch3 moves focus only with keys'
+[[ -e $C3/instance ]] && ok 'chapter 3 runs in its own instance' || bad 'chapter 3 has no instance file'
+is 'chapter 3 starts in the tall layout' "$(<$C3/layout)" tall
+for tool in switch-project window tidy-windows ide project-web; do
+  grep -qx -- "launch --type=overlay --cwd=current $tool" $C3/requires && ok "chapter 3 requires $tool" || bad "chapter 3 requires lacks $tool"
+done
+for k in ${(u)${(f)"$(zsh $DEMO_ROOT/play 3 --dry-run 2>&1 | awk '$1 == "press" {print $2} $1 == "press-new" {print $3}')"}}; do
+  demo_press_args $k >/dev/null 2>&1 && ok "ch3 key $k has a badge" || bad "ch3 key $k has no badge"
+done
+body=$(print -r -- $slides3[8] | sed -n '/^=\{3,\}$/,$p' | grep -v '^=*$' | grep -v '^$')
+is 'ch3 cheat sheet is one list item per key' "$(print -r -- $body | grep -vc '^\* ')" 0
+
 # (later tasks add sections above this line)
 exit $fail

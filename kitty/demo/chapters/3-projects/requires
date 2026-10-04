@@ -1,0 +1,6 @@
+# kitty actions chapter 3 presses keys for (checked by play's pre-flight)
+launch --type=overlay --cwd=current switch-project
+launch --type=overlay --cwd=current window
+launch --type=overlay --cwd=current tidy-windows
+launch --type=overlay --cwd=current ide
+launch --type=overlay --cwd=current project-web

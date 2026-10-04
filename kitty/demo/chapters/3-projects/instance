@@ -1,0 +1,2 @@
+# This chapter runs in a kitty instance of its own (see play): the window
+# switcher and tidy-windows must see only the staged world's windows.
