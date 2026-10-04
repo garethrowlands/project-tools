@@ -64,10 +64,12 @@ Symlink the pipeline and its local shaders into kitty's `shaders/` config direct
 
 ```zsh
 mkdir -p ~/.config/kitty/shaders
-for f in gentle.pipeline cursor-trail-blaze-local.slang focus-highlight-local.slang os-window-focus-border.slang; do
+for f in gentle.pipeline cursor-trail-blaze-local.slang focus-highlight-local.slang os-window-focus-border.slang bell-ring.slang; do
   ln -s $PWD/kitty/shaders/$f ~/.config/kitty/shaders/$f
 done
 grep -q '^custom_shaders' ~/.config/kitty/kitty.conf || echo 'custom_shaders gentle' >> ~/.config/kitty/kitty.conf
+# the bell shader only gets bell-in-window events with a visual bell; 0.01s keeps kitty's own flash invisible
+grep -q '^visual_bell_duration' ~/.config/kitty/kitty.conf || echo 'visual_bell_duration 0.01' >> ~/.config/kitty/kitty.conf
 ```
 
 Then reload kitty's config (Cmd+Ctrl+,).

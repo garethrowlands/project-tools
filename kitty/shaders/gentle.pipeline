@@ -63,7 +63,7 @@ endgroup
 startgroup
     animation_start pointer-left-button-press
     # stock: 1500ms
-    animation_stop 700
+    animation_stop 400
     animation_curve ease-out
     animation_step 16
     # max ring radius in UV units (stock: 0.45)
@@ -134,7 +134,7 @@ var float3 OSW_UNFOCUSED_TINT_COLOR = float3(0.1022, 0.162, 0.2789)
 var float OSW_UNFOCUSED_TINT = 0.05
 #    edge shadow while unfocused: darkening at the very edge (0 = off; keep
 #    below 1), fading out over this many framebuffer pixels from each edge
-var float OSW_UNFOCUSED_VIGNETTE = 0.3
+var float OSW_UNFOCUSED_VIGNETTE = 0.45
 var float OSW_UNFOCUSED_VIGNETTE_WIDTH_PX = 120.0
 
 # 6. Unfocused look (dim, tint, vignette) for the whole OS window. Always
@@ -180,4 +180,30 @@ startgroup
     animation_step 16
     var int OSW_FOCUS_PASS = 2
     shaders os-window-focus-border
+endgroup
+
+# 10. Bell: the edges of the pane that rang flash red-orange and die away
+#    (a bell in another tab flashes the whole tab area).
+#    Last, so a bell in an unfocused OS window isn't dimmed with it. Needs
+#    visual_bell_duration > 0 in kitty.conf for kitty to fire bell-in-window;
+#    0.01 keeps kitty's own full-pane flash too short to see. The number in
+#    animation_stop is the ring duration in ms; keep the curve linear, the
+#    shader shapes the decay itself.
+startgroup
+    animation_start bell-in-window
+    animation_stop 400
+    animation_curve linear
+    animation_step 16
+    # glow colour in linear RGB; muted red-orange (sRGB #f0703c)
+    var float3 BELL_COLOR = float3(0.8714, 0.162, 0.0452)
+    # blend amount toward the colour at the pane edge at the first strike (0..1;
+    # a blend, not added light, so it stays red over the white active border)
+    var float BELL_INTENSITY = 0.5
+    # how far in from the pane edge the glow fades out, in framebuffer pixels
+    var float BELL_WIDTH_PX = 40.0
+    # full-strength reach outward past the pane, over kitty's window border
+    var float BELL_OUTSET_PX = 4.0
+    # number of pulses; 0 = a single flash
+    var float BELL_RINGS = 0.0
+    shaders bell-ring
 endgroup
