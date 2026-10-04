@@ -1,0 +1,147 @@
+#!/usr/bin/env zsh
+# play: the self-running kitty shader demo (see README.md).
+#
+#   play [--from N | --only N] [--slow FACTOR] [--dry-run]
+#
+# Run it in a kitty pane that is alone in its tab: after the pre-flight
+# checks presenterm shows the deck in that pane, and a background director
+# plays beats/NN-*.zsh against it. Its log is $TMPDIR/kitty-demo/play.log.
+# Abort with Ctrl+Alt+Cmd+. (Hammerspoon) or by quitting presenterm, which
+# makes play signal the director.
+
+setopt extended_glob
+zmodload zsh/system
+DEMO_ROOT=${${(%):-%x}:A:h}
+source $DEMO_ROOT/lib.zsh
+
+demo_usage() {
+  print -r -- 'usage: play [--from N | --only N] [--slow FACTOR] [--dry-run]'
+}
+
+# demo_select_beats DIR FROM ONLY: beat files to run, in numeric order.
+demo_select_beats() {
+  local dir=$1 from=${2:-0} only=$3 f n
+  for f in $dir/<->-*.zsh(Nn); do
+    n=$(demo_beat_number $f)
+    if [[ -n $only ]]; then
+      (( n == only )) || continue
+    else
+      (( n >= from )) || continue
+    fi
+    print -r -- $f
+  done
+}
+
+demo_beat_number() { print -r -- $(( 10#${${1:t}%%-*} )) }
+
+# A failing verb returns from the beat (ERR_RETURN), and that ends the run.
+demo_source_beat() {
+  setopt local_options err_return
+  source $1
+}
+
+demo_run_beats() {
+  local f
+  for f in "$@"; do
+    DEMO_BEAT=$(demo_beat_number $f)
+    print -r -- "# beat $DEMO_BEAT · ${${f:t:r}#*-}"
+    demo_source_beat $f || return 1
+  done
+}
+
+# demo_already_running PIDFILE: true if that pid is a live process.
+demo_already_running() {
+  local pid
+  pid=$(<$1) 2>/dev/null || return 1
+  [[ $pid == <-> ]] && kill -0 $pid 2>/dev/null
+}
+
+# Everything a run needs, checked before anything visible happens.
+demo_preflight() {
+  local ok=1 cmd deck=$KITTY_WINDOW_ID
+  [[ -n $deck ]] || { print -u2 'play: run me in a kitty pane'; return 1 }
+  if ! demo_kitten ls >/dev/null 2>&1; then
+    print -u2 'play: kitten @ cannot reach kitty (allow_remote_control socket-only and listen_on in kitty.conf)'
+    return 1
+  fi
+  [[ $(demo_kitten ls | jq "[.[].tabs[] | select(any(.windows[]; .id == $deck)) | .windows[]] | length") == 1 ]] \
+    || { print -u2 'play: run me in a pane that is alone in its tab'; ok=0 }
+  for cmd in presenterm micro eza rg jq hs; do
+    (( $+commands[$cmd] )) || { print -u2 "play: $cmd is not on PATH"; ok=0 }
+  done
+  if (( $+commands[hs] )); then
+    [[ $(demo_hs 'return demoStage ~= nil and hs.accessibilityState()' 2>/dev/null) == true ]] \
+      || { print -u2 'play: Hammerspoon has no demoStage, or lacks Accessibility (see README)'; ok=0 }
+    demo_stage_current \
+      || { print -u2 'play: kitty/demo/stage.lua changed since Hammerspoon loaded it: reload Hammerspoon'; ok=0 }
+  fi
+  if demo_already_running $DEMO_STATE/play.pid; then
+    print -u2 "play: already running (pid $(<$DEMO_STATE/play.pid))"
+    ok=0
+  fi
+  grep -q '^custom_shaders gentle' ~/.config/kitty/kitty.conf 2>/dev/null \
+    || print -u2 'play: warning: custom_shaders gentle is not in kitty.conf'
+  (( ok ))
+}
+
+# demo_present DIRECTOR_PID: show the deck until the viewer quits presenterm,
+# then stop the director (its EXIT trap cleans up). Not exec: play runs under
+# the pane's shell, which outlives presenterm, so the pane never closes.
+demo_present() {
+  presenterm $DEMO_ROOT/deck.md
+  kill -TERM $1 2>/dev/null
+  return 0
+}
+
+# The background half of a real run, from the moment presenterm starts.
+demo_direct() {
+  demo_begin $DEMO_STATE/play.pid && wait-text deck 'kitty, with shaders' && demo_run_beats "$@" && return 0
+  demo_hs "return demoStage.notify($(demo_lua_str "kitty demo stopped at beat ${DEMO_BEAT:-?}: see $DEMO_STATE/play.log"))" >/dev/null 2>&1
+  return 1
+}
+
+demo_play_main() {
+  local from=0 only=
+  local -a beats
+  while (( $# )); do
+    case $1 in
+      --from|--only|--slow)
+        (( $# >= 2 )) || { demo_usage >&2; return 2 }
+        case $1 in
+          --from) from=$2 ;;
+          --only) only=$2 ;;
+          --slow) DEMO_SLOW=$2 ;;
+        esac
+        shift 2 ;;
+      --dry-run) DEMO_DRY=1; shift ;;
+      -h|--help) demo_usage; return 0 ;;
+      *)         demo_usage >&2; return 2 ;;
+    esac
+  done
+  [[ $from == <-> && ( -z $only || $only == <-> ) && $DEMO_SLOW == [0-9.]## ]] \
+    || { demo_usage >&2; return 2 }
+  beats=( ${(f)"$(demo_select_beats $DEMO_ROOT/beats $from $only)"} )
+  (( $#beats )) || { print -u2 'play: no beats selected'; return 2 }
+
+  if (( DEMO_DRY )); then
+    DEMO_IDS[deck]=dry-deck
+    demo_run_beats $beats
+    return
+  fi
+
+  demo_preflight || return 1
+  DEMO_IDS[deck]=$KITTY_WINDOW_ID
+  mkdir -p $DEMO_STATE
+  : >| $DEMO_STATE/play.log
+  (
+    print -r -- $sysparams[pid] >| $DEMO_STATE/play.pid
+    # EXIT traps in zsh functions fire on return, so these live here, in the
+    # subshell itself. TERM: presenterm quit, or the abort hotkey.
+    trap 'demo_cleanup; rm -f $DEMO_STATE/play.pid' EXIT
+    trap 'exit 1' HUP INT TERM
+    demo_direct $beats
+  ) >>$DEMO_STATE/play.log 2>&1 </dev/null &!
+  demo_present $!
+}
+
+[[ $ZSH_EVAL_CONTEXT == toplevel ]] && { demo_play_main "$@"; exit }

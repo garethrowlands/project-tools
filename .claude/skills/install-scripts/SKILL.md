@@ -73,3 +73,15 @@ grep -q '^visual_bell_duration' ~/.config/kitty/kitty.conf || echo 'visual_bell_
 ```
 
 Then reload kitty's config (Cmd+Ctrl+,).
+
+## Shader demo (optional)
+
+`kitty/demo/play` needs Hammerspoon's CLI and the `demoStage` module. Add to
+`~/.hammerspoon/init.lua`:
+
+    require("hs.ipc")
+    demoStage = dofile(os.getenv("HOME") .. "/github.com/garethrowlands/project-tools/kitty/demo/stage.lua")
+
+reload Hammerspoon, run `hs.ipc.cliInstall("/opt/homebrew")` once in its
+console, and check with `hs -c 'return demoStage.selftest()'` from a kitty
+pane. Nothing is symlinked; run `play` from the repo. See kitty/demo/README.md.
