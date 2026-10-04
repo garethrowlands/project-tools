@@ -5,7 +5,7 @@
 # the slides for beat 8. Each arrival glows.
 press-focus ctrl+shift+tab
 beat-pause 1.5
-slide goto 8 'Switch tabs'
+slide goto 9 'Switch tabs'
 beat-pause 2
 press-focus ctrl+tab
 beat-pause 2

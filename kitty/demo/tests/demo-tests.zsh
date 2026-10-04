@@ -493,7 +493,7 @@ grep -rq glitter $C1/scene/repo/main.py && bad 'glitter appears in rg output' ||
 # --- chapter 2 -----------------------------------------------------------------------
 C2=$DEMO_ROOT/chapters/2-windows
 slides2=("${(@ps:<!-- end_slide -->:)$(<$C2/deck.md)}")
-is 'chapter 2 has 9 slides' $#slides2 9
+is 'chapter 2 has 10 slides' $#slides2 10
 is 'chapter 2 slides fit beside three panes' "$(awk 'length > 40' $C2/deck.md)" ''
 for f in $C2/beats/*.zsh; do
   for line in ${(f)"$(grep '^slide goto' $f)"}; do
@@ -508,7 +508,11 @@ is 'ch2 beat 1 opens A and B with the real key' "$(shape 1)" 'press-new A cmd+sh
 [[ $(zsh $DEMO_ROOT/play 2 --dry-run --only 1 2>&1) != *card* ]] && ok 'ch2 beat 1 opens no director panes' || bad 'ch2 beat 1 still opens cards'
 is 'ch2 beat 2 hops focus from B, where beat 1 left it' "$(shape 2)" 'press-focus cmd+up,press-focus cmd+left,press-focus cmd+right,press-focus cmd+down'
 zsh $DEMO_ROOT/play 2 --dry-run --only 2 2>&1 | grep -q '^focus ' && bad 'ch2 beat 2 moves focus without a key' || ok 'ch2 beat 2 moves focus only with keys'
-is 'ch2 beat 3 moves a pane and back'      "$(shape 3)" 'press-reorders cmd+shift+right,press-reorders cmd+shift+left'
+is 'ch2 beat 3 moves B back and forward' "$(shape 3)" 'press-reorders cmd+shift+left,press-reorders cmd+shift+right'
+zsh $DEMO_ROOT/play 2 --dry-run --only 3 2>&1 | grep -q '^focus ' && bad 'ch2 beat 3 moves focus without a key' || ok 'ch2 beat 3 moves focus only with keys'
+is 'ch2 beat 3 narrates each move' \
+  "$(zsh $DEMO_ROOT/play 2 --dry-run --only 3 2>&1 | grep -E '^(slide|press)' | awk '{print $1, $2, $3}' | sed 's/ *$//' | paste -sd, -)" \
+  'slide goto 4,press-reorders cmd+shift+left,slide goto 5,press-reorders cmd+shift+right'
 is 'ch2 beat 4 tours the layouts back to tall' "$(shape 4)" 'press cmd+f,wait-layout fat,press cmd+g,wait-layout grid,press cmd+s,wait-layout stack,press cmd+t,wait-layout tall'
 is 'ch2 beat 5 zooms and back'             "$(shape 5)" 'press ctrl+alt+z,wait-layout stack,press ctrl+alt+z,wait-layout tall'
 is 'ch2 beat 6 detaches a pane'            "$(shape 6)" 'press cmd+shift+up,wait-own-tab B'
@@ -522,7 +526,7 @@ is 'chapter 2 starts in the tall layout' "$(<$C2/layout)" tall
 zsh $DEMO_ROOT/play 2 --dry-run 2>&1 | grep -qE '(^| )C( |$)' && bad 'chapter 2 still uses pane C' || ok 'chapter 2 has no pane C'
 # presenterm joins consecutive lines into one paragraph: each cheat-sheet
 # entry must be its own list item
-body=$(print -r -- $slides2[9] | sed -n '/^=\{3,\}$/,$p' | grep -v '^=*$' | grep -v '^$')
+body=$(print -r -- $slides2[10] | sed -n '/^=\{3,\}$/,$p' | grep -v '^=*$' | grep -v '^$')
 is 'ch2 cheat sheet is one list item per key' "$(print -r -- $body | grep -vc '^\* ')" 0
 for req in new_window_with_cwd 'neighboring_window right' move_window_forward move_window_backward 'goto_layout grid' 'toggle_layout stack' 'detach_window new-tab'; do
   grep -qx -- $req $C2/requires && ok "chapter 2 requires $req" || bad "chapter 2 requires lacks $req"

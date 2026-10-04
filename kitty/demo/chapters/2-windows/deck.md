@@ -32,8 +32,18 @@ The focused pane glows; the rest dim.
 Move the pane itself
 ====================
 
-Cmd+Shift+← / → moves the focused
-pane along.
+B has focus. Cmd+Shift+← moves it
+back one place: B and A swap.
+
+<!-- end_slide -->
+
+<!-- jump_to_middle -->
+
+…and forward again
+==================
+
+Cmd+Shift+→ moves B forward one
+place: back below A.
 
 <!-- end_slide -->
 
