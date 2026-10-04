@@ -64,7 +64,7 @@ Symlink the pipeline and its local shaders into kitty's `shaders/` config direct
 
 ```zsh
 mkdir -p ~/.config/kitty/shaders
-for f in gentle.pipeline cursor-trail-blaze-local.slang focus-highlight-local.slang; do
+for f in gentle.pipeline cursor-trail-blaze-local.slang focus-highlight-local.slang os-window-focus-border.slang; do
   ln -s $PWD/kitty/shaders/$f ~/.config/kitty/shaders/$f
 done
 grep -q '^custom_shaders' ~/.config/kitty/kitty.conf || echo 'custom_shaders gentle' >> ~/.config/kitty/kitty.conf

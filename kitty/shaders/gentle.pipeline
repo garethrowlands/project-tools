@@ -95,8 +95,89 @@ startgroup
     # TRAIL_COLOR_ACCENT = float4(1.0, 0.0, 0.0, 1.0))
     var bool ACCENT_FROM_CURSOR = true
     # blend with the text underneath (local shader option; stock: 1.0)
-    var float TRAIL_OPACITY = 0.6
-    # cap the visible tail at ~6 line heights (local shader option; stock: unlimited)
-    var float MAX_TRAIL_LENGTH = 6.0    # local copy of cursor-trail-blaze that skips trails on window switches
+    var float TRAIL_OPACITY = 0.8
+    # cap the visible tail at ~15 line heights (local shader option; stock: unlimited)
+    var float MAX_TRAIL_LENGTH = 15.0
+    # local copy of cursor-trail-blaze that skips trails on window switches
+    # (comments must be on their own line: a trailing "# ..." becomes part of
+    # the var's value and the pipeline fails to compile)
     shaders cursor-trail-blaze-local
+endgroup
+
+# 6-9. OS window focus: a thin amber glow around the whole OS window (all
+#    panes and the tab bar) while it has keyboard focus; while it doesn't, a
+#    slight dim, cool tint and soft edge shadow (vignette). Last so the
+#    dimming, spotlight and ripple above don't dim or distort the glow. The glow adds light, so the pane focus glow
+#    (group 2) stays visible where the two overlap.
+#    Only os-window-focus-in/out drive these groups, so pane switches and tab
+#    changes don't retrigger the pulse. kitty only synthesizes focus-in on
+#    pipeline (re)load for OS windows that are actually focused, so unfocused
+#    windows start with the unfocused look and without the glow.
+#    Shared tuning (pipeline-level vars apply to every group; only
+#    os-window-focus-border declares these names):
+#    glow colour in linear RGB; the cursor trail's amber
+var float3 OSW_FOCUS_COLOR = float3(0.8, 0.5, 0.12)
+#    solid border width and inward glow radius, in framebuffer pixels
+#    (2 per point on Retina)
+var float OSW_FOCUS_BORDER_WIDTH_PX = 1.0
+var float OSW_FOCUS_GLOW_RADIUS_PX = 3.0
+#    light added at the border, as a fraction of the colour: steady while
+#    focused, and at the start of the focus-in pulse
+var float OSW_FOCUS_STEADY_INTENSITY = 0.1
+var float OSW_FOCUS_PULSE_INTENSITY = 0.6
+#    fraction of the original colour kept while unfocused (1 = no dim);
+#    linear light, so 0.8 is about 10% darker on screen
+var float OSW_UNFOCUSED_DIM = 0.8
+#    cool tint while unfocused: colour in linear RGB (sRGB #5a7090) and how
+#    much of it to blend in (0 = off; keep well below 1)
+var float3 OSW_UNFOCUSED_TINT_COLOR = float3(0.1022, 0.162, 0.2789)
+var float OSW_UNFOCUSED_TINT = 0.05
+#    edge shadow while unfocused: darkening at the very edge (0 = off; keep
+#    below 1), fading out over this many framebuffer pixels from each edge
+var float OSW_UNFOCUSED_VIGNETTE = 0.3
+var float OSW_UNFOCUSED_VIGNETTE_WIDTH_PX = 120.0
+
+# 6. Unfocused look (dim, tint, vignette) for the whole OS window. Always
+#    active and static; group 7 undoes it exactly while focused, so it follows
+#    the same focus state as the glow.
+startgroup
+    animation_step 0
+    var int OSW_FOCUS_PASS = 0
+    shaders os-window-focus-border
+endgroup
+
+# 7. While focused: undo the unfocused look and draw the steady glow. Static
+#    (animation_step 0): drawn as part of kitty's normal redraws, never by
+#    periodic animation frames. Stops (no time limit) only on
+#    os-window-focus-out.
+startgroup
+    animation_start os-window-focus-in
+    animation_stop os-window-focus-out
+    animation_step 0
+    var int OSW_FOCUS_PASS = 1
+    shaders os-window-focus-border
+endgroup
+
+# 8. Focus-out fade: eases from the focused look (steady glow, no unfocused
+#    look) to the unfocused one instead of switching at once. The number in
+#    animation_stop is the fade duration in ms; focus-in cuts it short. Never
+#    runs on pipeline load, so unfocused windows still start fully unfocused.
+startgroup
+    animation_start os-window-focus-out
+    animation_stop 400 | os-window-focus-in
+    animation_curve ease-out
+    animation_step 16
+    var int OSW_FOCUS_PASS = 3
+    shaders os-window-focus-border
+endgroup
+
+# 9. Focus-in pulse on top of the steady glow, settling to it. The number in
+#    animation_stop is the pulse duration in ms; animation frames stop with it.
+startgroup
+    animation_start os-window-focus-in
+    animation_stop 450 | os-window-focus-out
+    animation_curve ease-in
+    animation_step 16
+    var int OSW_FOCUS_PASS = 2
+    shaders os-window-focus-border
 endgroup
