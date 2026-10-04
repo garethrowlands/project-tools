@@ -8,10 +8,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 zsh functions/notes-tests.zsh
 zsh functions/project-tests.zsh
 zsh functions/sw-tests.zsh
+zsh kitty/demo/tests/demo-tests.zsh
+kitty +launch kitty/demo/tests/test_demo_geometry.py
 (cd ../python/tidy-windows-advise && uv run pytest)
 ```
 
-Each zsh suite exits with code 1 if any test fails. `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `sw-tests.zsh` tests `sw` against a temp repo with worktrees. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic.
+Each zsh suite exits with code 1 if any test fails. `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `sw-tests.zsh` tests `sw` against a temp repo with worktrees. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic. `kitty/demo`'s suites test the shader demo's geometry, verbs (kitty and Hammerspoon stubbed), card and play; see `kitty/demo/README.md`.
 
 ## Architecture
 
