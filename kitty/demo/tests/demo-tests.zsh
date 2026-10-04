@@ -207,6 +207,14 @@ KGEOM= HSFRAME=
 reset_stubs
 stage fill
 is 'stage fill gives the main window the whole screen' "$(grep fill $T/hcalls)" 'return demoStage.fill()'
+: >| $T/hcalls
+stage open-other /x/other-app.txt
+stage focus-other other-app.txt
+stage focus-main
+stage close-other other-app.txt
+is 'stage drives another app' "$(<$T/hcalls)" $'return demoStage.openOther("/x/other-app.txt")\nreturn demoStage.focusOther("other-app.txt")\nreturn demoStage.focusMain()\nreturn demoStage.closeOther("other-app.txt")'
+HSREPLY='no window titled other-app.txt' stage focus-other other-app.txt 2>/dev/null \
+  && bad 'focus-other without its window accepted' || ok 'focus-other needs its window'
 
 # demo_sleep must let a trapped TERM act at once (the abort hotkey), not
 # after the whole pause. Run it in a separate zsh with the real lib.zsh.
@@ -287,7 +295,7 @@ for f in $DEMO_ROOT/beats/*.zsh; do
       || bad "${f:t:r}: slide $words[3] doesn't say '$words[4]'"
   done
 done
-for word in amber pulses dimmer tint vignette; do
+for word in amber pulses dimmer tint vignette 'another app'; do
   [[ $slides[10] == *$word* ]] && ok "OS-window slide explains '$word'" || bad "OS-window slide lacks '$word'"
 done
 is 'OS-window slide fits a half-width window' "$(print -r -- $slides[10] | awk 'length > 48')" ''
@@ -345,9 +353,16 @@ dry=$(zsh $DEMO_ROOT/play --dry-run --only 9 2>&1)
 [[ $(cd $DEMO_ROOT/scene/repo && rg --hyperlink-format=kitty --color=always --heading -n TODO .) \
    == *$'main.py#5\e\\'*5*$'\e]8;;\e\\:#'* ]] && ok 'rg links the line number 5' || bad 'rg no longer links the line number'
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 8 2>&1)
-is 'beat 8 tiles W beside the deck, then fills again' \
-  "$(print -r -- $dry | grep -E '^(card open|stage|pane close)' | awk '{print $1, $2}' | paste -sd, -)" \
-  'card open,stage tile-beside,pane close,stage fill'
+is 'beat 8 hands focus to another app and back' \
+  "$(print -r -- $dry | grep -E '^(card open|pane|stage)' | awk '{print $1, $2}' | paste -sd, -)" \
+  'stage open-other,stage tile-beside,stage focus-main,stage focus-other,stage focus-main,stage close-other,stage fill'
+other=$(grep '^stage open-other' $DEMO_ROOT/beats/08-os-window.zsh | awk '{print $3}')
+[[ -f ${other/\$DEMO_ROOT/$DEMO_ROOT} ]] && ok 'beat 8 opens a scene file' || bad "beat 8 opens a missing file: $other"
+for verb in tile-beside focus-other close-other; do
+  for t in ${(f)"$(grep "^stage $verb" $DEMO_ROOT/beats/08-os-window.zsh | awk '{print $3}')"}; do
+    is "beat 8 $verb names the opened file" ${(Q)t} ${other:t}
+  done
+done
 is 'scene repo has one TODO' "$(rg -c TODO $DEMO_ROOT/scene/repo | paste -sd' ' -)" "$DEMO_ROOT/scene/repo/main.py:1"
 grep -rq glitter $DEMO_ROOT/scene/repo/main.py && bad 'glitter appears in rg output' || ok 'glitter only in the eza listing'
 

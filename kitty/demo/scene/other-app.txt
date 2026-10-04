@@ -1,0 +1,8 @@
+I'm TextEdit: another app.
+
+While I have focus, kitty steps back:
+a little dimmer, a cool blue tint,
+and a soft shadow at its edges.
+
+When focus goes back to kitty,
+its edge glows amber again.

@@ -7,6 +7,10 @@
 local M = {}
 
 local main, savedFrame, pidFile, glideTimer, abortKey
+-- The other app's window opened by openOther, and whether that app was
+-- already running (if not, closeOther quits it again).
+local OTHER_APP = "com.apple.TextEdit"
+local otherTitle, otherWasRunning
 local events = hs.eventtap.event
 
 local function postMove(p)
@@ -56,6 +60,40 @@ function M.fill()
   return "ok"
 end
 
+-- Open `path` in TextEdit, which takes focus from kitty.
+function M.openOther(path)
+  otherWasRunning = hs.application.get(OTHER_APP) ~= nil
+  otherTitle = path:match("[^/]+$")
+  hs.task.new("/usr/bin/open", nil, {"-b", OTHER_APP, path}):start()
+  return "ok"
+end
+
+function M.focusOther(title)
+  local win = hs.window.get(title)
+  if not win then return "no window titled " .. title end
+  win:focus()
+  return "ok"
+end
+
+function M.focusMain()
+  if not main then return "no pinned window" end
+  main:focus()
+  return "ok"
+end
+
+-- Close the window openOther opened (never edited, so no save prompt), and
+-- quit TextEdit if it wasn't running before.
+function M.closeOther(title)
+  local win = hs.window.get(title)
+  if win then win:close() end
+  if otherWasRunning == false then
+    local app = hs.application.get(OTHER_APP)
+    if app then app:kill() end
+  end
+  otherTitle, otherWasRunning = nil, nil
+  return "ok"
+end
+
 -- Ease (in-out) the pointer to (x, y) over ms milliseconds, at about 60 Hz.
 function M.glide(x, y, ms)
   stopGlide()
@@ -98,6 +136,7 @@ end
 -- End of a run (play's cleanup): restore the frame and disarm the hotkey.
 function M.finish()
   stopGlide()
+  if otherTitle then M.closeOther(otherTitle) end
   if main and savedFrame then main:setFrame(savedFrame, 0) end
   if abortKey then abortKey:delete(); abortKey = nil end
   main, savedFrame, pidFile = nil, nil, nil
