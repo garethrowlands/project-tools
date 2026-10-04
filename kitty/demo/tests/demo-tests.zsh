@@ -277,6 +277,17 @@ is 'comet.txt fits a half-width pane' "$(awk 'length > 60' $DEMO_ROOT/scene/come
 (( $(wc -l < $DEMO_ROOT/scene/comet.txt) <= 35 )) && ok 'comet.txt fits a pane without scrolling' || bad 'comet.txt is too long'
 [[ $(tail -1 $DEMO_ROOT/scene/comet.txt) == *'down at the bottom'* ]] && ok 'comet.txt ends at the bottom line' || bad 'comet.txt last line'
 
+# The ripple only bends existing pixels (and multiplies their colour), so a
+# click on empty background shows nothing: every click must aim at deck text.
+is 'beat 5 clicks three times' "$(grep -c '^mouse click' $DEMO_ROOT/beats/05-ripple.zsh)" 3
+for f in 05-ripple 10-finale; do
+  for line in ${(f)"$(grep '^mouse glide' $DEMO_ROOT/beats/$f.zsh)"}; do
+    words=(${(Q)${(z)line}})
+    [[ $words[2] == glide-text && $words[3] == deck ]] && grep -qF -- $words[4] $DEMO_ROOT/deck.md \
+      && ok "$f aims at deck text '$words[4]'" || bad "$f glides to ${(q+)line}, not to deck text"
+  done
+done
+
 # --- beats 6-10 --------------------------------------------------------------------
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 6 2>&1)
 is 'beat 6 dry-run shape' "$(print -r -- $dry | grep -v '^#' | awk '{print $1, $2}' | paste -sd, -)" \

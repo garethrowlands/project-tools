@@ -143,12 +143,12 @@ Panes: **deck** (presenterm), **A**, **B**, **C** (`card` unless noted).
 | 2 | *…and when you switch tabs* | Open C in a new tab ("A whole new tab — it glowed on arrival."); Ctrl+Tab back. Close A and B. ~8 s | deck, C (tab 2) |
 | 3 | *Where did the cursor go?* | Open A running `micro scene/comet.txt`; send End, Ctrl+End, Ctrl+Home, then a find for `search hit`. The comet trails each jump. Close A. ~14 s | deck, C |
 | 4 | *Your mouse gets a spotlight* | Pointer glides slowly across the deck and back. ~10 s | deck, C |
-| 5 | *Clicks ripple* | Three clicks on the deck at different spots, a pause after each. ~8 s | deck, C |
+| 5 | *Clicks ripple* | The slide carries a paragraph and the ripple's pipeline group; three clicks on words in it, a pause after each. The ripple only bends existing text (on empty background it is invisible), so clicks always aim at text. ~8 s | deck, C |
 | 6 | *Which pane rang?* | Open A ("I'll ring in 3… 2… 1…"); it rings while focus stays on the deck. Close A. ~10 s | deck, C |
 | 7 | *…even in another tab* | C counts down and rings in tab 2: the tab area flashes and 🔔 shows on its tab title. Close C (and tab 2). ~8 s | deck |
 | 8 | *Which window am I typing in?* | Open a second OS window beside the main one ("I'm a separate kitty window. When I have focus, I get the amber edge."). Alternate focus between windows twice. Close it. ~14 s | deck |
 | 9 | *Click a link, land in a terminal app* | Open A: a shell in `scene/repo` that runs `eza --hyperlink` and `rg --hyperlink-format=kitty TODO`. Glide to an `rg` hit, Cmd+click → micro opens at that line; Esc. Glide to a directory in the `eza` listing, Cmd+click → the shell cds. Close A. ~14 s | deck |
-| 10 | **gentle.pipeline** / *kitty ≥ 0.49 · custom_shaders* | One last glide and click on the deck, then stillness for a fade. ~8 s | deck |
+| 10 | **gentle.pipeline** / *kitty ≥ 0.49 · custom_shaders* | One last glide and click on the title text, then stillness for a fade. ~8 s | deck |
 
 `scene/comet.txt` narrates its own jumps: line 1 ends "…in a moment it jumps
 to the end of this line →", the last line says "…and now down here. Watch the

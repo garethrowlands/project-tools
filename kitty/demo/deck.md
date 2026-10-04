@@ -35,10 +35,23 @@ Your mouse gets a spotlight
 
 <!-- end_slide -->
 
-<!-- jump_to_middle -->
-
 Clicks ripple
 =============
+
+Every click sends a ring out through the text around it:
+the letters bend as the wave passes, then settle.
+On an empty background there is nothing to bend.
+
+```
+startgroup
+    animation_start pointer-left-button-press
+    animation_stop 400
+    animation_curve ease-out
+    var float WAVE_SPEED = 0.12
+    var float AMPLITUDE = 0.0015
+    shaders pond-ripple
+endgroup
+```
 
 <!-- end_slide -->
 
