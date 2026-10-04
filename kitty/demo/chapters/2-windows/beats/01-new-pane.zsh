@@ -1,12 +1,13 @@
-# Beat 1: cards A and B give the tab some labelled panes, placed by kitty as
-# it would place yours (B next to A); then the real Cmd+Shift+Enter opens C,
-# a shell in the focused pane's directory, after B. In the tall layout: the
-# slides on the left, A, B, C stacked on the right.
+# Beat 1: the real Cmd+Shift+Enter, twice: from the slides it opens A (to
+# the right, in the tall layout), from A it opens B (below A). Each new shell
+# shows it started in the slides' directory and says which pane it is.
 slide goto 2 'same directory'
-card ensure A $'Pane A'
-card ensure B $'Pane B' --next-to=id:${DEMO_IDS[A]}
 beat-pause 2.5
-focus B
-press-new C cmd+shift+enter
-type-text C 'clear; pwd\r'
-beat-pause 3
+press-new A cmd+shift+enter
+type-text A "clear; pwd; echo 'This is pane A'\r"
+wait-text A 'This is pane A'
+beat-pause 2
+press-new B cmd+shift+enter
+type-text B "clear; pwd; echo 'This is pane B'\r"
+wait-text B 'This is pane B'
+beat-pause 2.5
