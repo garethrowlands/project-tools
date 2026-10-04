@@ -500,5 +500,12 @@ for req in new_window_with_cwd 'neighboring_window right' move_window_forward mo
   grep -qx -- $req $C2/requires && ok "chapter 2 requires $req" || bad "chapter 2 requires lacks $req"
 done
 
+# --- stage.lua -----------------------------------------------------------------------
+# No Lua outside Hammerspoon here; a stray or missing `end` otherwise only
+# shows as a load error in the Hammerspoon console.
+out=$(python3 $DEMO_ROOT/tests/lua_blocks.py $DEMO_ROOT/stage.lua) && ok 'stage.lua blocks balance' || bad "$out"
+print -r -- $'function f()\n  if x then y() end\nend\nend' >| $T/bad.lua
+python3 $DEMO_ROOT/tests/lua_blocks.py $T/bad.lua >/dev/null && bad 'lua_blocks missed a stray end' || ok 'lua_blocks catches a stray end'
+
 # (later tasks add sections above this line)
 exit $fail

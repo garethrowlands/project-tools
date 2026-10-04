@@ -49,20 +49,6 @@ local function showBadge(label, hold)
   badge:show()
   badgeTimer = hs.timer.doAfter(hold or BADGE_HOLD, function() if badge then badge:hide(0.3) end end)
 end
-  if badge then badge:delete() end
-  local s = (main and main:screen() or hs.screen.mainScreen()):frame()
-  local w, h = 240, 84
-  badge = hs.canvas.new({x = s.x + (s.w - w) / 2, y = s.y + s.h - h - 70, w = w, h = h})
-  badge:appendElements(
-    {type = "rectangle", action = "fill", fillColor = {white = 0.08, alpha = 0.85},
-     roundedRectRadii = {xRadius = 16, yRadius = 16}},
-    {type = "text", frame = {x = 0, y = 12, w = w, h = h - 12},
-     text = hs.styledtext.new(label, {font = {name = "Menlo", size = 40}, color = {white = 0.95},
-                                      paragraphStyle = {alignment = "center"}})})
-  badge:level(hs.canvas.windowLevels.overlay)
-  badge:show()
-  badgeTimer = hs.timer.doAfter(1.2, function() if badge then badge:hide(0.3) end end)
-end
 
 -- Post a real keystroke (mods e.g. {"shift","cmd"}, key e.g. "return") to
 -- the frontmost app, showing `label` as the badge.
