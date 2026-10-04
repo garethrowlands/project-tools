@@ -42,7 +42,7 @@ after a run (the next run rebuilds it at the same paths).
   with a few commits each, clean and "pushed": each has an `origin` remote
   and `main` tracks `origin/main`, whose ref is set to HEAD with
   `git update-ref` (no network, nothing is ever pushed), so tidy-windows
-  sees nothing unpushed. `web-app`'s `origin` URL is
+  sees nothing unpushed. `blog`'s `origin` URL is
   `https://github.com/garethrowlands/project-tools.git`, so ⌘B has a real
   public page; the others point at `git@example.com:demo/<name>.git`.
   `docs`' commits are dated six weeks back, the others today.
@@ -60,13 +60,13 @@ carry a kitty user var `demo=NAME` so beats can find them):
 
 | Tab | Panes (`demo=`) | Role |
 |---|---|---|
-| 1 `web-app` | slides (`deck`), a web-app shell (`web-shell`) | the deck's home; ⌘I / ⌘B act on web-app |
+| 1 `web-app` | slides (`deck`), a web-app shell (`web-shell`) | the deck's home |
 | 2 `shop-api` | claude (`shop-claude`), a shell (`shop-shell`) | ⌘§ target |
 | 3 `infra` | claude (`infra-claude`) | ⌥⇥ shows its title |
 | 4 `docs` | `git log` in its pager (`docs-log`) | tidy-windows: **close** |
 | 5 `scratch` | a lone shop-api shell (`stray`) | tidy-windows: **move** to tab 2 (deterministic, `plan_moves`) |
 
-`blog` has no window: beat 4 opens one.
+`blog` has no window: beat 4 opens one beside the slides, and since focus is then in it, ⌘I and ⌘B act on `blog`.
 
 ## Beat script
 
@@ -77,7 +77,7 @@ carry a kitty user var `demo=NAME` so beats can find them):
 | 2 | **Every window, live: ⌥⇥.** Claude Code panes show their conversation title. | ⌥⇥ · ↓ ↓ (preview follows) · ⎋ | the list with `[Add rate limiting…]`, `[Move Terraform…]` | the switcher's overlay opens and closes |
 | 3 | **Tidy up: ⌘⇧W.** Claude reviews every window: close the stale, regroup by project. | ⌘⇧W · (wait for the picker) · ↩ | rows pre-selected; tabs 4 and 5 leave the tab bar | `docs-log` gone; `stray` in tab `shop-api` |
 | 4 | **A project with no window: ↩ opens a shell there, beside you.** | ⌘§ · `blog` · ↩ | a blog shell beside the slides | one new pane, cwd `~/kitty-demo/blog` |
-| 5 | **Open the IDE: ⌘I** | ⌘I | kitty left half, VS Code on web-app right half; it closes, kitty fills | a VS Code window titled web-app |
+| 5 | **Open the IDE: ⌘I** | ⌘I | kitty left half, VS Code on blog right half; it closes, kitty fills | a VS Code window titled blog |
 | 6 | **The project's web page: ⌘B** | ⌘B | Edge on the right half with the GitHub repo; the tab closes | an Edge window titled project-tools |
 | 7 | **That's getting around.** The keys, one list item each. | — | — | — |
 
