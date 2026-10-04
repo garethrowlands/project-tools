@@ -47,7 +47,7 @@ startgroup
     animation_start pointer-left-button-press
     animation_stop 400
     animation_curve ease-out
-    var float WAVE_SPEED = 0.12
+    var float WAVE_SPEED = 0.07
     var float AMPLITUDE = 0.0015
     var float GLOW_STRENGTH = 0.04
     shaders pond-ripple-local

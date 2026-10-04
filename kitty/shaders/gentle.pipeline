@@ -69,7 +69,7 @@ startgroup
     animation_curve ease-out
     animation_step 16
     # max ring radius in UV units (stock: 0.45)
-    var float WAVE_SPEED = 0.12
+    var float WAVE_SPEED = 0.07
     # ring band half-width (stock: 0.055)
     var float WAVE_WIDTH = 0.035
     # text displacement at the crest, UV units (stock: 0.010)
