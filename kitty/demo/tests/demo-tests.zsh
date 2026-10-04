@@ -124,6 +124,9 @@ is 'demo_begin remembers the layout' "$DEMO_LAYOUT" 'tall'
 grep -qx 'goto-layout --match window_id:7 splits' $T/kcalls && ok 'demo_begin switches to splits' || bad 'no splits layout'
 is 'demo_begin pins the window'     "$(<$T/hcalls)" "return demoStage.begin(\"$T/play.pid\", 1600, 1000)"
 HSREPLY='no focused window' demo_begin $T/play.pid 2>/dev/null && bad 'demo_begin ignored Hammerspoon' || ok 'demo_begin needs Hammerspoon'
+HSREPLY='no focused window' demo_begin $T/play.pid 2>$T/err
+[[ $(<$T/err) == *"Hammerspoon could not pin the kitty window: no focused window"* ]] \
+  && ok "demo_begin reports Hammerspoon's reply" || bad "demo_begin error: $(<$T/err)"
 
 reset_stubs
 DEMO_LAYOUT=tall

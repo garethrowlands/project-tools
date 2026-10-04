@@ -193,8 +193,9 @@ demo_begin() {
     && [[ -n $DEMO_LAYOUT ]] || { demo_err "cannot read the deck tab's layout"; return 1 }
   demo_kitten goto-layout --match window_id:$deck splits >/dev/null \
     || { demo_err "cannot switch to the splits layout (is it in enabled_layouts?)"; return 1 }
-  [[ $(demo_hs "return demoStage.begin($(demo_lua_str $pidfile), 1600, 1000)") == ok ]] \
-    || { demo_err "Hammerspoon could not pin the kitty window"; return 1 }
+  local reply
+  reply=$(demo_hs "return demoStage.begin($(demo_lua_str $pidfile), 1600, 1000)" 2>&1)
+  [[ $reply == ok ]] || { demo_err "Hammerspoon could not pin the kitty window: ${reply:-no reply}"; return 1 }
 }
 
 # Close every window the demo opened, newest first (ones already gone are
