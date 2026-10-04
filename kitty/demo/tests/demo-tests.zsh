@@ -230,5 +230,19 @@ zsh $DEMO_ROOT/play --from x >/dev/null 2>&1; is 'bad --from is a usage error' $
 zsh $DEMO_ROOT/play --bogus  >/dev/null 2>&1; is 'unknown option is a usage error' $? 2
 zsh $DEMO_ROOT/play --dry-run --only 99 >/dev/null 2>&1; is 'no beats selected is a usage error' $? 2
 
+# --- deck and beats ---------------------------------------------------------------
+is 'deck has 11 slides' "$(grep -c '^<!-- end_slide -->' $DEMO_ROOT/deck.md)" 10
+for text in 'kitty, with shaders' 'Focus follows you' 'switch tabs' 'cursor go?' 'spotlight' 'Clicks ripple' \
+            'pane rang?' 'another tab' 'typing in?' 'land in a terminal app' 'gentle.pipeline'; do
+  grep -qF -- $text $DEMO_ROOT/deck.md && ok "deck says '$text'" || bad "deck lacks '$text'"
+done
+dry=$(zsh $DEMO_ROOT/play --dry-run --only 1 2>&1)
+is 'beat 1 dry-run shape' "$(print -r -- $dry | grep -v '^#' | awk '{print $1, $2}' | paste -sd, -)" \
+  'slide goto,beat-pause 1.5,card open,focus A,beat-pause 2,card open,focus B,card say,beat-pause 2,focus deck,card say,card say,beat-pause 2.5'
+zsh $DEMO_ROOT/play --dry-run --from 0 >/dev/null 2>&1 && ok 'every beat dry-runs' || bad 'a beat fails its dry run'
+is 'comet.txt fits a half-width pane' "$(awk 'length > 60' $DEMO_ROOT/scene/comet.txt)" ''
+(( $(wc -l < $DEMO_ROOT/scene/comet.txt) <= 35 )) && ok 'comet.txt fits a pane without scrolling' || bad 'comet.txt is too long'
+[[ $(tail -1 $DEMO_ROOT/scene/comet.txt) == *'down at the bottom'* ]] && ok 'comet.txt ends at the bottom line' || bad 'comet.txt last line'
+
 # (later tasks add sections above this line)
 exit $fail

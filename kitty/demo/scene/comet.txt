@@ -1,0 +1,29 @@
+The cursor starts here. Next: the end of this line →
+
+  kitty draws a comet from where the cursor was
+  to where it is now, then lets it fade.
+
+  Jumps of three cells or more get a trail;
+  ordinary typing doesn't.
+
+  It skips the trail when you change pane,
+  so focus moves stay calm.
+
+
+
+
+        …then to a search hit, right here.
+
+
+
+
+
+
+
+
+
+
+
+
+
+…and now down at the bottom. Next: back to the top.
