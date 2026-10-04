@@ -3,7 +3,11 @@
 kitty, with shaders
 ===================
 
-everything you're about to see is live
+A tour of a kitty terminal setup:
+custom shaders, clickable links,
+and Hammerspoon window control.
+
+Everything you're about to see is live.
 
 <!-- end_slide -->
 
@@ -109,6 +113,9 @@ so kitty steps back:
 * a cool blue tint
 * a soft shadow at its edges (a vignette)
 
+Hammerspoon tiled the screen, as
+Ctrl+Option+arrow does by hand.
+
 <!-- end_slide -->
 
 <!-- jump_to_middle -->
@@ -119,6 +126,9 @@ so kitty steps back:
 kitty has the focus again: the amber
 border pulses, and the dimming, tint
 and vignette lift.
+
+Hammerspoon moved the focus here; by
+hand it's Ctrl+Option+Cmd+arrow.
 
 <!-- end_slide -->
 

@@ -303,6 +303,11 @@ for f in $DEMO_ROOT/beats/*.zsh; do
       || bad "${f:t:r}: slide $words[3] doesn't say '$words[4]'"
   done
 done
+for word in shaders links Hammerspoon live; do
+  [[ $slides[1] == *$word* ]] && ok "title slide mentions '$word'" || bad "title slide lacks '$word'"
+done
+[[ $slides[11] == *'Ctrl+Option+arrow'* ]] && ok 'slide 11 gives the tiling keys' || bad 'slide 11 lacks Ctrl+Option+arrow'
+[[ $slides[12] == *'Ctrl+Option+Cmd+arrow'* ]] && ok 'slide 12 gives the focus keys' || bad 'slide 12 lacks Ctrl+Option+Cmd+arrow'
 # Beat 8 narrates one state per slide: kitty focused, TextEdit focused, back.
 [[ $slides[10] == *amber* ]] && ok 'slide 10: kitty has focus, amber border' || bad 'slide 10 lacks amber'
 for word in TextEdit dimmer tint vignette; do
