@@ -92,6 +92,18 @@ Which pane rang?
 Which window am I typing in?
 ============================
 
+The one you're typing in gets a thin amber
+edge, which pulses as it gains focus.
+
+Every other kitty window steps back:
+
+* a little dimmer
+* a cool blue tint
+* a soft shadow at its edges (a vignette)
+
+While the right-hand window has focus,
+this one shows all three.
+
 <!-- end_slide -->
 
 <!-- jump_to_middle -->

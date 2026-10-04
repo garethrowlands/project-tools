@@ -287,6 +287,10 @@ for f in $DEMO_ROOT/beats/*.zsh; do
       || bad "${f:t:r}: slide $words[3] doesn't say '$words[4]'"
   done
 done
+for word in amber pulses dimmer tint vignette; do
+  [[ $slides[10] == *$word* ]] && ok "OS-window slide explains '$word'" || bad "OS-window slide lacks '$word'"
+done
+is 'OS-window slide fits a half-width window' "$(print -r -- $slides[10] | awk 'length > 48')" ''
 [[ $slides[5] == *'subtle trail'* ]] && ok 'cursor slide says the trail is subtle' || bad 'cursor slide lacks "subtle trail"'
 for text in 'kitty, with shaders' 'Focus follows you' 'switch tabs' 'and back again' 'cursor go?' 'spotlight' 'Clicks ripple' \
             'pane rang?' 'another tab' 'typing in?' 'land in a terminal app' 'gentle.pipeline'; do
