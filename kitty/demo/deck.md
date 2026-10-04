@@ -23,6 +23,15 @@ Focus follows you
 
 <!-- jump_to_middle -->
 
+…and back again
+===============
+
+the slides' pane glowed as it got focus back
+
+<!-- end_slide -->
+
+<!-- jump_to_middle -->
+
 Where did the cursor go?
 ========================
 

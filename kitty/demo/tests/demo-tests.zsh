@@ -277,11 +277,23 @@ kill -0 $director 2>/dev/null && { bad 'quitting presenterm left the director ru
 unfunction presenterm
 
 # --- deck and beats ---------------------------------------------------------------
-is 'deck has 11 slides' "$(grep -c '^<!-- end_slide -->' $DEMO_ROOT/deck.md)" 10
-for text in 'kitty, with shaders' 'Focus follows you' 'switch tabs' 'cursor go?' 'spotlight' 'Clicks ripple' \
+is 'deck has 12 slides' "$(grep -c '^<!-- end_slide -->' $DEMO_ROOT/deck.md)" 11
+# Every `slide goto N TEXT` must find TEXT on slide N, or the beat times out.
+slides=("${(@ps:<!-- end_slide -->:)$(<$DEMO_ROOT/deck.md)}")
+for f in $DEMO_ROOT/beats/*.zsh; do
+  for line in ${(f)"$(grep '^slide goto' $f)"}; do
+    words=(${(Q)${(z)line}})
+    [[ $slides[$words[3]] == *"$words[4]"* ]] && ok "${f:t:r}: slide $words[3] says '$words[4]'" \
+      || bad "${f:t:r}: slide $words[3] doesn't say '$words[4]'"
+  done
+done
+for text in 'kitty, with shaders' 'Focus follows you' 'switch tabs' 'and back again' 'cursor go?' 'spotlight' 'Clicks ripple' \
             'pane rang?' 'another tab' 'typing in?' 'land in a terminal app' 'gentle.pipeline'; do
   grep -qF -- $text $DEMO_ROOT/deck.md && ok "deck says '$text'" || bad "deck lacks '$text'"
 done
+dry=$(zsh $DEMO_ROOT/play --dry-run --only 2 2>&1)
+is 'beat 2 shows the new tab, switches to it, then back' "$(print -r -- $dry | grep -v '^#' | awk '{print $1, $2}' | paste -sd, -)" \
+  'slide goto,beat-pause 1,card open,beat-pause 1.5,focus C,beat-pause 2.5,card say,beat-pause 1.5,slide goto,focus deck,beat-pause 2,pane close,pane close,beat-pause 1'
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 1 2>&1)
 is 'beat 1 dry-run shape' "$(print -r -- $dry | grep -v '^#' | awk '{print $1, $2}' | paste -sd, -)" \
   'slide goto,beat-pause 1.5,card open,focus A,beat-pause 2,card open,focus B,card say,beat-pause 2,focus deck,card say,card say,beat-pause 2.5'

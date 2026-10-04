@@ -140,7 +140,7 @@ Panes: **deck** (presenterm), **A**, **B**, **C** (`card` unless noted).
 |---|---|---|---|
 | 0 | **kitty, with shaders** / *everything you're about to see is live* | Deck alone, full window. ~8 s | deck |
 | 1 | *Focus follows you* | Open A (vsplit, "New pane. I just got focus — see my edges glow."), then B (hsplit under A). Focus deck → A → B → deck; each card switches between "focused ✦" and "dimmed — not focused". ~12 s | deck, A, B |
-| 2 | *…and when you switch tabs* | Open C in a new tab ("A whole new tab — it glowed on arrival."); Ctrl+Tab back. Close A and B. ~8 s | deck, C (tab 2) |
+| 2 | *…and when you switch tabs*, then *…and back again* | Open C in a new tab while focus stays on the deck, so the tab appears first; switch to it (it glows; its card says so), the card announces the return, the deck moves to its "…and back again" slide while hidden, and focus returns to the slides' tab (it glows). Close A and B. ~11 s | deck, C (tab 2) |
 | 3 | *Where did the cursor go?* | Open A running `micro scene/comet.txt`; send End, Ctrl+End, Ctrl+Home, then a find for `search hit`. The comet trails each jump. Close A. ~14 s | deck, C |
 | 4 | *Your mouse gets a spotlight* | Pointer glides slowly across the deck and back. ~10 s | deck, C |
 | 5 | *Clicks ripple* | The slide carries a paragraph and the ripple's pipeline group; three clicks on words in it, a pause after each. The ripple only bends existing text (on empty background it is invisible), so clicks always aim at text. ~8 s | deck, C |

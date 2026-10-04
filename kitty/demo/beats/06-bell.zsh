@@ -1,6 +1,6 @@
 # Beat 6: a pane counts down and rings while focus stays on the deck; only
 # its edges flash.
-slide goto 7 'pane rang?'
+slide goto 8 'pane rang?'
 card open A 'Ringing in 3…' --location=vsplit
 beat-pause 1
 card say A 'Ringing in 2…'

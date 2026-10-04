@@ -1,7 +1,7 @@
 # Beat 9: eza and rg print hyperlinks; Cmd+click on the rg hit opens micro at
 # that line, Cmd+click on a directory cds the shell. Needs kitty-cd-link.zsh
 # in the interactive zsh (see kitty/ and the install-scripts skill).
-slide goto 10 'land in a terminal app'
+slide goto 11 'land in a terminal app'
 pane open A --location=vsplit --cwd=$DEMO_ROOT/scene/repo -- zsh -i
 focus A
 type-text A 'clear; eza --hyperlink -1; rg --hyperlink-format=kitty TODO\r'

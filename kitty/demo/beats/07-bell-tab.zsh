@@ -1,6 +1,6 @@
 # Beat 7: C, in tab 2, rings: the whole tab area flashes and the tab title
 # gets a bell. Then tab 2 goes.
-slide goto 8 'another tab'
+slide goto 9 'another tab'
 card ensure C $'A whole new tab —\nit glowed on arrival.' --type=tab
 card say C $'I\'m in another tab.\nRinging in 3…'
 beat-pause 1

@@ -1,6 +1,6 @@
 # Beat 3: micro on a file that narrates its own cursor jumps; the comet
 # trail chases each one.
-slide goto 4 'cursor go?'
+slide goto 5 'cursor go?'
 pane open A --location=vsplit --cwd=$DEMO_ROOT/scene -- micro comet.txt
 wait-text A 'The cursor starts here'
 focus A
