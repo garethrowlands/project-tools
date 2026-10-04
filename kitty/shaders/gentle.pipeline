@@ -68,12 +68,22 @@ startgroup
     animation_stop 400
     animation_curve ease-out
     animation_step 16
-    # max ring radius in UV units (stock: 0.45)
-    var float WAVE_SPEED = 0.07
-    # ring band half-width (stock: 0.055)
-    var float WAVE_WIDTH = 0.035
-    # text displacement at the crest, UV units (stock: 0.010)
-    var float AMPLITUDE = 0.0015
+    # sizes below are in text lines (local shader option; stock measures in
+    # window heights): one line in framebuffer pixels. 48 = font_size 18 on
+    # Retina; re-measure if the font size changes, from a kitty pane, with
+    #   kitten @ kitten $REPO/kitty/demo/demo_geometry.py $TMPDIR/g.json
+    #   jq '[.windows[] | (.bottom - .top) / .lines]' $TMPDIR/g.json
+    var float LENGTH_UNIT_PX = 48.0
+    # max ring radius, lines: a ring about four lines across
+    var float WAVE_SPEED = 2.0
+    # ring band half-width, lines
+    var float WAVE_WIDTH = 0.7
+    # ring spacing, cycles per line
+    var float WAVE_FREQUENCY = 0.7
+    # text displacement at the crest, lines
+    var float AMPLITUDE = 0.06
+    # crest slope for the shading; keeps it as gentle as before (stock: 8)
+    var float NORMAL_SCALE = 4.0
     # shine / shading (stock: 0.40 / 0.10)
     var float SPECULAR_STRENGTH = 0.06
     var float DIFFUSE_STRENGTH = 0.015

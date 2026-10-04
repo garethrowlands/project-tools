@@ -6,11 +6,16 @@
 // animation_progress (0 → 1) drives the wavefront expansion over the pipeline duration.
 // 3D lighting via analytic surface normals and Blinn-Phong specular highlights.
 //
-// Local copy of kitty 0.49.1's kitty/shaders/custom/pond-ripple.slang, adding
-// a faint additive glow along the wave crests (GLOW_*). The stock shader only
-// displaces and multiplies existing pixels, so on an empty background a click
-// shows nothing; the glow adds light, so the ring shows there too. With
-// GLOW_STRENGTH = 0 it behaves exactly like the stock shader.
+// Local copy of kitty 0.49.1's kitty/shaders/custom/pond-ripple.slang, adding:
+// - a faint additive glow along the wave crests (GLOW_*). The stock shader
+//   only displaces and multiplies existing pixels, so on an empty background
+//   a click shows nothing; the glow adds light, so the ring shows there too.
+// - LENGTH_UNIT_PX: measure WAVE_SPEED, WAVE_WIDTH, WAVE_FREQUENCY and
+//   AMPLITUDE in units of that many framebuffer pixels (e.g. one text line)
+//   instead of viewport heights, so the ripple is the same size in any window.
+//   kitty doesn't pass the cell size to custom shaders, hence a constant.
+// With GLOW_STRENGTH = 0 and LENGTH_UNIT_PX = 0 it behaves exactly like the
+// stock shader.
 
 import kitty_custom_shader_types;
 
@@ -34,6 +39,8 @@ static const float DIFFUSE_STRENGTH = 0.10;
 // in linear RGB. It follows the same envelope and decay as the wave.
 static const float GLOW_STRENGTH = 0.0;
 static const float3 GLOW_COLOR = float3(1.0);
+// Length unit in framebuffer pixels for the wave's sizes (0 = viewport height).
+static const float LENGTH_UNIT_PX = 0.0;
 
 public float4
 fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
@@ -44,7 +51,9 @@ fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
     float2 center = d.mouse_pos.zw;
 
     // Aspect-corrected vector from the click center to this pixel.
-    float2 delta = (t.pos - center) * float2(aspect, 1.0);
+    // Units per UV step on each axis: viewport heights (stock), or LENGTH_UNIT_PX.
+    float2 unitsPerUV = LENGTH_UNIT_PX > 0.0 ? pixelDims / LENGTH_UNIT_PX : float2(aspect, 1.0);
+    float2 delta = (t.pos - center) * unitsPerUV;
     float dist = length(delta);
     float2 dir = delta / max(dist, 1e-5);
 
@@ -88,7 +97,10 @@ fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
     float specular = pow(max(dot(N, H), 0.0), SHININESS);
 
     // Radial UV displacement: push pixels away from center at crests, pull inward at troughs.
-    float2 warpedUV = clamp(t.pos + dir * (wave * env * decay * AMPLITUDE), float2(0.0), float2(1.0));
+    // (Stock adds the displacement to UV unconverted; kept as-is when LENGTH_UNIT_PX = 0.)
+    float2 shift = dir * (wave * env * decay * AMPLITUDE);
+    if (LENGTH_UNIT_PX > 0.0) shift /= unitsPerUV;
+    float2 warpedUV = clamp(t.pos + shift, float2(0.0), float2(1.0));
 
     // Sample the terminal backbuffer at the displaced position.
     float4 result = t.backbuffer.Sample(warpedUV);
