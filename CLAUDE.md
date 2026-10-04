@@ -22,6 +22,7 @@ Zsh shell tools for navigating projects and notes. Details are split out by area
 - **[docs/project-picker.md](docs/project-picker.md)** — `functions/project.zsh`, `functions/sw.zsh`, `bin/switch-project`, `bin/window`(-list), `bin/tidy-windows` and `python/tidy-windows-advise/advise`, and how Claude Code session names/titles are looked up for the window switcher.
 - **[docs/notes.md](docs/notes.md)** — `functions/notes-lib.zsh`, `functions/web.zsh`, `bin/web`, `bin/note`: the notes vault (`$HOME/notes`) tooling.
 - **[docs/ide-tools.md](docs/ide-tools.md)** — `bin/ide`, `bin/close-project`, `bin/project-web`.
+- **[kitty/demo/README.md](kitty/demo/README.md)** — `kitty/demo/play`: the self-running, screen-recordable show-off of the kitty shaders (presenterm deck + director driving kitty via `kitten @` and the mouse via Hammerspoon).
 
 ## Kitty key bindings
 
