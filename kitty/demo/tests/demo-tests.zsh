@@ -467,5 +467,30 @@ is 'link slides fit a half-width window' "$(print -r -- $slides[13,15] | awk 'le
 is 'scene repo has one TODO' "$(rg -c TODO $C1/scene/repo | paste -sd' ' -)" "$C1/scene/repo/main.py:1"
 grep -rq glitter $C1/scene/repo/main.py && bad 'glitter appears in rg output' || ok 'glitter only in the eza listing'
 
+# --- chapter 2 -----------------------------------------------------------------------
+C2=$DEMO_ROOT/chapters/2-windows
+slides2=("${(@ps:<!-- end_slide -->:)$(<$C2/deck.md)}")
+is 'chapter 2 has 9 slides' $#slides2 9
+is 'chapter 2 slides fit beside three panes' "$(awk 'length > 40' $C2/deck.md)" ''
+for f in $C2/beats/*.zsh; do
+  for line in ${(f)"$(grep '^slide goto' $f)"}; do
+    words=(${(Q)${(z)line}})
+    [[ $slides2[$words[3]] == *"$words[4]"* ]] && ok "ch2 ${f:t:r}: slide $words[3] says '$words[4]'" \
+      || bad "ch2 ${f:t:r}: slide $words[3] doesn't say '$words[4]'"
+  done
+done
+zsh $DEMO_ROOT/play 2 --dry-run >/dev/null 2>&1 && ok 'chapter 2 dry-runs' || bad 'chapter 2 fails its dry run'
+shape() { zsh $DEMO_ROOT/play 2 --dry-run --only $1 2>&1 | grep -E '^(press|wait-layout|wait-tabs)' | paste -sd, - }
+is 'ch2 beat 1 opens C with the real key'  "$(shape 1)" 'press-new C cmd+shift+enter'
+is 'ch2 beat 2 hops focus'                 "$(shape 2)" 'press-focus cmd+right,press-focus cmd+down,press-focus cmd+left,press-focus cmd+up'
+is 'ch2 beat 3 moves a pane'               "$(shape 3)" 'press-reorders cmd+shift+right,press-reorders cmd+shift+right'
+is 'ch2 beat 4 switches layouts'           "$(shape 4)" 'press cmd+t,wait-layout tall,press cmd+f,wait-layout fat,press cmd+s,wait-layout stack,press cmd+g,wait-layout grid'
+is 'ch2 beat 5 zooms and back'             "$(shape 5)" 'press ctrl+alt+z,wait-layout stack,press ctrl+alt+z,wait-layout grid'
+is 'ch2 beat 6 detaches a pane'            "$(shape 6)" 'press cmd+shift+up,wait-tabs 2'
+is 'ch2 beat 7 switches tabs'              "$(shape 7)" 'press-focus ctrl+tab,press-focus ctrl+shift+tab'
+for req in new_window_with_cwd 'neighboring_window right' move_window_forward 'goto_layout grid' 'toggle_layout stack' 'detach_window new-tab'; do
+  grep -qx -- $req $C2/requires && ok "chapter 2 requires $req" || bad "chapter 2 requires lacks $req"
+done
+
 # (later tasks add sections above this line)
 exit $fail

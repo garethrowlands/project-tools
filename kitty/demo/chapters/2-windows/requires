@@ -1,0 +1,13 @@
+# kitty actions chapter 2 presses keys for (checked by play's pre-flight)
+new_window_with_cwd
+neighboring_window right
+neighboring_window left
+neighboring_window up
+neighboring_window down
+move_window_forward
+goto_layout tall
+goto_layout fat
+goto_layout stack
+goto_layout grid
+toggle_layout stack
+detach_window new-tab
