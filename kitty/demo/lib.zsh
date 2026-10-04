@@ -453,3 +453,11 @@ wait-tabs() {
 demo_tabs_are() {
   [[ $(demo_kitten ls | jq --argjson d ${DEMO_IDS[deck]:-0} '[.[] | select(any(.tabs[].windows[]; .id == $d)) | .tabs[]] | length') == $1 ]]
 }
+
+# demo_snapshot: one line per tab with its layout and windows (id, * for
+# focused, title), for play.log when a beat fails.
+demo_snapshot() {
+  demo_kitten ls 2>/dev/null | jq -r '.[].tabs[] |
+    "kitty: tab layout=\(.layout) windows=" +
+    ([.windows[] | "\(.id)\(if .is_focused then "*" else "" end):\(.title)"] | join(" "))'
+}

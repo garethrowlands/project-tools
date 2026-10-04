@@ -148,6 +148,7 @@ demo_present() {
 # The background half of a real run, from the moment presenterm starts.
 demo_direct() {
   demo_begin $DEMO_STATE/play.pid && wait-text deck "$(demo_deck_title $DEMO_CHAPTER_DIR/deck.md)" && demo_run_beats "$@" && return 0
+  demo_snapshot
   demo_hs "return demoStage.notify($(demo_lua_str "kitty demo stopped at beat ${DEMO_BEAT:-?}: see $DEMO_STATE/play.log"))" >/dev/null 2>&1
   return 1
 }

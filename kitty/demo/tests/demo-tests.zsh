@@ -197,6 +197,11 @@ AFTER=''
 functions[demo_kitten]=$functions[orig_kitten]
 functions[demo_hs]=$functions[orig_hs]
 
+# --- failure snapshot ---------------------------------------------------------------
+reset_stubs
+KLSJSON='[{"tabs":[{"layout":"stack","windows":[{"id":7,"title":"deck","is_focused":true},{"id":9,"title":"zsh","is_focused":false}]}]}]'
+is 'a failure logs each tab layout and its panes' "$(demo_snapshot)" 'kitty: tab layout=stack windows=7*:deck 9:zsh'
+
 # --- card ---------------------------------------------------------------------
 source $DEMO_ROOT/card
 is 'card centres one line'   "$(card_render 20 5 hi)" $'\e[2J\e[3;10H\e[1mhi\e[22m'
