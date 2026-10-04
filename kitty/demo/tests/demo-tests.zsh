@@ -305,12 +305,25 @@ is 'comet.txt fits a half-width pane' "$(awk 'length > 60' $DEMO_ROOT/scene/come
 
 # The ripple and the spotlight only bend or scale existing pixels, so over
 # empty background they show nothing: every glide must aim at deck text.
-is 'beat 5 clicks three times' "$(grep -c '^mouse click' $DEMO_ROOT/beats/05-ripple.zsh)" 3
+# The one exception is a glide straight after a comment saying it targets
+# empty background: beat 5 shows the faint ring the glow gives there.
+is 'beat 5 clicks four times' "$(grep -c '^mouse click' $DEMO_ROOT/beats/05-ripple.zsh)" 4
+is 'beat 5 clicks empty background once' \
+  "$(grep -A1 '^#.*empty background' $DEMO_ROOT/beats/05-ripple.zsh | grep -c '^mouse glide deck')" 1
 for f in 04-spotlight 05-ripple 10-finale; do
-  for line in ${(f)"$(grep '^mouse glide' $DEMO_ROOT/beats/$f.zsh)"}; do
-    words=(${(Q)${(z)line}})
-    [[ $words[2] == glide-text && $words[3] == deck ]] && grep -qF -- $words[4] $DEMO_ROOT/deck.md \
-      && ok "$f aims at deck text '$words[4]'" || bad "$f glides to ${(q+)line}, not to deck text"
+  prev=''
+  for line in "${(@f)$(<$DEMO_ROOT/beats/$f.zsh)}"; do
+    if [[ $line == 'mouse glide'* ]]; then
+      words=(${(Q)${(z)line}})
+      if [[ $prev == '#'*'empty background'* ]]; then
+        [[ $words[2] == glide && $words[3] == deck ]] && ok "$f aims at empty background on purpose" \
+          || bad "$f: empty-background glide ${(q+)line} isn't a plain deck glide"
+      else
+        [[ $words[2] == glide-text && $words[3] == deck ]] && grep -qF -- $words[4] $DEMO_ROOT/deck.md \
+          && ok "$f aims at deck text '$words[4]'" || bad "$f glides to ${(q+)line}, not to deck text"
+      fi
+    fi
+    prev=$line
   done
 done
 
