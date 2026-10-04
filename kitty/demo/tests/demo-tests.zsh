@@ -285,7 +285,7 @@ kill -0 $director 2>/dev/null && { bad 'quitting presenterm left the director ru
 unfunction presenterm
 
 # --- deck and beats ---------------------------------------------------------------
-is 'deck has 12 slides' "$(grep -c '^<!-- end_slide -->' $DEMO_ROOT/deck.md)" 11
+is 'deck has 14 slides' "$(grep -c '^<!-- end_slide -->' $DEMO_ROOT/deck.md)" 13
 # Every `slide goto N TEXT` must find TEXT on slide N, or the beat times out.
 slides=("${(@ps:<!-- end_slide -->:)$(<$DEMO_ROOT/deck.md)}")
 for f in $DEMO_ROOT/beats/*.zsh; do
@@ -295,10 +295,13 @@ for f in $DEMO_ROOT/beats/*.zsh; do
       || bad "${f:t:r}: slide $words[3] doesn't say '$words[4]'"
   done
 done
-for word in amber pulses dimmer tint vignette 'another app'; do
-  [[ $slides[10] == *$word* ]] && ok "OS-window slide explains '$word'" || bad "OS-window slide lacks '$word'"
+# Beat 8 narrates one state per slide: kitty focused, TextEdit focused, back.
+[[ $slides[10] == *amber* ]] && ok 'slide 10: kitty has focus, amber border' || bad 'slide 10 lacks amber'
+for word in TextEdit dimmer tint vignette; do
+  [[ $slides[11] == *$word* ]] && ok "slide 11 explains '$word'" || bad "slide 11 lacks '$word'"
 done
-is 'OS-window slide fits a half-width window' "$(print -r -- $slides[10] | awk 'length > 48')" ''
+[[ $slides[12] == *pulses* ]] && ok 'slide 12: the border pulses as focus returns' || bad 'slide 12 lacks pulses'
+is 'OS-window slides fit a half-width window' "$(print -r -- $slides[10,12] | awk 'length > 48')" ''
 [[ $slides[5] == *'subtle trail'* ]] && ok 'cursor slide says the trail is subtle' || bad 'cursor slide lacks "subtle trail"'
 for text in 'kitty, with shaders' 'Focus follows you' 'switch tabs' 'and back again' 'cursor go?' 'spotlight' 'Clicks ripple' \
             'pane rang?' 'another tab' 'has focus?' 'land in a terminal app' 'gentle.pipeline'; do
@@ -355,7 +358,10 @@ dry=$(zsh $DEMO_ROOT/play --dry-run --only 9 2>&1)
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 8 2>&1)
 is 'beat 8 hands focus to another app and back' \
   "$(print -r -- $dry | grep -E '^(card open|pane|stage)' | awk '{print $1, $2}' | paste -sd, -)" \
-  'stage open-other,stage tile-beside,stage focus-main,stage focus-other,stage focus-main,stage close-other,stage fill'
+  'stage open-other,stage tile-beside,stage focus-other,stage focus-main,stage close-other,stage fill'
+is 'beat 8 changes slide before each change of focus' \
+  "$(print -r -- $dry | grep -E '^(slide|stage (open|focus))' | awk '{print $1, $2, $3}' | sed 's/ *$//' | paste -sd, -)" \
+  'slide goto 10,slide goto 11,stage open-other '"$DEMO_ROOT"'/scene/other-app.txt,stage focus-other other-app.txt,slide goto 12,stage focus-main'
 other=$(grep '^stage open-other' $DEMO_ROOT/beats/08-os-window.zsh | awk '{print $3}')
 [[ -f ${other/\$DEMO_ROOT/$DEMO_ROOT} ]] && ok 'beat 8 opens a scene file' || bad "beat 8 opens a missing file: $other"
 for verb in tile-beside focus-other close-other; do

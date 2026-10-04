@@ -60,11 +60,13 @@ function M.fill()
   return "ok"
 end
 
--- Open `path` in TextEdit, which takes focus from kitty.
+-- Open `path` in TextEdit in the background (-g: no focus, so the window
+-- stays behind kitty until tileBeside reveals it; -F: no restored windows
+-- if TextEdit wasn't running). focusOther then gives it focus.
 function M.openOther(path)
   otherWasRunning = hs.application.get(OTHER_APP) ~= nil
   otherTitle = path:match("[^/]+$")
-  hs.task.new("/usr/bin/open", nil, {"-b", OTHER_APP, path}):start()
+  hs.task.new("/usr/bin/open", nil, {"-g", "-F", "-b", OTHER_APP, path}):start()
   return "ok"
 end
 

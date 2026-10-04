@@ -92,17 +92,33 @@ Which pane rang?
 Which window has focus?
 =======================
 
-While kitty has focus, it gets a thin
-amber edge, which pulses as focus returns.
+kitty has the focus, so it shows
+a thin amber border.
 
-When another app has focus, kitty steps back:
+<!-- end_slide -->
+
+<!-- jump_to_middle -->
+
+Another app takes the focus
+===========================
+
+TextEdit has the focus now,
+so kitty steps back:
 
 * a little dimmer
 * a cool blue tint
 * a soft shadow at its edges (a vignette)
 
-While TextEdit has focus, this window
-shows all three.
+<!-- end_slide -->
+
+<!-- jump_to_middle -->
+
+…and back to kitty
+==================
+
+kitty has the focus again: the amber
+border pulses, and the dimming, tint
+and vignette lift.
 
 <!-- end_slide -->
 
