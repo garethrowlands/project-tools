@@ -43,11 +43,11 @@ watch the right-hand pane
 Your mouse gets a spotlight
 ===========================
 
-Wherever the pointer goes, the text around it stays bright
-and everything else dims a little. It is gentle on purpose,
-and it lights only what is there: on an empty background
-there is nothing to light, so it shows best over text,
-like this paragraph, a page of code, logs or a man page.
+Wherever the pointer goes, a faint glow brightens the spot
+around it and everything else dims a little. It is gentle
+on purpose: you can see it on an empty background too,
+but it shows best over text, like this paragraph,
+a page of code, logs or a man page.
 
 <!-- end_slide -->
 
