@@ -35,6 +35,9 @@ the slides' pane glowed as it got focus back
 Where did the cursor go?
 ========================
 
+each jump leaves a subtle trail —
+watch the right-hand pane
+
 <!-- end_slide -->
 
 <!-- jump_to_middle -->

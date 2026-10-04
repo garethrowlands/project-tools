@@ -287,6 +287,7 @@ for f in $DEMO_ROOT/beats/*.zsh; do
       || bad "${f:t:r}: slide $words[3] doesn't say '$words[4]'"
   done
 done
+[[ $slides[5] == *'subtle trail'* ]] && ok 'cursor slide says the trail is subtle' || bad 'cursor slide lacks "subtle trail"'
 for text in 'kitty, with shaders' 'Focus follows you' 'switch tabs' 'and back again' 'cursor go?' 'spotlight' 'Clicks ripple' \
             'pane rang?' 'another tab' 'typing in?' 'land in a terminal app' 'gentle.pipeline'; do
   grep -qF -- $text $DEMO_ROOT/deck.md && ok "deck says '$text'" || bad "deck lacks '$text'"
