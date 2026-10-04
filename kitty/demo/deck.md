@@ -66,7 +66,7 @@ startgroup
     var float LENGTH_UNIT_PX = 23.0
     var float WAVE_SPEED = 6.0
     var float AMPLITUDE = 0.12
-    var float GLOW_STRENGTH = 0.04
+    var float GLOW_STRENGTH = 0.015
     shaders pond-ripple-local
 endgroup
 ```

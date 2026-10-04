@@ -59,10 +59,11 @@ startgroup
     # lower = softer edge (stock: 20); edge width is 1/SOFTNESS, keep it < RADIUS
     var float SPOTLIGHT_SOFTNESS = 10.0
     # additive glow inside the spot, peaking at the centre (local shader
-    # options; stock: off). Linear light, so 0.03 x 0.8 is about sRGB #2f2f2f
-    # on black at the centre; raise it for a brighter spot
-    var float GLOW_STRENGTH = 0.03
-    var float3 GLOW_COLOR = float3(0.8)
+    # options; stock: off). Linear light: strength x colour is the light
+    # added, so this is about sRGB #1d1a14 on black at the centre. The colour
+    # is a soft warm white (less blue than green than red)
+    var float GLOW_STRENGTH = 0.015
+    var float3 GLOW_COLOR = float3(0.8, 0.65, 0.45)
     # local copy of spotlight with the additive glow
     shaders spotlight-local
 endgroup
@@ -97,9 +98,10 @@ startgroup
     var float SPECULAR_STRENGTH = 0.06
     var float DIFFUSE_STRENGTH = 0.015
     # additive crest glow (local shader options; stock: off). Linear light, so
-    # 0.04 x 0.8 peaks around sRGB #333 on black; raise it for a brighter ring
-    var float GLOW_STRENGTH = 0.04
-    var float3 GLOW_COLOR = float3(0.8)
+    # the crest peaks around sRGB #1d1a14 on black; same warm white as the
+    # spotlight; raise the strength for a brighter ring
+    var float GLOW_STRENGTH = 0.015
+    var float3 GLOW_COLOR = float3(0.8, 0.65, 0.45)
     # local copy of pond-ripple with the additive crest glow
     shaders pond-ripple-local
 endgroup
