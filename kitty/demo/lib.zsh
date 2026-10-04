@@ -199,8 +199,8 @@ demo_stage_current() {
   [[ $loaded == <-> ]] && (( loaded >= on_disk ))
 }
 
-# Start of a real run: the deck's tab goes to the splits layout (beats use
-# vsplit/hsplit) and Hammerspoon pins the focused kitty OS window, makes it
+# Start of a real run: the deck's tab goes to the chapter's layout
+# (DEMO_START_LAYOUT, from its `layout` file; default splits, for vsplit/hsplit) and Hammerspoon pins the focused kitty OS window, makes it
 # fill the screen, parks the pointer in it and arms the abort hotkey, which
 # signals the pid in PIDFILE.
 demo_begin() {
@@ -208,8 +208,9 @@ demo_begin() {
   DEMO_LAYOUT=$(demo_kitten ls --match id:$deck \
     | jq -r ".[].tabs[] | select(any(.windows[]; .id == $deck)) | .layout") \
     && [[ -n $DEMO_LAYOUT ]] || { demo_err "cannot read the deck tab's layout"; return 1 }
-  demo_kitten goto-layout --match window_id:$deck splits >/dev/null \
-    || { demo_err "cannot switch to the splits layout (is it in enabled_layouts?)"; return 1 }
+  local layout=${DEMO_START_LAYOUT:-splits}
+  demo_kitten goto-layout --match window_id:$deck $layout >/dev/null \
+    || { demo_err "cannot switch to the $layout layout (is it in enabled_layouts?)"; return 1 }
   local reply
   reply=$(demo_hs "return demoStage.begin($(demo_lua_str $pidfile))" 2>&1)
   [[ $reply == ok ]] || { demo_err "Hammerspoon could not pin the kitty window: ${reply:-no reply}"; return 1 }

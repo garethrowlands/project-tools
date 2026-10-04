@@ -195,6 +195,7 @@ demo_play_main() {
 
   demo_preflight || return 1
   DEMO_IDS[deck]=$KITTY_WINDOW_ID
+  [[ -r $DEMO_CHAPTER_DIR/layout ]] && typeset -g DEMO_START_LAYOUT=$(<$DEMO_CHAPTER_DIR/layout)
   mkdir -p $DEMO_STATE
   : >| $DEMO_STATE/play.log
   (

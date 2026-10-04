@@ -42,8 +42,8 @@ pane along.
 Layouts
 =======
 
-Cmd+T tall · Cmd+F fat
-Cmd+S stack · Cmd+G grid
+Cmd+F fat · Cmd+G grid
+Cmd+S stack · Cmd+T tall
 
 <!-- end_slide -->
 

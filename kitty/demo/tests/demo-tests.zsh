@@ -125,6 +125,9 @@ is 'demo_begin remembers the layout' "$DEMO_LAYOUT" 'tall'
 grep -qx 'goto-layout --match window_id:7 splits' $T/kcalls && ok 'demo_begin switches to splits' || bad 'no splits layout'
 is 'demo_begin pins the window full screen' "$(<$T/hcalls)" "return demoStage.begin(\"$T/play.pid\")"
 HSREPLY='no focused window' demo_begin $T/play.pid 2>/dev/null && bad 'demo_begin ignored Hammerspoon' || ok 'demo_begin needs Hammerspoon'
+: >| $T/kcalls
+DEMO_START_LAYOUT=tall demo_begin $T/play.pid
+grep -qx 'goto-layout --match window_id:7 tall' $T/kcalls && ok "demo_begin uses the chapter's layout" || bad 'demo_begin ignored DEMO_START_LAYOUT'
 HSREPLY='no focused window' demo_begin $T/play.pid 2>$T/err
 [[ $(<$T/err) == *"Hammerspoon could not pin the kitty window: no focused window"* ]] \
   && ok "demo_begin reports Hammerspoon's reply" || bad "demo_begin error: $(<$T/err)"
@@ -489,10 +492,10 @@ done
 zsh $DEMO_ROOT/play 2 --dry-run >/dev/null 2>&1 && ok 'chapter 2 dry-runs' || bad 'chapter 2 fails its dry run'
 shape() { zsh $DEMO_ROOT/play 2 --dry-run --only $1 2>&1 | grep -E '^(press|wait-layout|wait-tabs)' | paste -sd, - }
 is 'ch2 beat 1 opens C with the real key'  "$(shape 1)" 'press-new C cmd+shift+enter'
-is 'ch2 beat 2 hops focus'                 "$(shape 2)" 'press-focus cmd+right,press-focus cmd+right,press-focus cmd+up,press-focus cmd+left'
+is 'ch2 beat 2 hops focus'                 "$(shape 2)" 'press-focus cmd+right,press-focus cmd+up,press-focus cmd+up,press-focus cmd+left'
 is 'ch2 beat 3 moves a pane and back'      "$(shape 3)" 'press-reorders cmd+shift+right,press-reorders cmd+shift+left'
-is 'ch2 beat 4 switches layouts'           "$(shape 4)" 'press cmd+t,wait-layout tall,press cmd+f,wait-layout fat,press cmd+s,wait-layout stack,press cmd+g,wait-layout grid'
-is 'ch2 beat 5 zooms and back'             "$(shape 5)" 'press ctrl+alt+z,wait-layout stack,press ctrl+alt+z,wait-layout grid'
+is 'ch2 beat 4 tours the layouts back to tall' "$(shape 4)" 'press cmd+f,wait-layout fat,press cmd+g,wait-layout grid,press cmd+s,wait-layout stack,press cmd+t,wait-layout tall'
+is 'ch2 beat 5 zooms and back'             "$(shape 5)" 'press ctrl+alt+z,wait-layout stack,press ctrl+alt+z,wait-layout tall'
 is 'ch2 beat 6 detaches a pane'            "$(shape 6)" 'press cmd+shift+up,wait-tabs 2'
 is 'ch2 beat 7 returns, then shows its slide, then switches' \
   "$(zsh $DEMO_ROOT/play 2 --dry-run --only 7 2>&1 | grep -E '^(slide|press)' | awk '{print $1, $2}' | paste -sd, -)" \
@@ -501,6 +504,8 @@ is 'ch2 beat 7 returns, then shows its slide, then switches' \
 # focus hops have a known neighbour each time
 is 'ch2 beat 1 focuses B before Cmd+Shift+Enter' \
   "$(zsh $DEMO_ROOT/play 2 --dry-run --only 1 2>&1 | grep -B1 '^press-new' | head -1)" 'focus B'
+is 'chapter 2 starts in the tall layout' "$(<$C2/layout)" tall
+[[ $(zsh $DEMO_ROOT/play 2 --dry-run --only 1 2>&1) != *location* ]] && ok 'chapter 2 lets kitty place its panes' || bad 'chapter 2 still uses split positions'
 for req in new_window_with_cwd 'neighboring_window right' move_window_forward move_window_backward 'goto_layout grid' 'toggle_layout stack' 'detach_window new-tab'; do
   grep -qx -- $req $C2/requires && ok "chapter 2 requires $req" || bad "chapter 2 requires lacks $req"
 done

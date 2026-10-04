@@ -5,5 +5,5 @@ press ctrl+alt+z
 wait-layout stack
 beat-pause 2
 press ctrl+alt+z
-wait-layout grid
+wait-layout tall
 beat-pause 1.5
