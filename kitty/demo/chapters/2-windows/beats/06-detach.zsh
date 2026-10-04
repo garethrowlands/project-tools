@@ -3,5 +3,5 @@ slide goto 7 'own tab'
 focus B
 beat-pause 2
 press cmd+shift+up
-wait-tabs 2
+wait-own-tab B
 beat-pause 2.5

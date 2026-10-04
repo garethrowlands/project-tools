@@ -453,13 +453,15 @@ demo_layout_is() {
   [[ $(demo_kitten ls | jq -r --argjson d ${DEMO_IDS[deck]:-0} '.[].tabs[] | select(any(.windows[]; .id == $d)) | .layout') == $1 ]]
 }
 
-# wait-tabs N: wait until the deck's OS window has N tabs.
-wait-tabs() {
-  demo_dry wait-tabs "$@" && return 0
-  demo_poll "$1 tabs" demo_tabs_are $1
+# wait-own-tab NAME: wait until NAME is alone in a tab of its own, apart
+# from the deck (the window may hold other tabs too, so don't count tabs).
+wait-own-tab() {
+  demo_dry wait-own-tab "$@" && return 0
+  local id; id=$(demo_id $1) || return
+  demo_poll "pane $1 to be alone in its own tab" demo_alone_in_tab $id
 }
-demo_tabs_are() {
-  [[ $(demo_kitten ls | jq --argjson d ${DEMO_IDS[deck]:-0} '[.[] | select(any(.tabs[].windows[]; .id == $d)) | .tabs[]] | length') == $1 ]]
+demo_alone_in_tab() {
+  [[ $(demo_kitten ls | jq --argjson w $1 '[.[].tabs[] | select(any(.windows[]; .id == $w)) | .windows | length][0]') == 1 ]]
 }
 
 # demo_snapshot: one line per tab with its layout and windows (id, * for

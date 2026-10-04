@@ -187,7 +187,7 @@ press-focus cmd+right && ok 'press-focus sees focus move' || bad 'press-focus fa
 kls "$(lsjson 7 5 6)"; AFTER=''
 press-focus cmd+right 2>/dev/null && bad 'press-focus accepted no move' || ok 'press-focus fails when focus does not move'
 
-# press-reorders, wait-layout, wait-tabs
+# press-reorders, wait-layout, wait-own-tab
 # kitty lists windows in creation order; a move swaps groups (layout order)
 grp() { print -r -- "[{\"tabs\":[{\"is_active\":true,\"layout\":\"tall\",\"windows\":[{\"id\":7,\"is_active\":true},{\"id\":5},{\"id\":6}],\"groups\":[$1]}]}]" }
 kls "$(grp '{"id":1,"windows":[7]},{"id":2,"windows":[5]},{"id":3,"windows":[6]}')"
@@ -196,9 +196,13 @@ press-reorders cmd+shift+right && ok 'press-reorders sees the groups swap' || ba
 kls "$(LAYOUT=tall lsjson 7 5 6)"
 wait-layout tall && ok 'wait-layout sees the layout' || bad 'wait-layout failed'
 wait-layout grid 2>/dev/null && bad 'wait-layout accepted the wrong layout' || ok 'wait-layout times out on the wrong layout'
-kls '[{"tabs":[{"layout":"splits","windows":[{"id":7,"is_focused":true}]},{"layout":"splits","windows":[{"id":6,"is_focused":true}]}]}]'
-wait-tabs 2 && ok 'wait-tabs counts the tabs' || bad 'wait-tabs failed'
-wait-tabs 3 2>/dev/null && bad 'wait-tabs accepted the wrong count' || ok 'wait-tabs times out on the wrong count'
+# wait-own-tab: the user's window has other tabs too, so don't count tabs;
+# check NAME is alone in a tab without the deck
+DEMO_IDS[B]=6
+kls '[{"tabs":[{"layout":"grid","windows":[{"id":21}]},{"layout":"tall","windows":[{"id":7},{"id":6}]}]}]'
+wait-own-tab B 2>/dev/null && bad 'wait-own-tab accepted B beside the deck' || ok 'wait-own-tab waits while B shares the deck tab'
+kls '[{"tabs":[{"layout":"grid","windows":[{"id":21}]},{"layout":"tall","windows":[{"id":7}]},{"layout":"fat","windows":[{"id":6}]}]}]'
+wait-own-tab B && ok 'wait-own-tab sees B alone in its own tab, among other tabs' || bad 'wait-own-tab failed'
 # kitty marks each tab's active pane is_focused; the one that matters is the
 # active pane of the active tab in the deck's OS window
 kls '[{"tabs":[{"is_active":true,"layout":"grid","windows":[{"id":21,"is_focused":true,"is_active":true}]}]},
@@ -499,16 +503,16 @@ for f in $C2/beats/*.zsh; do
   done
 done
 zsh $DEMO_ROOT/play 2 --dry-run >/dev/null 2>&1 && ok 'chapter 2 dry-runs' || bad 'chapter 2 fails its dry run'
-shape() { zsh $DEMO_ROOT/play 2 --dry-run --only $1 2>&1 | grep -E '^(press|wait-layout|wait-tabs)' | paste -sd, - }
+shape() { zsh $DEMO_ROOT/play 2 --dry-run --only $1 2>&1 | grep -E '^(press|wait-layout|wait-own-tab)' | paste -sd, - }
 is 'ch2 beat 1 opens C with the real key'  "$(shape 1)" 'press-new C cmd+shift+enter'
 is 'ch2 beat 2 hops focus'                 "$(shape 2)" 'press-focus cmd+right,press-focus cmd+up,press-focus cmd+up,press-focus cmd+left'
 is 'ch2 beat 3 moves a pane and back'      "$(shape 3)" 'press-reorders cmd+shift+right,press-reorders cmd+shift+left'
 is 'ch2 beat 4 tours the layouts back to tall' "$(shape 4)" 'press cmd+f,wait-layout fat,press cmd+g,wait-layout grid,press cmd+s,wait-layout stack,press cmd+t,wait-layout tall'
 is 'ch2 beat 5 zooms and back'             "$(shape 5)" 'press ctrl+alt+z,wait-layout stack,press ctrl+alt+z,wait-layout tall'
-is 'ch2 beat 6 detaches a pane'            "$(shape 6)" 'press cmd+shift+up,wait-tabs 2'
+is 'ch2 beat 6 detaches a pane'            "$(shape 6)" 'press cmd+shift+up,wait-own-tab B'
 is 'ch2 beat 7 returns, then shows its slide, then switches' \
   "$(zsh $DEMO_ROOT/play 2 --dry-run --only 7 2>&1 | grep -E '^(slide|press)' | awk '{print $1, $2}' | paste -sd, -)" \
-  'press-focus ctrl+tab,slide goto,press-focus ctrl+tab,press-focus ctrl+shift+tab'
+  'press-focus ctrl+shift+tab,slide goto,press-focus ctrl+tab,press-focus ctrl+shift+tab'
 # C splits B (not the slides), so the slides keep half the screen and the
 # focus hops have a known neighbour each time
 is 'ch2 beat 1 focuses B before Cmd+Shift+Enter' \

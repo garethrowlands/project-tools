@@ -81,7 +81,7 @@ left open.
 | `press KEYS` | the real keystroke (e.g. `cmd+shift+enter`), with an on-screen badge |
 | `press-focus KEYS` / `press-reorders KEYS` | press, then wait for focus / the pane order to change |
 | `press-new NAME KEYS` | press, adopt the one new window as NAME |
-| `wait-layout NAME` / `wait-tabs N` | readiness after a layout or tab key |
+| `wait-layout NAME` / `wait-own-tab NAME` | readiness after a layout key / after sending NAME to its own tab |
 | `beat-pause SECONDS` | pacing (scaled by `--slow`) |
 
 ## Tests
