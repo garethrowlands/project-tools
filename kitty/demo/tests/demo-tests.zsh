@@ -6,6 +6,7 @@
 #
 # Exits 1 if any test fails.
 
+setopt no_bg_nice
 DEMO_ROOT=${0:A:h:h}
 T=$(mktemp -d)
 trap 'rm -rf $T' EXIT
@@ -133,6 +134,42 @@ is 'cleanup survives a window that has already gone' "$(grep '^close-window' $T/
 is 'cleanup restores the layout'    "$(grep '^goto-layout' $T/kcalls)" 'goto-layout --match window_id:7 tall'
 is 'cleanup forgets everything but the deck' "${(kv)DEMO_IDS} ${#DEMO_CREATED}" 'deck 7 0'
 grep -q 'demoStage.finish' $T/hcalls && ok 'cleanup restores the frame' || bad 'cleanup did not call finish'
+
+# --- card ---------------------------------------------------------------------
+source $DEMO_ROOT/card
+is 'card centres one line'   "$(card_render 20 5 hi)" $'\e[2J\e[3;10H\e[1mhi\e[22m'
+is 'card centres a block'    "$(card_render 10 6 $'ab\ncdef')" $'\e[2J\e[3;5H\e[1mab\e[22m\e[4;4H\e[1mcdef\e[22m'
+is 'overlong line starts at column 1' "$(card_render 4 1 abcdefgh)" $'\e[2J\e[1;1H\e[1mabcdefgh\e[22m'
+
+mkdir -p $T/cardstate
+DEMO_STATE=$T/cardstate $DEMO_ROOT/card T >$T/card.out 2>&1 </dev/null &
+cardpid=$!
+for i in {1..30}; do [[ -s $T/cardstate/card-T.pid ]] && break; sleep 0.1; done
+is 'card writes its pid' "$(<$T/cardstate/card-T.pid)" $cardpid
+print -r -- 'hello there' >| $T/cardstate/card-T.msg
+sleep 0.4
+[[ $(<$T/card.out) == *'hello there'* ]] && ok 'card shows new text' || bad 'card did not redraw'
+kill -USR1 $cardpid; sleep 0.4
+[[ $(<$T/card.out) == *$'\a'* ]] && ok 'card rings on USR1' || bad 'card did not ring'
+kill -TERM $cardpid; wait $cardpid 2>/dev/null
+[[ -e $T/cardstate/card-T.pid ]] && bad 'card left its pid file' || ok 'card removes its pid file'
+
+reset_stubs
+card open A 'Ringing in 3…' --location=vsplit && ok 'card open succeeds' || bad 'card open failed'
+is 'card open writes the message'   "$(<$DEMO_STATE/card-A.msg)" 'Ringing in 3…'
+is 'card open launches card' "$(grep '^launch' $T/kcalls)" "launch --keep-focus --title demo A --location=vsplit -- env DEMO_STATE=$DEMO_STATE $DEMO_ROOT/card A"
+card say A 'Ringing in 2…'
+is 'card say rewrites the message'  "$(<$DEMO_STATE/card-A.msg)" 'Ringing in 2…'
+card say nosuch hi 2>/dev/null && bad 'card say to an unknown pane accepted' || ok 'card say needs an open card'
+card ensure A 'other' --location=vsplit
+is 'card ensure leaves an open card alone' "$(grep -c '^launch' $T/kcalls)" 1
+got_usr1=0; trap 'got_usr1=1' USR1
+print $$ >| $DEMO_STATE/card-A.pid
+bell A && ok 'bell succeeds' || bad 'bell failed'
+is 'bell signals the card' $got_usr1 1
+trap - USR1
+rm -f $DEMO_STATE/card-A.pid
+bell A 2>/dev/null && bad 'bell without a running card accepted' || ok 'bell needs a running card'
 
 # (later tasks add sections above this line)
 exit $fail

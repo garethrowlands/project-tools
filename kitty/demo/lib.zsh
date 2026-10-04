@@ -203,3 +203,43 @@ demo_cleanup() {
   demo_hs 'return demoStage.finish()' >/dev/null 2>&1
   return 0
 }
+
+# card open NAME TEXT [LAUNCH-OPTION...]   a pane running ./card, showing TEXT
+# card ensure NAME TEXT [LAUNCH-OPTION...] open unless NAME is open
+# card say NAME TEXT                       change what it shows
+card() {
+  local sub=$1 name=$2 text=$3; shift 3
+  case $sub in
+    ensure)
+      [[ -n ${DEMO_IDS[$name]} ]] && return 0
+      card open $name $text "$@" ;;
+    open)
+      demo_dry card open $name $text "$@" && { DEMO_IDS[$name]=dry-$name; return 0 }
+      demo_card_write $name $text || return
+      rm -f $DEMO_STATE/card-$name.pid
+      pane open $name "$@" -- env DEMO_STATE=$DEMO_STATE $DEMO_ROOT/card $name || return
+      demo_poll "card $name to start" test -s $DEMO_STATE/card-$name.pid ;;
+    say)
+      demo_dry card say $name $text && return 0
+      demo_id $name >/dev/null || return
+      demo_card_write $name $text ;;
+    *)
+      demo_err "card: unknown subcommand $sub" ;;
+  esac
+}
+
+demo_card_write() {
+  mkdir -p $DEMO_STATE \
+    && print -r -- $2 >| $DEMO_STATE/card-$1.msg.tmp \
+    && mv -f $DEMO_STATE/card-$1.msg.tmp $DEMO_STATE/card-$1.msg \
+    || demo_err "card $1: cannot write its message"
+}
+
+# bell NAME: NAME's card rings the terminal bell, so the bell comes from the
+# pane's own program (kitty then fires bell-in-window for that pane).
+bell() {
+  demo_dry bell "$@" && return 0
+  demo_id $1 >/dev/null || return
+  local pid; pid=$(<$DEMO_STATE/card-$1.pid 2>/dev/null)
+  [[ $pid == <-> ]] && kill -USR1 $pid 2>/dev/null || demo_err "bell $1: its card isn't running"
+}

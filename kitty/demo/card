@@ -1,0 +1,42 @@
+#!/usr/bin/env zsh
+# card NAME: a kitty demo pane that describes itself. Shows the text in
+# $DEMO_STATE/card-NAME.msg centred and bold, redrawing whenever it (or the
+# pane's size) changes; lib.zsh's `card say` rewrites it. SIGUSR1 rings the
+# terminal bell (`bell`). The pid is in $DEMO_STATE/card-NAME.pid while it runs.
+
+# card_render COLUMNS LINES TEXT: clear the screen and draw TEXT's lines, each
+# centred, the block centred vertically.
+card_render() {
+  local cols=$1 lines=$2 text=$3 out=$'\e[2J' i row col
+  local -a rows=("${(@f)text}")
+  local top=$(( (lines - $#rows) / 2 ))
+  (( top < 0 )) && top=0
+  for (( i = 1; i <= $#rows; i++ )); do
+    row=${rows[i]}
+    col=$(( (cols - ${#row}) / 2 + 1 ))
+    (( col < 1 )) && col=1
+    out+=$'\e['$(( top + i ))';'$col$'H\e[1m'$row$'\e[22m'
+  done
+  print -rn -- $out
+}
+
+card_main() {
+  local name=$1 dir=${DEMO_STATE:-${TMPDIR:-/tmp}/kitty-demo}
+  local msg=$dir/card-$1.msg pidfile=$dir/card-$1.pid shown= now size
+  mkdir -p $dir
+  print -r -- $$ >| $pidfile
+  trap 'print -n "\a"' USR1
+  trap 'rm -f $pidfile; exit 0' HUP TERM INT
+  print -n $'\e[?25l'                          # no cursor on a card
+  while true; do
+    now=$(<$msg 2>/dev/null)
+    size=$(stty size 2>/dev/null) || size='24 80'
+    if [[ "$size|$now" != "$shown" ]]; then
+      shown="$size|$now"
+      card_render ${size#* } ${size% *} "$now"
+    fi
+    sleep 0.1
+  done
+}
+
+[[ $ZSH_EVAL_CONTEXT == toplevel ]] && card_main "$@"
