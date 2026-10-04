@@ -330,7 +330,7 @@ done
 # --- beats 6-10 --------------------------------------------------------------------
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 6 2>&1)
 is 'beat 6 dry-run shape' "$(print -r -- $dry | grep -v '^#' | awk '{print $1, $2}' | paste -sd, -)" \
-  'slide goto,card open,beat-pause 1,card say,beat-pause 1,card say,beat-pause 1,bell A,card say,beat-pause 2.5,pane close'
+  'slide goto,card open,beat-pause 0.6,card say,beat-pause 0.6,card say,beat-pause 0.6,bell A,card say,beat-pause 2.5,pane close'
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 7 2>&1)
 is '--only 7 opens C itself' "$(print -r -- $dry | grep -v '^#' | sed -n 2p | awk '{print $1, $2, $3}')" 'card open C'
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 9 2>&1)
