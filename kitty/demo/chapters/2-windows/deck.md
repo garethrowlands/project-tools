@@ -81,10 +81,10 @@ Ctrl+Tab and Ctrl+Shift+Tab.
 Panes, layouts and tabs
 =======================
 
-Cmd+Shift+Enter  new pane, same dir
-Cmd+arrows       move focus
-Cmd+Shift+←/→    move the pane
-Cmd+T/F/S/G      layouts
-Ctrl+Option+Z    zoom
-Cmd+Shift+↑      pane to a new tab
-Ctrl+Tab         switch tabs
+* Cmd+Shift+Enter: new pane, same dir
+* Cmd+arrows: move focus
+* Cmd+Shift+← / →: move the pane
+* Cmd+T / F / S / G: layouts
+* Ctrl+Option+Z: zoom
+* Cmd+Shift+↑: pane to a new tab
+* Ctrl+Tab: switch tabs

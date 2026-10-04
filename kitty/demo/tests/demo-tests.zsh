@@ -519,6 +519,10 @@ is 'ch2 beat 7 returns, then shows its slide, then switches' \
 is 'chapter 2 starts in the tall layout' "$(<$C2/layout)" tall
 [[ $(zsh $DEMO_ROOT/play 2 --dry-run --only 1 2>&1) != *location* ]] && ok 'chapter 2 lets kitty place its panes' || bad 'chapter 2 still uses split positions'
 zsh $DEMO_ROOT/play 2 --dry-run 2>&1 | grep -qE '(^| )C( |$)' && bad 'chapter 2 still uses pane C' || ok 'chapter 2 has no pane C'
+# presenterm joins consecutive lines into one paragraph: each cheat-sheet
+# entry must be its own list item
+body=$(print -r -- $slides2[9] | sed -n '/^=\{3,\}$/,$p' | grep -v '^=*$' | grep -v '^$')
+is 'ch2 cheat sheet is one list item per key' "$(print -r -- $body | grep -vc '^\* ')" 0
 for req in new_window_with_cwd 'neighboring_window right' move_window_forward move_window_backward 'goto_layout grid' 'toggle_layout stack' 'detach_window new-tab'; do
   grep -qx -- $req $C2/requires && ok "chapter 2 requires $req" || bad "chapter 2 requires lacks $req"
 done
