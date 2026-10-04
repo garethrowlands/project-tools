@@ -23,7 +23,8 @@ demo_kitten() { command kitten @ "$@" }
 demo_hs() {
   local out
   out=$(command hs -c "$1") || return
-  print -r -- ${${(f)out}[-1]}
+  local -a lines=("${(@f)out}")
+  print -r -- $lines[-1]
 }
 # zsh runs a trap only once a foreground command finishes, so a plain sleep
 # would hold the abort hotkey's TERM for the whole pause. The wait builtin
