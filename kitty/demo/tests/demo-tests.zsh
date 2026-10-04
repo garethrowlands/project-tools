@@ -293,7 +293,7 @@ kill -0 $director 2>/dev/null && { bad 'quitting presenterm left the director ru
 unfunction presenterm
 
 # --- deck and beats ---------------------------------------------------------------
-is 'deck has 14 slides' "$(grep -c '^<!-- end_slide -->' $DEMO_ROOT/deck.md)" 13
+is 'deck has 16 slides' "$(grep -c '^<!-- end_slide -->' $DEMO_ROOT/deck.md)" 15
 # Every `slide goto N TEXT` must find TEXT on slide N, or the beat times out.
 slides=("${(@ps:<!-- end_slide -->:)$(<$DEMO_ROOT/deck.md)}")
 for f in $DEMO_ROOT/beats/*.zsh; do
@@ -312,7 +312,7 @@ done
 is 'OS-window slides fit a half-width window' "$(print -r -- $slides[10,12] | awk 'length > 48')" ''
 [[ $slides[5] == *'subtle trail'* ]] && ok 'cursor slide says the trail is subtle' || bad 'cursor slide lacks "subtle trail"'
 for text in 'kitty, with shaders' 'Focus follows you' 'switch tabs' 'and back again' 'cursor go?' 'spotlight' 'Clicks ripple' \
-            'pane rang?' 'another tab' 'has focus?' 'land in a terminal app' 'gentle.pipeline'; do
+            'pane rang?' 'another tab' 'has focus?' 'Clicking links in the terminal' 'gentle.pipeline'; do
   grep -qF -- $text $DEMO_ROOT/deck.md && ok "deck says '$text'" || bad "deck lacks '$text'"
 done
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 2 2>&1)
@@ -377,6 +377,13 @@ for verb in focus-other close-other; do
     is "beat 8 $verb names the opened file" ${(Q)t} ${other:t}
   done
 done
+# Beat 9 narrates one step per slide, each before the step, and proves the cd.
+dry=$(zsh $DEMO_ROOT/play --dry-run --only 9 2>&1)
+is 'beat 9 changes slide before each step' \
+  "$(print -r -- $dry | grep -E '^(slide|mouse glide-text|type-text)' | awk '{ if ($1 == "type-text") print $1, $2; else print $1, $2, $3 }' | paste -sd, -)" \
+  'slide goto 13,type-text A,slide goto 14,mouse glide-text A,slide goto 15,mouse glide-text A,type-text A'
+[[ $dry == *"type-text A 'pwd; cat sparkle.txt"* ]] && ok 'beat 9 shows where the click took the shell' || bad 'beat 9 does not prove the cd'
+is 'link slides fit a half-width window' "$(print -r -- $slides[13,15] | awk 'length > 48')" ''
 is 'scene repo has one TODO' "$(rg -c TODO $DEMO_ROOT/scene/repo | paste -sd' ' -)" "$DEMO_ROOT/scene/repo/main.py:1"
 grep -rq glitter $DEMO_ROOT/scene/repo/main.py && bad 'glitter appears in rg output' || ok 'glitter only in the eza listing'
 

@@ -124,8 +124,31 @@ and vignette lift.
 
 <!-- jump_to_middle -->
 
-Click a link, land in a terminal app
-====================================
+Clicking links in the terminal
+==============================
+
+eza and rg print real hyperlinks:
+file names, directories, line numbers.
+
+<!-- end_slide -->
+
+<!-- jump_to_middle -->
+
+Cmd+click a search hit…
+=======================
+
+…and the file opens at that line,
+in micro, right where you clicked.
+
+<!-- end_slide -->
+
+<!-- jump_to_middle -->
+
+Cmd+click a directory…
+======================
+
+…and the shell moves into it, no typing.
+Proof: pwd, and the file waiting there.
 
 <!-- end_slide -->
 
