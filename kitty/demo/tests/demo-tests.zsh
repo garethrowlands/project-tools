@@ -293,7 +293,7 @@ done
 is 'OS-window slide fits a half-width window' "$(print -r -- $slides[10] | awk 'length > 48')" ''
 [[ $slides[5] == *'subtle trail'* ]] && ok 'cursor slide says the trail is subtle' || bad 'cursor slide lacks "subtle trail"'
 for text in 'kitty, with shaders' 'Focus follows you' 'switch tabs' 'and back again' 'cursor go?' 'spotlight' 'Clicks ripple' \
-            'pane rang?' 'another tab' 'typing in?' 'land in a terminal app' 'gentle.pipeline'; do
+            'pane rang?' 'another tab' 'has focus?' 'land in a terminal app' 'gentle.pipeline'; do
   grep -qF -- $text $DEMO_ROOT/deck.md && ok "deck says '$text'" || bad "deck lacks '$text'"
 done
 dry=$(zsh $DEMO_ROOT/play --dry-run --only 2 2>&1)

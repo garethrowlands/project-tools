@@ -1,7 +1,7 @@
 # Beat 8: a second OS window; the screen tiles, main on the left half and W
 # on the right; focus alternates so one window pulses amber while the other
 # dims, cools and vignettes. Then W closes and main fills the screen again.
-slide goto 10 'typing in?'
+slide goto 10 'has focus?'
 card open W $'I\'m a separate kitty window.' --type=os-window --os-window-title='kitty demo W'
 stage tile-beside 'kitty demo W'
 focus W

@@ -89,10 +89,10 @@ Which pane rang?
 
 <!-- jump_to_middle -->
 
-Which window am I typing in?
-============================
+Which window has focus?
+=======================
 
-The one you're typing in gets a thin amber
+The focused one gets a thin amber
 edge, which pulses as it gains focus.
 
 Every other kitty window steps back:
