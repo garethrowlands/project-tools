@@ -18,7 +18,13 @@ typeset -g  DEMO_LAYOUT=''                    # the deck tab's layout before the
 
 # The outside world, as functions the tests replace.
 demo_kitten() { command kitten @ "$@" }
-demo_hs()     { command hs -c "$1" }
+# hs -c mirrors Hammerspoon's console log (e.g. "hotkey: Enabled hotkey …")
+# ahead of the returned value, which is always the last line.
+demo_hs() {
+  local out
+  out=$(command hs -c "$1") || return
+  print -r -- ${${(f)out}[-1]}
+}
 # zsh runs a trap only once a foreground command finishes, so a plain sleep
 # would hold the abort hotkey's TERM for the whole pause. The wait builtin
 # returns as soon as a trapped signal arrives.

@@ -246,6 +246,16 @@ print junk >| $T/pid
 demo_already_running $T/pid && bad 'junk pid counted as running' || ok 'junk pid is not running'
 demo_already_running $T/nosuch && bad 'missing pid file counted as running' || ok 'missing pid file is not running'
 
+# hs -c mirrors Hammerspoon's console log (e.g. "hotkey: Enabled hotkey")
+# before the returned value; demo_hs (the real one, restored by sourcing
+# play) must answer with the value alone.
+mkdir -p $T/bin
+print -r -- $'#!/bin/sh\necho "17:38:33     hotkey: Enabled hotkey x"\necho ok' >| $T/bin/hs
+chmod +x $T/bin/hs
+is 'demo_hs drops the console log' "$(PATH=$T/bin:$PATH demo_hs 'return 1')" ok
+print -r -- $'#!/bin/sh\necho "{\\"x\\":1}"' >| $T/bin/hs
+is 'demo_hs keeps a plain reply' "$(PATH=$T/bin:$PATH demo_hs 'return 1')" '{"x":1}'
+
 zsh $DEMO_ROOT/play --from x >/dev/null 2>&1; is 'bad --from is a usage error' $? 2
 zsh $DEMO_ROOT/play --bogus  >/dev/null 2>&1; is 'unknown option is a usage error' $? 2
 zsh $DEMO_ROOT/play --dry-run --only 99 >/dev/null 2>&1; is 'no beats selected is a usage error' $? 2
