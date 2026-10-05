@@ -3,7 +3,7 @@
 # applies it. Staged so the idle git log in docs is closed and the stray
 # shop-api shell in "scratch" moves to shop-api's tab: both tabs leave the
 # bar. If the model keeps docs-log, this beat fails: run the take again.
-slide goto 4 'Tidy up'
+slide goto 6 'Tidy up'
 adopt docs-log 'var:demo=docs-log'
 adopt stray 'var:demo=stray'
 beat-pause 4

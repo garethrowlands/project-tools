@@ -602,6 +602,7 @@ is 'shop-api points at a fake host' "$(git -C $W/shop-api remote get-url origin)
 is 'zoxide ranks the projects' "$(_ZO_DATA_DIR=$S/zoxide zoxide query --list | sed 's:.*/::' | paste -sd' ' -)" 'shop-api web-app infra docs blog'
 [[ ! -e $S/projects.txt ]] && ok 'project cache is cleared' || bad 'project cache left behind'
 grep -qx "launch --hold --var demo=deck 'echo' 'the deck'" $S/session.kitty && ok 'deck window runs the deck command, and holds' || bad "deck line: $(grep demo=deck $S/session.kitty)"
+grep -q 'demo=web-shell' $S/session.kitty && bad 'the slides share their tab with a shell' || ok 'the slides have their tab to themselves'
 grep -qx 'launch --var demo=shop-claude claude --resume sid-shop' $S/session.kitty && ok 'shop-api tab resumes its session' || bad 'no shop-api claude line'
 grep -qx 'launch --var demo=infra-claude claude --resume sid-infra' $S/session.kitty && ok 'infra tab resumes its session' || bad 'no infra claude line'
 is 'session tabs' "$(sed -n 's/^new_tab //p' $S/session.kitty | paste -sd' ' -)" 'web-app shop-api infra docs scratch'
@@ -673,7 +674,7 @@ zsh $DEMO_ROOT/play 1 --inside --dry-run >/dev/null 2>&1; is '--inside is accept
 
 # --- chapter 3 -----------------------------------------------------------------------
 slides3=("${(@ps:<!-- end_slide -->:)$(<$C3/deck.md)}")
-is 'chapter 3 has 8 slides' $#slides3 8
+is 'chapter 3 has 10 slides' $#slides3 10
 is 'chapter 3 slides fit beside a pane' "$(awk 'length > 40' $C3/deck.md)" ''
 for f in $C3/beats/*.zsh; do
   for line in ${(f)"$(grep '^slide goto' $f)"}; do
@@ -684,6 +685,11 @@ for f in $C3/beats/*.zsh; do
 done
 zsh $DEMO_ROOT/play 3 --dry-run >/dev/null 2>&1 && ok 'chapter 3 dry-runs' || bad 'chapter 3 fails its dry run'
 shape3() { zsh $DEMO_ROOT/play 3 --dry-run --only $1 2>&1 | grep -E '^(press|adopt|wait-|type-text|stage)' | awk '{print $1, $2}' | paste -sd, - }
+is 'ch3 beat 0 tours the tabs and wraps back to the slides' "$(shape3 0)" \
+  'press ctrl+tab,wait-tab shop-api,press ctrl+tab,wait-tab infra,press ctrl+tab,wait-tab docs,press ctrl+tab,wait-tab scratch,press ctrl+tab,wait-tab web-app'
+is 'ch3 intro explains before the tour and maps the keys after' \
+  "$(zsh $DEMO_ROOT/play 3 --dry-run --only 0 2>&1 | grep -E '^(slide|press)' | awk '{print $1, $2, $3}' | sed 's/ *$//' | uniq | paste -sd, -)" \
+  'slide goto 1,slide goto 2,press ctrl+tab,slide goto 3'
 is 'ch3 beat 1 jumps to shop-api and back' "$(shape3 1)" \
   'press cmd+§,adopt picker,wait-text picker,type-text picker,press enter,wait-tab shop-api,press ctrl+shift+tab,wait-tab web-app'
 is 'ch3 beat 2 browses the switcher and leaves' "$(shape3 2)" \
@@ -703,7 +709,7 @@ done
 for k in ${(u)${(f)"$(zsh $DEMO_ROOT/play 3 --dry-run 2>&1 | awk '$1 == "press" {print $2} $1 == "press-new" {print $3}')"}}; do
   demo_press_args $k >/dev/null 2>&1 && ok "ch3 key $k has a badge" || bad "ch3 key $k has no badge"
 done
-body=$(print -r -- $slides3[8] | sed -n '/^=\{3,\}$/,$p' | grep -v '^=*$' | grep -v '^$')
+body=$(print -r -- $slides3[10] | sed -n '/^=\{3,\}$/,$p' | grep -v '^=*$' | grep -v '^$')
 is 'ch3 cheat sheet is one list item per key' "$(print -r -- $body | grep -vc '^\* ')" 0
 
 # --- review fixes ---

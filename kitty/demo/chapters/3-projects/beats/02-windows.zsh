@@ -2,7 +2,7 @@
 # Claude Code panes labelled with their conversation title. Typing "rate"
 # filters on that title down to the shop-api Claude pane, previewed live;
 # Esc closes it where we were.
-slide goto 3 'Every window, live'
+slide goto 5 'Every window, live'
 beat-pause 4
 press alt+tab
 adopt switcher 'cmdline:"(^|/)window$"'

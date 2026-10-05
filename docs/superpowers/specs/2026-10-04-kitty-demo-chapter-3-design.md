@@ -60,7 +60,7 @@ carry a kitty user var `demo=NAME` so beats can find them):
 
 | Tab | Panes (`demo=`) | Role |
 |---|---|---|
-| 1 `web-app` | slides (`deck`), a web-app shell (`web-shell`) | the deck's home |
+| 1 `web-app` | slides (`deck`), alone at full width | the deck's home |
 | 2 `shop-api` | claude (`shop-claude`), a shell (`shop-shell`) | ⌘§ target |
 | 3 `infra` | claude (`infra-claude`) | ⌥⇥ shows its title |
 | 4 `docs` | `git log` in its pager (`docs-log`) | tidy-windows: **close** |
@@ -72,7 +72,7 @@ carry a kitty user var `demo=NAME` so beats can find them):
 
 | # | Slide (shown first) | Keys | What you see | Check |
 |---|---|---|---|---|
-| 0 | **Getting around projects.** One kitty window, a tab per project. | — | the deck, five tabs | — |
+| 0 | Three slides: **Getting around projects** (the premise: several projects at once, shells and Claude Code sessions, one kitty window); **The setup: a tab per project** (one list item per tab, "Let's look: Ctrl+Tab"); after the tour, **Four ways around** (⌘§, ⌥⇥, ⌘⇧W, ⌘I / ⌘B). | ⌃⇥ × 5, between slides 2 and 3 | each tab for ~2.5 s, the last ⌃⇥ wrapping back to the slides | active tab is each one in turn, then `web-app` |
 | 1 | **Jump to a project: ⌘§.** Open projects first, then the rest, ranked by how often you go there. ⌃⇧⇥ comes back. | ⌘§ · `shop` · ↩ · ⌃⇧⇥ | the picker over the tab, tab 2, the deck again | active tab is `shop-api`, then `web-app` |
 | 2 | **Every window, live: ⌥⇥.** Claude Code panes show their conversation title; type to filter on it. | ⌥⇥ · `rate` (filters to the shop-api Claude pane, previewed) · ⎋ | the list with `[Add rate limiting…]`, `[Move Terraform…]` | the switcher's overlay opens and closes |
 | 3 | **Tidy up: ⌘⇧W.** Claude reviews every window: close the stale, regroup by project. | ⌘⇧W · (wait for the picker) · ↩ | rows pre-selected; tabs 4 and 5 leave the tab bar | `docs-log` gone; `stray` in tab `shop-api` |

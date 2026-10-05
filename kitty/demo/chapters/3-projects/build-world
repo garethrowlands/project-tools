@@ -105,7 +105,6 @@ done
   # --hold: if the inner play stops at once (pre-flight), its message stays
   print -r -- "launch --hold --var demo=deck ${(j: :)${(qq)@}}"
   print -r -- 'focus'
-  print -r -- 'launch --var demo=web-shell'
   print -r -- 'new_tab shop-api'; print -r -- 'layout tall'; print -r -- "cd $world/shop-api"
   print -r -- "launch --var demo=shop-claude claude --resume ${SID[shop-api]:-none}"
   print -r -- 'launch --var demo=shop-shell'

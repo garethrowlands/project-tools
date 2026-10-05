@@ -1,7 +1,7 @@
 # Beat 4: blog has no window yet: Cmd+§, "blog", Enter opens a shell there,
 # in this tab beside the slides (switch-project's Enter launches a window in
 # the current tab). It shows where it started.
-slide goto 5 'no window'
+slide goto 7 'no window'
 beat-pause 4
 press cmd+§
 adopt picker 'cmdline:"(^|/)switch-project$"'
