@@ -133,7 +133,10 @@ never moved.
 `ANTHROPIC_API_KEY` is set; VS Code and Microsoft Edge are installed;
 `kitty`, `zoxide`, `claude`, `code`, `gh`, `uv`, `git` are on PATH; the
 `requires` actions (the five overlay launches) are mapped; `~/kitty-demo`
-is absent or marked.
+is absent or marked; VS Code is not running (`ide` runs `code
+--reuse-window`, which would take over one of the user's windows); no Edge
+tab is open under `github.com/garethrowlands/project-tools` (`project-web`
+would reuse it, and the beat then closes it).
 
 ## Spike first
 

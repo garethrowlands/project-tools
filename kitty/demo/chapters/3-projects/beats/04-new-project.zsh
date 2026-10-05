@@ -4,7 +4,7 @@
 slide goto 5 'no window'
 beat-pause 4
 press cmd+§
-adopt picker 'cmdline:(^|/)switch-project$'
+adopt picker 'cmdline:"(^|/)switch-project$"'
 wait-text picker 'Project> '
 type-text picker 'blog'
 beat-pause 1.5

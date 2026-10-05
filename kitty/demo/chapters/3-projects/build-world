@@ -102,7 +102,8 @@ done
 {
   print -r -- '# kitty session for chapter 3 (written by build-world)'
   print -r -- 'new_tab web-app'; print -r -- 'layout tall'; print -r -- "cd $world/web-app"
-  print -r -- "launch --var demo=deck ${(j: :)${(qq)@}}"
+  # --hold: if the inner play stops at once (pre-flight), its message stays
+  print -r -- "launch --hold --var demo=deck ${(j: :)${(qq)@}}"
   print -r -- 'focus'
   print -r -- 'launch --var demo=web-shell'
   print -r -- 'new_tab shop-api'; print -r -- 'layout tall'; print -r -- "cd $world/shop-api"
@@ -119,6 +120,14 @@ done
 
 # the fixed titles, appended once: bin/window-list shows the last ai-title
 if (( claude )); then
+  # claude -p never asks whether to trust a folder, but the panes' interactive
+  # --resume would, on camera: accept it for the two Claude projects
+  cfg=$claude_dir/.claude.json
+  if [[ -r $cfg ]]; then
+    jq --arg a $world/shop-api --arg b $world/infra \
+      '.projects[$a].hasTrustDialogAccepted = true | .projects[$b].hasTrustDialogAccepted = true' $cfg >| $cfg.tmp
+    mv -f $cfg.tmp $cfg
+  fi
   for p in ${(k)TITLES}; do
     t=$(find $claude_dir/projects -mindepth 2 -maxdepth 2 -name "$SID[$p].jsonl" -print -quit 2>/dev/null)
     [[ -n $t ]] || fail "no transcript for $p's session $SID[$p] under $claude_dir/projects"

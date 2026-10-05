@@ -8,7 +8,7 @@ adopt docs-log 'var:demo=docs-log'
 adopt stray 'var:demo=stray'
 beat-pause 4
 press cmd+shift+w
-adopt tidy 'cmdline:(^|/)tidy-windows$'
+adopt tidy 'cmdline:"(^|/)tidy-windows$"'
 DEMO_TIMEOUT=30 wait-text tidy 'enter: apply marked'
 beat-pause 3
 press enter

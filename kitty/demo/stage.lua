@@ -63,6 +63,10 @@ function M.press(mods, key, label)
   if not (front and front:bundleID() == "net.kovidgoyal.kitty") then
     return "kitty is not the frontmost app"
   end
+  -- ...and the pinned kitty, not another instance (chapter 3 runs its own)
+  if main and front:pid() ~= main:application():pid() then
+    return "another kitty is the frontmost app"
+  end
   -- The keystroke follows the badge after BADGE_LEAD, on a timer (a blocking
   -- sleep would stop the badge drawing); every press in a beat is followed by
   -- a wait for its effect, so the director needs no change.
@@ -78,9 +82,15 @@ end
 -- Pin the focused (kitty) window, make it fill its screen (the user tiles
 -- windows full, half or quarter screen), park the pointer in its middle and
 -- arm Ctrl+Alt+Cmd+. to abort the run.
-function M.begin(pidPath)
-  main = hs.window.focusedWindow()
-  if not main then return "no focused window" end
+-- kittyPid, when given, is the kitty process play runs in: the focused
+-- window must belong to it (a second kitty shares the bundle id).
+function M.begin(pidPath, kittyPid)
+  local win = hs.window.focusedWindow()
+  if not win then return "no focused window" end
+  if kittyPid and win:application():pid() ~= kittyPid then
+    return "the focused window is not this kitty's (pid " .. kittyPid .. ")"
+  end
+  main = win
   pidFile = pidPath
   savedFrame = main:frame()
   main:setFrame(main:screen():frame(), 0)

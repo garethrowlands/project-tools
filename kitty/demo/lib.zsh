@@ -212,9 +212,14 @@ demo_begin() {
   local layout=${DEMO_START_LAYOUT:-splits}
   demo_kitten goto-layout --match window_id:$deck $layout >/dev/null \
     || { demo_err "cannot switch to the $layout layout (is it in enabled_layouts?)"; return 1 }
-  local reply
-  reply=$(demo_hs "return demoStage.begin($(demo_lua_str $pidfile))" 2>&1)
-  [[ $reply == ok ]] || { demo_err "Hammerspoon could not pin the kitty window: ${reply:-no reply}"; return 1 }
+  # Pin this kitty by its pid: a second kitty (chapter 3's own instance)
+  # shares the user's bundle id, and may take a moment to become key.
+  demo_poll "Hammerspoon to pin this kitty's window" demo_pin $pidfile \
+    || { demo_err "Hammerspoon could not pin the kitty window: ${DEMO_PIN_REPLY:-no reply}"; return 1 }
+}
+demo_pin() {
+  DEMO_PIN_REPLY=$(demo_hs "return demoStage.begin($(demo_lua_str $1), ${KITTY_PID:-nil})" 2>&1)
+  [[ $DEMO_PIN_REPLY == ok ]]
 }
 
 # Close every window the demo opened, newest first (ones already gone are
@@ -480,8 +485,9 @@ demo_alone_in_tab() {
 }
 
 # adopt NAME MATCH: wait until exactly one window matches MATCH (kitty match
-# syntax, e.g. var:demo=stray or cmdline:(^|/)tidy-windows$) and call it
-# NAME. Not added to the cleanup list: a session or a tool opened it.
+# syntax, e.g. var:demo=stray or cmdline:"(^|/)tidy-windows$": quote a regex
+# with brackets, which kitty otherwise reads as grouping) and call it NAME.
+# Not added to the cleanup list: a session or a tool opened it.
 adopt() {
   demo_dry adopt "$@" && { DEMO_IDS[$1]=dry-$1; return 0 }
   demo_poll "one window matching $2" demo_adopt_one $1 "$2"

@@ -120,10 +120,10 @@ is 'dry run calls nothing'          "$(<$T/kcalls)" ''
 
 reset_stubs
 KLSJSON='[{"tabs":[{"layout":"tall","windows":[{"id":7}]}]}]'
-demo_begin $T/play.pid && ok 'demo_begin succeeds' || bad 'demo_begin failed'
+KITTY_PID=99 demo_begin $T/play.pid && ok 'demo_begin succeeds' || bad 'demo_begin failed'
 is 'demo_begin remembers the layout' "$DEMO_LAYOUT" 'tall'
 grep -qx 'goto-layout --match window_id:7 splits' $T/kcalls && ok 'demo_begin switches to splits' || bad 'no splits layout'
-is 'demo_begin pins the window full screen' "$(<$T/hcalls)" "return demoStage.begin(\"$T/play.pid\")"
+is 'demo_begin pins the window full screen' "$(<$T/hcalls)" "return demoStage.begin(\"$T/play.pid\", 99)"
 HSREPLY='no focused window' demo_begin $T/play.pid 2>/dev/null && bad 'demo_begin ignored Hammerspoon' || ok 'demo_begin needs Hammerspoon'
 : >| $T/kcalls
 DEMO_START_LAYOUT=tall demo_begin $T/play.pid
@@ -350,6 +350,12 @@ reset_stubs; DEMO_INSIDE=1
 demo_cleanup
 is 'inside cleanup closes the instance last' "$(tail -1 $T/kcalls)" 'close-os-window --match id:7'
 DEMO_INSIDE=0
+
+# --- review fixes (stubbed) ---
+reset_stubs; KLSJSON='[{"tabs":[{"layout":"tall","windows":[{"id":7}]}]}]'
+KITTY_PID=4242 demo_begin $T/pidf >/dev/null 2>&1
+grep -qF "demoStage.begin(\"$T/pidf\", 4242)" $T/hcalls && ok 'demo_begin pins the kitty with our pid' || bad "begin call: $(grep begin $T/hcalls)"
+grep -q 'application():pid()' $DEMO_ROOT/stage.lua && ok 'stage.lua checks kitty by pid' || bad 'stage.lua still tells kitty apart only by bundle id'
 
 # --- play -------------------------------------------------------------------------
 # Sourcing play re-sources lib.zsh, which replaces the stubs above with the
@@ -595,12 +601,17 @@ is 'shop-api points at a fake host' "$(git -C $W/shop-api remote get-url origin)
 (( $(git -C $W/shop-api log -1 --format=%ct) > EPOCHSECONDS - 86400 )) && ok 'shop-api looks fresh' || bad 'shop-api commits are old'
 is 'zoxide ranks the projects' "$(_ZO_DATA_DIR=$S/zoxide zoxide query --list | sed 's:.*/::' | paste -sd' ' -)" 'shop-api web-app infra docs blog'
 [[ ! -e $S/projects.txt ]] && ok 'project cache is cleared' || bad 'project cache left behind'
-grep -qx "launch --var demo=deck 'echo' 'the deck'" $S/session.kitty && ok 'deck window runs the deck command' || bad "deck line: $(grep demo=deck $S/session.kitty)"
+grep -qx "launch --hold --var demo=deck 'echo' 'the deck'" $S/session.kitty && ok 'deck window runs the deck command, and holds' || bad "deck line: $(grep demo=deck $S/session.kitty)"
 grep -qx 'launch --var demo=shop-claude claude --resume sid-shop' $S/session.kitty && ok 'shop-api tab resumes its session' || bad 'no shop-api claude line'
 grep -qx 'launch --var demo=infra-claude claude --resume sid-infra' $S/session.kitty && ok 'infra tab resumes its session' || bad 'no infra claude line'
 is 'session tabs' "$(sed -n 's/^new_tab //p' $S/session.kitty | paste -sd' ' -)" 'web-app shop-api infra docs scratch'
 grep -qx 'focus_tab 0' $S/session.kitty && ok 'session starts on the deck tab' || bad 'session does not focus tab 0'
 is 'stray shell sits in shop-api' "$(grep -B1 'demo=stray' $S/session.kitty | head -1)" "cd $W/shop-api"
+print -r -- '{"keep":1,"projects":{"/elsewhere":{"hasTrustDialogAccepted":false}}}' >| $CD/.claude.json
+bw $W $S -- echo 'the deck' >/dev/null 2>&1
+is 'shop-api folder is trusted' "$(jq -r --arg p $W/shop-api '.projects[$p].hasTrustDialogAccepted' $CD/.claude.json)" true
+is 'infra folder is trusted' "$(jq -r --arg p $W/infra '.projects[$p].hasTrustDialogAccepted' $CD/.claude.json)" true
+is 'the rest of .claude.json is kept' "$(jq -c '[.keep, .projects["/elsewhere"].hasTrustDialogAccepted]' $CD/.claude.json)" '[1,false]'
 title() { jq -r 'select(.type == "ai-title") | .aiTitle' $CD/projects/-x/$1.jsonl }
 is 'shop-api transcript gets its title' "$(title sid-shop)" 'Add rate limiting to orders endpoint'
 is 'infra transcript gets its title' "$(title sid-infra)" 'Move Terraform state to S3'
@@ -694,6 +705,15 @@ for k in ${(u)${(f)"$(zsh $DEMO_ROOT/play 3 --dry-run 2>&1 | awk '$1 == "press" 
 done
 body=$(print -r -- $slides3[8] | sed -n '/^=\{3,\}$/,$p' | grep -v '^=*$' | grep -v '^$')
 is 'ch3 cheat sheet is one list item per key' "$(print -r -- $body | grep -vc '^\* ')" 0
+
+# --- review fixes ---
+# kitty's match parser reads ( ) as grouping: a regex with brackets must be quoted
+is 'ch3 adopt regexes are quoted for kitty' "$(grep -hE "^adopt [a-z-]+ '[a-z_]+:[(]" $C3/beats/*.zsh)" ''
+demo_edge_urls() { print -r -- $'https://example.com/\nhttps://github.com/garethrowlands/project-tools/pull/3' }
+demo_hs() { [[ $1 == *"application.get('com.microsoft.VSCode')"* ]] && print true || print false }
+out=$(CLAUDE_DEMO_DIR=$T/none DEMO_WORLD=$T/mine DEMO_CHAPTER_DIR=$C3 demo_preflight_instance 2>&1)
+[[ $out == *'Quit VS Code'* ]] && ok 'pre-flight refuses a running VS Code' || bad "pre-flight with VS Code: $out"
+[[ $out == *'an Edge tab is open on github.com/garethrowlands/project-tools'* ]] && ok 'pre-flight refuses an open project-tools tab in Edge' || bad "pre-flight with Edge tab: $out"
 
 # (later tasks add sections above this line)
 exit $fail

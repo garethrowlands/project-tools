@@ -5,7 +5,7 @@
 slide goto 3 'Every window, live'
 beat-pause 4
 press alt+tab
-adopt switcher 'cmdline:(^|/)window$'
+adopt switcher 'cmdline:"(^|/)window$"'
 wait-text switcher 'ctrl-t: move to new tab'
 beat-pause 2
 press down

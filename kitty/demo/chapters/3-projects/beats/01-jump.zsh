@@ -4,7 +4,7 @@
 slide goto 2 'Jump to a project'
 beat-pause 4
 press cmd+§
-adopt picker 'cmdline:(^|/)switch-project$'
+adopt picker 'cmdline:"(^|/)switch-project$"'
 wait-text picker 'Project> '
 beat-pause 1.5
 type-text picker 'shop'

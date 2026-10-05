@@ -57,6 +57,9 @@ windows. It also needs:
    (two `claude -p` calls, a few cents; rerun to re-record).
 3. `ANTHROPIC_API_KEY` set (tidy-windows makes one real call per take),
    VS Code, and Microsoft Edge as the default browser (⌘B's page opens there).
+4. Before each take: quit VS Code, and close any Edge tab on
+   github.com/garethrowlands/project-tools (pre-flight checks both: the
+   launchers would otherwise reuse, and the demo then close, your own).
 
 ## Chapters
 
@@ -106,7 +109,7 @@ left open.
 | `press-new NAME KEYS` | press, adopt the one new window as NAME |
 | `wait-layout NAME` / `wait-own-tab NAME` | readiness after a layout key / after sending NAME to its own tab |
 | `beat-pause SECONDS` | pacing (scaled by `--slow`) |
-| `adopt NAME MATCH` | name the one window matching MATCH (`var:demo=stray`, `cmdline:(^\|/)window$`) |
+| `adopt NAME MATCH` | name the one window matching MATCH (`var:demo=stray`, `cmdline:"(^\|/)window$"`: quote a regex with brackets) |
 | `wait-gone NAME` / `wait-in-tab NAME TITLE` / `wait-tab TITLE` | readiness after a tool closes or moves windows / switches tab |
 | `stage tile-next BUNDLE TITLE` / `stage wait-tiled` / `stage close-tiled` | tile a launcher's app window on the right half, then close it (Edge: only its tab) |
 

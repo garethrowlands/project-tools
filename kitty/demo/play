@@ -165,7 +165,22 @@ demo_preflight_instance() {
     [[ $(demo_hs "return hs.application.pathForBundleID('$app') ~= nil" 2>/dev/null) == true ]] \
       || { print -u2 "play: $app is not installed"; ok=0 }
   done
+  # ide runs `code --reuse-window`, which would take over (and the beat then
+  # close) one of the user's own VS Code windows
+  [[ $(demo_hs "return hs.application.get('com.microsoft.VSCode') ~= nil" 2>/dev/null) != true ]] \
+    || { print -u2 'play: Quit VS Code first: Cmd+I would reuse one of its windows'; ok=0 }
+  # project-web reuses an Edge tab already under the repo's URL, and the beat
+  # then closes that tab
+  demo_edge_urls | grep -q '^https://github.com/garethrowlands/project-tools' \
+    && { print -u2 'play: an Edge tab is open on github.com/garethrowlands/project-tools: close it first (Cmd+B would reuse and then close it)'; ok=0 }
   (( ok ))
+}
+
+# The URLs of Edge's open tabs, one per line; nothing if Edge isn't running
+# (so asking never starts it).
+demo_edge_urls() {
+  [[ $(demo_hs "return hs.application.get('com.microsoft.edgemac') ~= nil" 2>/dev/null) == true ]] || return 0
+  osascript -e 'tell application "Microsoft Edge" to get URL of tabs of windows' 2>/dev/null | tr ',' '\n' | sed 's/^ *//'
 }
 
 # demo_instance_cmd WORLD: the command that starts the chapter's kitty, in
