@@ -730,7 +730,7 @@ is 'ch3 beat 1 jumps to shop-api and back' "$(shape3 1)" \
 is 'ch3 beat 2 browses the switcher and leaves' "$(shape3 2)" \
   'press alt+tab,adopt switcher,wait-text switcher,type-text switcher,wait-text switcher,press escape,wait-gone switcher'
 is 'ch3 beat 3 tidies with the real key' "$(shape3 3)" \
-  'adopt docs-a,adopt docs-b,adopt stray,press cmd+shift+w,adopt tidy,wait-text tidy,press enter,wait-any-gone docs-a,wait-in-tab stray'
+  'adopt docs-a,adopt docs-b,adopt stray,press cmd+shift+w,adopt tidy,wait-text tidy,press enter,wait-any-gone docs-a,wait-in-tab stray,wait-tab slides'
 is 'ch3 beat 3 shows the result: a slide, then the tour' \
   "$(zsh $DEMO_ROOT/play 3 --dry-run --only 3 2>&1 | grep -E '^(slide|tour-tabs|press enter)' | awk '{print $1, $2, $3}' | sed 's/ *$//' | paste -sd, -)" \
   'slide goto 6,press enter,slide goto 7,tour-tabs'

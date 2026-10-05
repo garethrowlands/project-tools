@@ -23,6 +23,7 @@ beat-pause 5
 press enter
 wait-any-gone docs-a docs-b
 wait-in-tab stray shop-api
+wait-tab slides
 beat-pause 1
 # tidy-windows exits quietly once applied, and its changes are in other
 # tabs: show them, as the intro showed them before

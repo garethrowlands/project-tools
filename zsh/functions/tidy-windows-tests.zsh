@@ -35,9 +35,10 @@ chmod +x $T/python/tidy-windows-advise/advise $T/bin/kitty $T/bin/fzf
 PATH=$T/bin:$PATH zsh -f $T/zsh/bin/tidy-windows >$T/out 2>&1 </dev/null
 is 'tidy-windows applies both rows' "$(tail -1 $T/out)" 'tidy-windows: closed 1, moved 1'
 grep -qx '@ close-window --match id:5' $T/kitty.calls && ok 'close targets the window by id' || bad "close call: $(grep close $T/kitty.calls)"
-# kitty's --target-tab takes a match expression: a bare tab id is a parse
-# error ("No location specified before 2")
-grep -qx '@ detach-window --match id:7 --target-tab id:2' $T/kitty.calls \
-  && ok 'move targets the tab by id: match' || bad "move call: $(grep detach $T/kitty.calls)"
+# kitty's --target-tab takes a match expression, and without --stay-in-tab
+# kitty would switch to the target tab: tidy-windows leaves you where you
+# launched it
+grep -qx '@ detach-window --match id:7 --target-tab id:2 --stay-in-tab' $T/kitty.calls \
+  && ok 'move targets the tab by id: match, staying in this tab' || bad "move call: $(grep detach $T/kitty.calls)"
 
 exit $fail
