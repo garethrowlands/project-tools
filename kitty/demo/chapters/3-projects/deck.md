@@ -20,7 +20,7 @@ The setup: a tab per project
 
 <!-- incremental_lists: true -->
 
-* web-app: these slides
+* slides: this deck
 * shop-api: Claude Code adding rate
   limiting, plus a shell
 * infra: Claude Code moving

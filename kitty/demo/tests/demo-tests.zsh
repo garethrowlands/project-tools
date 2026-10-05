@@ -638,7 +638,9 @@ is 'docs has two idle shells, nothing running' "$(grep -A4 '^new_tab docs' $S/se
   'launch --var demo=docs-a,launch --var demo=docs-b'
 grep -qx 'launch --var demo=shop-claude claude --resume sid-shop' $S/session.kitty && ok 'shop-api tab resumes its session' || bad 'no shop-api claude line'
 grep -qx 'launch --var demo=infra-claude claude --resume sid-infra' $S/session.kitty && ok 'infra tab resumes its session' || bad 'no infra claude line'
-is 'session tabs' "$(sed -n 's/^new_tab //p' $S/session.kitty | paste -sd' ' -)" 'web-app shop-api infra docs scratch'
+is 'session tabs' "$(sed -n 's/^new_tab //p' $S/session.kitty | paste -sd' ' -)" 'slides shop-api infra docs scratch'
+# the deck starts outside every project, so nothing labels it as one
+is 'the slides start in the world, not a project' "$(grep -A2 '^new_tab slides' $S/session.kitty | tail -1)" "cd $W"
 grep -qx 'focus_tab 0' $S/session.kitty && ok 'session starts on the deck tab' || bad 'session does not focus tab 0'
 is 'stray shell sits in shop-api' "$(grep -B1 'demo=stray' $S/session.kitty | head -1)" "cd $W/shop-api"
 print -r -- '{"keep":1,"projects":{"/elsewhere":{"hasTrustDialogAccepted":false}}}' >| $CD/.claude.json
@@ -719,12 +721,12 @@ done
 zsh $DEMO_ROOT/play 3 --dry-run >/dev/null 2>&1 && ok 'chapter 3 dry-runs' || bad 'chapter 3 fails its dry run'
 shape3() { zsh $DEMO_ROOT/play 3 --dry-run --only $1 2>&1 | grep -E '^(press|adopt|wait-|type-text|stage)' | awk '{print $1, $2}' | paste -sd, - }
 is 'ch3 beat 0 tours the tabs and wraps back to the slides' "$(shape3 0)" \
-  'press ctrl+tab,wait-tab shop-api,press ctrl+tab,wait-tab infra,press ctrl+tab,wait-tab docs,press ctrl+tab,wait-tab scratch,press ctrl+tab,wait-tab web-app'
+  'press ctrl+tab,wait-tab shop-api,press ctrl+tab,wait-tab infra,press ctrl+tab,wait-tab docs,press ctrl+tab,wait-tab scratch,press ctrl+tab,wait-tab slides'
 is 'ch3 intro explains before the tour and maps the keys after' \
   "$(zsh $DEMO_ROOT/play 3 --dry-run --only 0 2>&1 | grep -E '^(slide|press)' | awk '{print $1, $2, $3}' | sed 's/ *$//' | uniq | paste -sd, -)" \
   'slide goto 1,slide goto 2,press ctrl+tab,slide goto 3'
 is 'ch3 beat 1 jumps to shop-api and back' "$(shape3 1)" \
-  'press cmd+§,adopt picker,wait-text picker,type-text picker,press enter,wait-tab shop-api,press ctrl+shift+tab,wait-tab web-app'
+  'press cmd+§,adopt picker,wait-text picker,type-text picker,press enter,wait-tab shop-api,press ctrl+shift+tab,wait-tab slides'
 is 'ch3 beat 2 browses the switcher and leaves' "$(shape3 2)" \
   'press alt+tab,adopt switcher,wait-text switcher,type-text switcher,wait-text switcher,press escape,wait-gone switcher'
 is 'ch3 beat 3 tidies with the real key' "$(shape3 3)" \

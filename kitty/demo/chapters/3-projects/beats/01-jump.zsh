@@ -16,5 +16,5 @@ press enter
 wait-tab shop-api
 beat-pause 2.5
 press ctrl+shift+tab
-wait-tab web-app
+wait-tab slides
 beat-pause 1

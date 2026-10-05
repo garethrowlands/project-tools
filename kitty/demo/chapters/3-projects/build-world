@@ -104,7 +104,9 @@ done
 # the session: five tabs, every window tagged with a demo= user var
 {
   print -r -- '# kitty session for chapter 3 (written by build-world)'
-  print -r -- 'new_tab web-app'; print -r -- 'layout tall'; print -r -- "cd $world/web-app"
+  # the deck starts in the world itself, not a project, so the window
+  # switcher and tidy-windows don't count it as one
+  print -r -- 'new_tab slides'; print -r -- 'layout tall'; print -r -- "cd $world"
   # --hold: if the inner play stops at once (pre-flight), its message stays
   print -r -- "launch --hold --var demo=deck ${(j: :)${(qq)@}}"
   print -r -- 'focus'
