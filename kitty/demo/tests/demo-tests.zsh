@@ -789,5 +789,16 @@ for f in $C3/beats/0[1-6]-*.zsh; do
     || bad "${f:t:r}: last reveal before the key is: $before"
 done
 
+# --- chapter 3: keys as the badge shows them --------------------------------------
+is 'ch3 slides name keys by symbol, not word' "$(grep -nE 'Cmd\+|Ctrl\+|Option\+|Shift\+|\bEnter\b|\bEsc\b' $C3/deck.md)" ''
+# every key a slide explains looks the same on the slide as on its badge
+# (Ctrl+Shift+Tab, back to the slides, is mechanics, not narrated)
+for k in ${(u)${(f)"$(zsh $DEMO_ROOT/play 3 --dry-run 2>&1 | awk '$1 == "press" {print $2}')"}}; do
+  [[ $k == (ctrl+shift+tab|down) ]] && continue
+  grep -qF -- "$(demo_badge $k)" $C3/deck.md && ok "ch3 deck shows $k as its badge $(demo_badge $k)" \
+    || bad "ch3 deck never shows $k as $(demo_badge $k)"
+done
+grep -qE 'comes back|and back' $C3/deck.md && bad 'ch3 narrates the trip back to the slides' || ok 'ch3 leaves the trip back to the slides unnarrated'
+
 # (later tasks add sections above this line)
 exit $fail

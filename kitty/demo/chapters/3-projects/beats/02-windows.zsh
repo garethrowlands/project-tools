@@ -7,8 +7,8 @@ beat-pause 2
 reveal 'Claude Code panes show their' 3
 reveal 'Type to filter: titles count too' 2.5
 reveal 'The preview is the live screen' 2.5
-reveal 'Esc leaves you where you were' 2.5
-reveal 'Watch: Option+Tab, then type "rate"' 3
+reveal '⎋ leaves you where you were' 2.5
+reveal 'Watch: ⌥⇥, then type "rate"' 3
 press alt+tab
 adopt switcher 'cmdline:"(^|/)window$"'
 wait-text switcher 'ctrl-t: move to new tab'

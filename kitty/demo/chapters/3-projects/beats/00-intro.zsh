@@ -10,7 +10,7 @@ reveal 'shop-api: Claude Code adding rate' 3.5
 reveal 'infra: Claude Code moving' 3
 reveal 'docs: two shells, untouched' 3
 reveal 'scratch: a stray shop-api shell' 3
-reveal "Let's look: Ctrl+Tab" 2.5
+reveal "Let's look: ⌃⇥" 2.5
 for tab in shop-api infra docs scratch web-app; do
   press ctrl+tab
   wait-tab $tab
@@ -19,7 +19,7 @@ done
 beat-pause 1
 slide goto 3 'Four ways around'
 beat-pause 2
-reveal 'Cmd+§ jump to a project' 2.5
-reveal 'Option+Tab find any window' 3.5
-reveal 'Cmd+Shift+W tidy up' 2.5
-reveal 'Cmd+I / Cmd+B' 3
+reveal '⌘§ jump to a project' 2.5
+reveal '⌥⇥ find any window' 3.5
+reveal '⇧⌘W tidy up' 2.5
+reveal '⌘I / ⌘B' 3

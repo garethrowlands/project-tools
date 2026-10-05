@@ -77,13 +77,17 @@ carry a kitty user var `demo=NAME` so beats can find them):
 | # | Slide (shown first) | Keys | What you see | Check |
 |---|---|---|---|---|
 | 0 | Three slides: **Getting around projects** (the premise: several projects at once, shells and Claude Code sessions, one kitty window); **The setup: a tab per project** (one list item per tab, "Let's look: Ctrl+Tab"); after the tour, **Four ways around** (⌘§, ⌥⇥, ⌘⇧W, ⌘I / ⌘B). | ⌃⇥ × 5, between slides 2 and 3 | each tab for ~2.5 s, the last ⌃⇥ wrapping back to the slides | active tab is each one in turn, then `web-app` |
-| 1 | **Jump to a project: ⌘§.** Open projects first, then the rest, ranked by how often you go there. ⌃⇧⇥ comes back. | ⌘§ · `shop` · ↩ · ⌃⇧⇥ | the picker over the tab, tab 2, the deck again | active tab is `shop-api`, then `web-app` |
+| 1 | **Jump to a project: ⌘§.** Open projects first, then the rest, ranked by how often you go there. | ⌘§ · `shop` · ↩ · ⌃⇧⇥ (back to the slides: mechanics, not narrated) | the picker over the tab, tab 2, the deck again | active tab is `shop-api`, then `web-app` |
 | 2 | **Every window, live: ⌥⇥.** Claude Code panes show their conversation title; type to filter on it. | ⌥⇥ · `rate` (filters to the shop-api Claude pane, previewed) · ⎋ | the list with `[Add rate limiting…]`, `[Move Terraform…]` | the switcher's overlay opens and closes |
 | 3 | **Tidy up: ⌘⇧W.** Claude reviews every window: close the stale, regroup by project. | ⌘⇧W · (wait for the picker) · ↩ | rows pre-selected; the scratch tab (and the docs tab, if both shells close) leaves the tab bar | at least one of `docs-a`/`docs-b` gone; `stray` in tab `shop-api` |
 | 4 | **A project with no window: ↩ opens a shell there, beside you.** | ⌘§ · `blog` · ↩ | a blog shell beside the slides | one new pane, cwd `~/kitty-demo/blog` |
 | 5 | **Open the IDE: ⌘I** | ⌘I | kitty left half, VS Code on blog right half; it closes, kitty fills | a VS Code window titled blog |
 | 6 | **The project's web page: ⌘B** | ⌘B | Edge on the right half with the GitHub repo; the tab closes | an Edge window titled project-tools |
 | 7 | **That's getting around.** The keys, one list item each. | — | — | — |
+
+Slides name keys by the symbols the badge shows, in Mac order (⇧⌘W, ⌃⇧⇥,
+⌥⇥, ↩, ⎋), never as words. Each demo slide (4–9) ends with a "Watch: <keys>"
+item, revealed and held just before the keys are pressed.
 
 List slides (2–10) bring their items in one at a time (presenterm's
 `incremental_lists`): the director's `reveal TEXT SECONDS` presses

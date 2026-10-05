@@ -4,9 +4,8 @@
 slide goto 4 'Jump to a project'
 beat-pause 2
 reveal 'Open projects first' 3.5
-reveal 'Type to filter, Enter to jump' 2.5
-reveal 'Ctrl+Shift+Tab comes back' 2.5
-reveal 'Watch: Cmd+§, "shop", Enter, and back' 3
+reveal 'Type to filter, ↩ to jump' 2.5
+reveal 'Watch: ⌘§, "shop", ↩' 3
 press cmd+§
 adopt picker 'cmdline:"(^|/)switch-project$"'
 wait-text picker 'Project> '

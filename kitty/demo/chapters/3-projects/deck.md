@@ -28,7 +28,7 @@ The setup: a tab per project
 * docs: two shells, untouched for weeks
 * scratch: a stray shop-api shell
 
-Let's look: Ctrl+Tab, tab by tab.
+Let's look: ⌃⇥, tab by tab.
 
 <!-- end_slide -->
 
@@ -39,33 +39,32 @@ Four ways around
 
 <!-- incremental_lists: true -->
 
-* Cmd+§ jump to a project
-* Option+Tab find any window, Claude
+* ⌘§ jump to a project
+* ⌥⇥ find any window, Claude
   sessions by their title
-* Cmd+Shift+W tidy up
-* Cmd+I / Cmd+B the project's IDE
+* ⇧⌘W tidy up
+* ⌘I / ⌘B the project's IDE
   or web page
 
 <!-- end_slide -->
 
 <!-- jump_to_middle -->
 
-Jump to a project: Cmd+§
+Jump to a project: ⌘§
 ========================
 
 <!-- incremental_lists: true -->
 
 * Open projects first, then the rest,
   by how often you go there
-* Type to filter, Enter to jump
-* Ctrl+Shift+Tab comes back
-* Watch: Cmd+§, "shop", Enter, and back
+* Type to filter, ↩ to jump
+* Watch: ⌘§, "shop", ↩
 
 <!-- end_slide -->
 
 <!-- jump_to_middle -->
 
-Every window, live: Option+Tab
+Every window, live: ⌥⇥
 ==============================
 
 <!-- incremental_lists: true -->
@@ -74,14 +73,14 @@ Every window, live: Option+Tab
   conversation title
 * Type to filter: titles count too
 * The preview is the live screen
-* Esc leaves you where you were
-* Watch: Option+Tab, then type "rate"
+* ⎋ leaves you where you were
+* Watch: ⌥⇥, then type "rate"
 
 <!-- end_slide -->
 
 <!-- jump_to_middle -->
 
-Tidy up: Cmd+Shift+W
+Tidy up: ⇧⌘W
 ====================
 
 <!-- incremental_lists: true -->
@@ -89,8 +88,8 @@ Tidy up: Cmd+Shift+W
 * Claude reviews every window
 * Stale ones: close
 * Strays: back to their project's tab
-* Enter applies; Tab unticks one
-* Watch: Cmd+Shift+W, then Enter
+* ↩ applies; ⇥ unticks one
+* Watch: ⇧⌘W, then ↩
 
 <!-- end_slide -->
 
@@ -101,35 +100,35 @@ A project with no window
 
 <!-- incremental_lists: true -->
 
-* Cmd+§, pick it, Enter
+* ⌘§, pick it, ↩
 * A shell opens there, beside you
-* Watch: Cmd+§, "blog", Enter
+* Watch: ⌘§, "blog", ↩
 
 <!-- end_slide -->
 
 <!-- jump_to_middle -->
 
-Open the IDE: Cmd+I
+Open the IDE: ⌘I
 ===================
 
 <!-- incremental_lists: true -->
 
 * VS Code or IntelliJ, on the
   project you're in
-* Watch: Cmd+I on the blog pane
+* Watch: ⌘I on the blog pane
 
 <!-- end_slide -->
 
 <!-- jump_to_middle -->
 
-The project's web page: Cmd+B
+The project's web page: ⌘B
 =============================
 
 <!-- incremental_lists: true -->
 
 * Its GitHub or GitLab page
 * An open tab is reused
-* Watch: Cmd+B on the blog pane
+* Watch: ⌘B on the blog pane
 
 <!-- end_slide -->
 
@@ -140,8 +139,8 @@ That's getting around
 
 <!-- incremental_lists: true -->
 
-* Cmd+§ jump to a project
-* Option+Tab every window
-* Cmd+Shift+W tidy up
-* Cmd+I the IDE
-* Cmd+B the web page
+* ⌘§ jump to a project
+* ⌥⇥ every window
+* ⇧⌘W tidy up
+* ⌘I the IDE
+* ⌘B the web page
