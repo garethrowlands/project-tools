@@ -2,7 +2,8 @@
 # IDE. Hammerspoon tiles VS Code on the right half as it appears, kitty on
 # the left, then closes it and gives kitty the screen back.
 slide goto 8 'Open the IDE'
-beat-pause 4
+beat-pause 2
+reveal 'VS Code or IntelliJ' 3
 stage tile-next com.microsoft.VSCode blog
 press cmd+i
 stage wait-tiled

@@ -351,6 +351,16 @@ demo_cleanup
 is 'inside cleanup quits the instance last' "$(tail -1 $T/kcalls)" 'action quit'
 DEMO_INSIDE=0
 
+# --- reveal (stubbed) ---
+reset_stubs
+KSCREEN='Tidy up  * Claude reviews every window'
+reveal 'Claude reviews every window' 2>/dev/null && ok 'reveal of a visible item succeeds' || bad 'reveal failed on a visible item'
+is 'reveal presses nothing when the item is already on screen' "$(grep -c '^send-key' $T/kcalls)" 0
+KSCREEN='Tidy up'
+reveal 'Stale ones: close' 2>/dev/null && bad 'reveal passed an item that never showed' || ok 'reveal fails when the item never shows'
+is 'reveal gives up after three presses of next' "$(grep -c '^send-key --match id:7 right' $T/kcalls)" 3
+is 'reveal dry-runs' "$(DEMO_DRY=1 reveal 'Stale ones' 2.5)" "reveal 'Stale ones' 2.5"
+
 # --- review fixes (stubbed) ---
 reset_stubs; KLSJSON='[{"tabs":[{"layout":"tall","windows":[{"id":7}]}]}]'
 KITTY_PID=4242 demo_begin $T/pidf >/dev/null 2>&1
@@ -709,7 +719,7 @@ done
 for k in ${(u)${(f)"$(zsh $DEMO_ROOT/play 3 --dry-run 2>&1 | awk '$1 == "press" {print $2} $1 == "press-new" {print $3}')"}}; do
   demo_press_args $k >/dev/null 2>&1 && ok "ch3 key $k has a badge" || bad "ch3 key $k has no badge"
 done
-body=$(print -r -- $slides3[10] | sed -n '/^=\{3,\}$/,$p' | grep -v '^=*$' | grep -v '^$')
+body=$(print -r -- $slides3[10] | sed -n '/^=\{3,\}$/,$p' | grep -v '^=*$' | grep -v '^$' | grep -v '^<!--')
 is 'ch3 cheat sheet is one list item per key' "$(print -r -- $body | grep -vc '^\* ')" 0
 
 # --- review fixes ---
@@ -732,6 +742,25 @@ rc=(action close-tab close-window create-marker detach-tab detach-window disable
 used=(${(u)${(f)"$(grep -ohE 'demo_kitten [a-z-]+' $DEMO_ROOT/*.zsh $DEMO_ROOT/play $DEMO_ROOT/chapters/*/beats/*.zsh | awk '{print $2}')"}})
 missing=(${used:|rc})
 is 'every kitten @ command the demo uses exists' "$missing" ''
+
+# --- chapter 3 reveals ---
+# every list slide (2-10) reveals its items one at a time
+for n in {2..10}; do
+  [[ $slides3[$n] == *'<!-- incremental_lists: true -->'* ]] && ok "ch3 slide $n reveals its list" || bad "ch3 slide $n shows its list at once"
+done
+# every reveal names text on the slide its beat last went to
+for f in $C3/beats/*.zsh; do
+  cur=0
+  for line in ${(f)"$(grep -E '^(slide goto|reveal) ' $f)"}; do
+    words=(${(Q)${(z)line}})
+    if [[ $words[1] == slide ]]; then cur=$words[3]; continue; fi
+    [[ $slides3[$cur] == *"$words[2]"* ]] && ok "ch3 ${f:t:r}: reveal '$words[2]' is on slide $cur" \
+      || bad "ch3 ${f:t:r}: reveal '$words[2]' isn't on slide $cur"
+  done
+done
+# one reveal per list item, plus slide 2's closing "Let's look" line
+items=$(print -r -- ${(F)slides3[2,10]} | grep -c '^\* ')
+is 'ch3 reveals every list item of slides 2-10' "$(cat $C3/beats/*.zsh | grep -c '^reveal ')" $(( items + 1 ))
 
 # (later tasks add sections above this line)
 exit $fail

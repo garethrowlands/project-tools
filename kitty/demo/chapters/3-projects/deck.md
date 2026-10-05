@@ -18,6 +18,8 @@ badge at the bottom.
 The setup: a tab per project
 ============================
 
+<!-- incremental_lists: true -->
+
 * web-app: these slides
 * shop-api: Claude Code adding rate
   limiting, plus a shell
@@ -35,6 +37,8 @@ Let's look: Ctrl+Tab, tab by tab.
 Four ways around
 ================
 
+<!-- incremental_lists: true -->
+
 * Cmd+§ jump to a project
 * Option+Tab find any window, Claude
   sessions by their title
@@ -49,6 +53,8 @@ Four ways around
 Jump to a project: Cmd+§
 ========================
 
+<!-- incremental_lists: true -->
+
 * Open projects first, then the rest,
   by how often you go there
 * Type to filter, Enter to jump
@@ -60,6 +66,8 @@ Jump to a project: Cmd+§
 
 Every window, live: Option+Tab
 ==============================
+
+<!-- incremental_lists: true -->
 
 * Claude Code panes show their
   conversation title
@@ -74,6 +82,8 @@ Every window, live: Option+Tab
 Tidy up: Cmd+Shift+W
 ====================
 
+<!-- incremental_lists: true -->
+
 * Claude reviews every window
 * Stale ones: close
 * Strays: back to their project's tab
@@ -86,6 +96,8 @@ Tidy up: Cmd+Shift+W
 A project with no window
 ========================
 
+<!-- incremental_lists: true -->
+
 * Cmd+§, pick it, Enter
 * A shell opens there, beside you
 
@@ -95,6 +107,8 @@ A project with no window
 
 Open the IDE: Cmd+I
 ===================
+
+<!-- incremental_lists: true -->
 
 * VS Code or IntelliJ, on the
   project you're in
@@ -106,6 +120,8 @@ Open the IDE: Cmd+I
 The project's web page: Cmd+B
 =============================
 
+<!-- incremental_lists: true -->
+
 * Its GitHub or GitLab page
 * An open tab is reused
 
@@ -115,6 +131,8 @@ The project's web page: Cmd+B
 
 That's getting around
 =====================
+
+<!-- incremental_lists: true -->
 
 * Cmd+§ jump to a project
 * Option+Tab every window

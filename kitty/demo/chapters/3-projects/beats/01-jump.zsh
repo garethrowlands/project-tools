@@ -2,7 +2,10 @@
 # open shop-api project and Enter jumps to that tab. Ctrl+Shift+Tab (the
 # previous tab) brings the slides back.
 slide goto 4 'Jump to a project'
-beat-pause 4
+beat-pause 2
+reveal 'Open projects first' 3.5
+reveal 'Type to filter, Enter to jump' 2.5
+reveal 'Ctrl+Shift+Tab comes back' 2.5
 press cmd+§
 adopt picker 'cmdline:"(^|/)switch-project$"'
 wait-text picker 'Project> '

@@ -4,7 +4,13 @@
 slide goto 1 'Getting around projects'
 beat-pause 6
 slide goto 2 'a tab per project'
-beat-pause 8
+beat-pause 2
+reveal 'web-app: these slides' 2.5
+reveal 'shop-api: Claude Code adding rate' 3.5
+reveal 'infra: Claude Code moving' 3
+reveal 'docs: a git log left open' 3
+reveal 'scratch: a stray shop-api shell' 3
+reveal "Let's look: Ctrl+Tab" 2.5
 for tab in shop-api infra docs scratch web-app; do
   press ctrl+tab
   wait-tab $tab
@@ -12,4 +18,8 @@ for tab in shop-api infra docs scratch web-app; do
 done
 beat-pause 1
 slide goto 3 'Four ways around'
-beat-pause 8
+beat-pause 2
+reveal 'Cmd+§ jump to a project' 2.5
+reveal 'Option+Tab find any window' 3.5
+reveal 'Cmd+Shift+W tidy up' 2.5
+reveal 'Cmd+I / Cmd+B' 3

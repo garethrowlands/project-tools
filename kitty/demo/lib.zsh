@@ -184,6 +184,25 @@ slide() {
   type-text deck "${2}G" && wait-text deck "$3"
 }
 
+# reveal TEXT [SECONDS]: bring up the deck slide's next list item (the deck
+# uses presenterm's incremental lists) until TEXT shows, then hold for
+# SECONDS (default 3) so it can be read. presenterm may pause once more
+# before or after a list, so it presses "next" up to three times; an item
+# already on screen needs no press.
+reveal() {
+  demo_dry reveal "$@" && return 0
+  local id i j; id=$(demo_id deck) || return
+  demo_has_text $id "$1" && { beat-pause ${2:-3}; return }
+  for (( i = 0; i < 3; i++ )); do
+    keys deck right || return
+    for (( j = 0; j < 10; j++ )); do
+      demo_has_text $id "$1" && { beat-pause ${2:-3}; return }
+      demo_sleep 0.1
+    done
+  done
+  demo_err "reveal: '$1' never showed on the deck"
+}
+
 # beat-pause SECONDS: pacing, scaled by play --slow.
 beat-pause() {
   demo_dry beat-pause "$@" && return 0

@@ -6,7 +6,11 @@
 slide goto 6 'Tidy up'
 adopt docs-log 'var:demo=docs-log'
 adopt stray 'var:demo=stray'
-beat-pause 4
+beat-pause 2
+reveal 'Claude reviews every window' 2.5
+reveal 'Stale ones: close' 2
+reveal 'Strays: back to their' 2.5
+reveal 'Enter applies' 2.5
 press cmd+shift+w
 adopt tidy 'cmdline:"(^|/)tidy-windows$"'
 DEMO_TIMEOUT=30 wait-text tidy 'enter: apply marked'

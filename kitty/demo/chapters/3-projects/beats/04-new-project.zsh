@@ -2,7 +2,9 @@
 # in this tab beside the slides (switch-project's Enter launches a window in
 # the current tab). It shows where it started.
 slide goto 7 'no window'
-beat-pause 4
+beat-pause 2
+reveal 'Cmd+§, pick it, Enter' 2.5
+reveal 'A shell opens there' 2.5
 press cmd+§
 adopt picker 'cmdline:"(^|/)switch-project$"'
 wait-text picker 'Project> '

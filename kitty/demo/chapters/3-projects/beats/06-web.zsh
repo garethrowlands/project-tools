@@ -1,7 +1,9 @@
 # Beat 6: Cmd+B opens blog's web page (its origin is this repo on GitHub) in
 # Edge, tiled on the right half; then only that tab closes.
 slide goto 9 'web page'
-beat-pause 4
+beat-pause 2
+reveal 'Its GitHub or GitLab page' 2.5
+reveal 'An open tab is reused' 2.5
 stage tile-next com.microsoft.edgemac project-tools
 press cmd+b
 stage wait-tiled

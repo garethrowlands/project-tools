@@ -108,6 +108,7 @@ left open.
 | `press-focus KEYS` / `press-reorders KEYS` | press, then wait for focus / the pane order to change |
 | `press-new NAME KEYS` | press, adopt the one new window as NAME |
 | `wait-layout NAME` / `wait-own-tab NAME` | readiness after a layout key / after sending NAME to its own tab |
+| `reveal TEXT [SECONDS]` | bring up the deck's next list item (presenterm `incremental_lists`) until TEXT shows, then hold SECONDS (default 3) |
 | `beat-pause SECONDS` | pacing (scaled by `--slow`) |
 | `adopt NAME MATCH` | name the one window matching MATCH (`var:demo=stray`, `cmdline:"(^\|/)window$"`: quote a regex with brackets) |
 | `wait-gone NAME` / `wait-in-tab NAME TITLE` / `wait-tab TITLE` | readiness after a tool closes or moves windows / switches tab |

@@ -81,6 +81,12 @@ carry a kitty user var `demo=NAME` so beats can find them):
 | 6 | **The project's web page: ⌘B** | ⌘B | Edge on the right half with the GitHub repo; the tab closes | an Edge window titled project-tools |
 | 7 | **That's getting around.** The keys, one list item each. | — | — | — |
 
+List slides (2–10) bring their items in one at a time (presenterm's
+`incremental_lists`): the director's `reveal TEXT SECONDS` presses
+presenterm's "next" until TEXT shows and holds it long enough to read
+(about 2–3.5 s by length), so every slide's time on screen follows its
+text.
+
 Query text (`shop`, `blog`) is typed into the picker with `kitten @
 send-text`, so it shows in the picker's prompt rather than as badges.
 Tidy-windows' close/keep advice comes from the model: if a take's advice
