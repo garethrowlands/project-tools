@@ -13,15 +13,17 @@ watch the badge at the bottom.
 A new pane, same directory
 ==========================
 
-Cmd+Shift+Enter splits off a shell
+⇧⌘↩ splits off a shell
 that starts where you are.
 
 <!-- end_slide -->
 
 <!-- jump_to_middle -->
 
-Move focus with Cmd+arrows
+Move focus: ⌘ and an arrow
 ==========================
+
+⌘← ⌘→ ⌘↑ ⌘↓
 
 The focused pane glows; the rest dim.
 
@@ -32,7 +34,7 @@ The focused pane glows; the rest dim.
 Move the pane itself
 ====================
 
-B has focus. Cmd+Shift+← moves it
+B has focus. ⇧⌘← moves it
 back one place: B and A swap.
 
 <!-- end_slide -->
@@ -42,7 +44,7 @@ back one place: B and A swap.
 …and forward again
 ==================
 
-Cmd+Shift+→ moves B forward one
+⇧⌘→ moves B forward one
 place: back below A.
 
 <!-- end_slide -->
@@ -52,8 +54,8 @@ place: back below A.
 Layouts
 =======
 
-Cmd+F fat · Cmd+G grid
-Cmd+S stack · Cmd+T tall
+⌘F fat · ⌘G grid
+⌘S stack · ⌘T tall
 
 <!-- end_slide -->
 
@@ -62,7 +64,7 @@ Cmd+S stack · Cmd+T tall
 Zoom one pane
 =============
 
-Ctrl+Option+Z fills the tab with
+⌃⌥Z fills the tab with
 the focused pane, and back.
 
 <!-- end_slide -->
@@ -72,8 +74,8 @@ the focused pane, and back.
 A pane to its own tab
 =====================
 
-Cmd+Shift+↑ sends the focused pane
-to a new tab (Cmd+Shift+↓ asks where).
+⇧⌘↑ sends the focused pane
+to a new tab (⇧⌘↓ asks where).
 
 <!-- end_slide -->
 
@@ -82,7 +84,7 @@ to a new tab (Cmd+Shift+↓ asks where).
 Switch tabs
 ===========
 
-Ctrl+Tab and Ctrl+Shift+Tab.
+⌃⇥ and ⌃⇧⇥.
 
 <!-- end_slide -->
 
@@ -91,10 +93,10 @@ Ctrl+Tab and Ctrl+Shift+Tab.
 Panes, layouts and tabs
 =======================
 
-* Cmd+Shift+Enter: new pane, same dir
-* Cmd+arrows: move focus
-* Cmd+Shift+← / →: move the pane
-* Cmd+T / F / S / G: layouts
-* Ctrl+Option+Z: zoom
-* Cmd+Shift+↑: pane to a new tab
-* Ctrl+Tab: switch tabs
+* ⇧⌘↩: new pane, same dir
+* ⌘← ⌘→ ⌘↑ ⌘↓: move focus
+* ⇧⌘← / ⇧⌘→: move the pane
+* ⌘T / ⌘F / ⌘S / ⌘G: layouts
+* ⌃⌥Z: zoom
+* ⇧⌘↑: pane to a new tab
+* ⌃⇥ / ⌃⇧⇥: switch tabs

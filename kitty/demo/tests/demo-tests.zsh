@@ -555,7 +555,7 @@ grep -rq glitter $C1/scene/repo/main.py && bad 'glitter appears in rg output' ||
 C2=$DEMO_ROOT/chapters/2-windows
 slides2=("${(@ps:<!-- end_slide -->:)$(<$C2/deck.md)}")
 is 'chapter 2 has 10 slides' $#slides2 10
-is 'chapter 2 slides fit beside three panes' "$(awk 'length > 40' $C2/deck.md)" ''
+is 'chapter 2 slides fit beside three panes' "$(perl -CSD -nle 'print if length > 40' $C2/deck.md)" ''
 for f in $C2/beats/*.zsh; do
   for line in ${(f)"$(grep '^slide goto' $f)"}; do
     words=(${(Q)${(z)line}})
@@ -700,7 +700,7 @@ zsh $DEMO_ROOT/play 1 --inside --dry-run >/dev/null 2>&1; is '--inside is accept
 # --- chapter 3 -----------------------------------------------------------------------
 slides3=("${(@ps:<!-- end_slide -->:)$(<$C3/deck.md)}")
 is 'chapter 3 has 10 slides' $#slides3 10
-is 'chapter 3 slides fit beside a pane' "$(awk 'length > 40' $C3/deck.md)" ''
+is 'chapter 3 slides fit beside a pane' "$(perl -CSD -nle 'print if length > 40' $C3/deck.md)" ''
 for f in $C3/beats/*.zsh; do
   for line in ${(f)"$(grep '^slide goto' $f)"}; do
     words=(${(Q)${(z)line}})
@@ -799,6 +799,13 @@ for k in ${(u)${(f)"$(zsh $DEMO_ROOT/play 3 --dry-run 2>&1 | awk '$1 == "press" 
     || bad "ch3 deck never shows $k as $(demo_badge $k)"
 done
 grep -qE 'comes back|and back' $C3/deck.md && bad 'ch3 narrates the trip back to the slides' || ok 'ch3 leaves the trip back to the slides unnarrated'
+
+# --- chapter 2: keys as the badge shows them --------------------------------------
+is 'ch2 slides name keys by symbol, not word' "$(grep -nE 'Cmd|Ctrl|Option|Shift\+|\bEnter\b' $C2/deck.md)" ''
+for k in ${(u)${(f)"$(zsh $DEMO_ROOT/play 2 --dry-run 2>&1 | awk '$1 == "press" || $1 ~ /^press-(focus|reorders)$/ {print $2} $1 == "press-new" {print $3}')"}}; do
+  grep -qF -- "$(demo_badge $k)" $C2/deck.md && ok "ch2 deck shows $k as its badge $(demo_badge $k)" \
+    || bad "ch2 deck never shows $k as $(demo_badge $k)"
+done
 
 # (later tasks add sections above this line)
 exit $fail
