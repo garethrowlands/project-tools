@@ -73,6 +73,23 @@ for p in $PROJECTS; do
   [[ $p == docs ]] && when=$(( EPOCHSECONDS - 42 * 86400 ))
   make_repo $p $url $when
 done
+# shop-api's dev server, left running in a stray tab (the scratch tab).
+# tidy-windows' prompt says never to close a server, so it gets moved home.
+s=$world/shop-api
+mkdir -p $s/bin
+cat >| $s/bin/dev-server <<'SERVER'
+#!/bin/zsh
+# A stand-in dev server for the kitty demo: it says it is listening, then
+# waits on its terminal (no child process, so this stays the command line
+# tidy-windows sees).
+print 'shop-api dev server listening on http://localhost:8080'
+while :; do read -r _ || sleep 1; done
+SERVER
+chmod +x $s/bin/dev-server
+git -C $s add bin/dev-server
+git -C $s -c user.name=Demo -c user.email=demo@example.com commit -q -m 'Dev server'
+git -C $s update-ref refs/remotes/origin/main HEAD
+
 # shop-api has work in progress (Claude is adding rate limiting): a dirty
 # tree, so tidy-windows keeps its shells and moves the stray one instead
 print -r -- '- [ ] rate limit POST /orders' >> $world/shop-api/NOTES.md
@@ -119,7 +136,7 @@ done
   print -r -- 'launch --var demo=docs-a'
   print -r -- 'launch --var demo=docs-b'
   print -r -- 'new_tab scratch'; print -r -- 'layout tall'; print -r -- "cd $world/shop-api"
-  print -r -- 'launch --var demo=stray'
+  print -r -- "launch --var demo=stray $world/shop-api/bin/dev-server"
   print -r -- 'focus_tab 0'
 } >| $state/session.kitty
 

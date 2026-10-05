@@ -26,7 +26,8 @@ The setup: a tab per project
 * infra: Claude Code moving
   Terraform state
 * docs: two shells, untouched for weeks
-* scratch: a stray shop-api shell
+* scratch: shop-api's dev server,
+  left running in the wrong tab
 
 Let's look: ⌃⇥, tab by tab.
 
@@ -100,8 +101,8 @@ After the tidy-up
 
 <!-- incremental_lists: true -->
 
-* The stray shop-api shell has moved
-  to the shop-api tab
+* shop-api's dev server is back in
+  the shop-api tab, still running
 * docs is down to one shell, or gone
 * Watch: ⌃⇥, tab by tab
 

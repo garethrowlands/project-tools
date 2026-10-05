@@ -642,7 +642,16 @@ is 'session tabs' "$(sed -n 's/^new_tab //p' $S/session.kitty | paste -sd' ' -)"
 # the deck starts outside every project, so nothing labels it as one
 is 'the slides start in the world, not a project' "$(grep -A2 '^new_tab slides' $S/session.kitty | tail -1)" "cd $W"
 grep -qx 'focus_tab 0' $S/session.kitty && ok 'session starts on the deck tab' || bad 'session does not focus tab 0'
-is 'stray shell sits in shop-api' "$(grep -B1 'demo=stray' $S/session.kitty | head -1)" "cd $W/shop-api"
+is 'the stray sits in shop-api' "$(grep -B1 'demo=stray' $S/session.kitty | head -1)" "cd $W/shop-api"
+# the stray is a dev server left running: tidy-windows' prompt says never to
+# close a server, so it is moved home, not closed
+grep -qx "launch --var demo=stray $W/shop-api/bin/dev-server" $S/session.kitty && ok 'the stray runs shop-api'\''s dev server' \
+  || bad "stray line: $(grep demo=stray $S/session.kitty)"
+[[ -x $W/shop-api/bin/dev-server ]] && git -C $W/shop-api ls-files --error-unmatch bin/dev-server >/dev/null 2>&1 \
+  && ok 'dev-server is committed and executable' || bad 'dev-server missing, untracked or not executable'
+is 'dev-server says it is listening, and keeps running' \
+  "$( (sleep 1 | $W/shop-api/bin/dev-server & p=$!; sleep 0.5; kill -0 $p && print running; kill $p) 2>/dev/null )" \
+  $'shop-api dev server listening on http://localhost:8080\nrunning'
 print -r -- '{"keep":1,"projects":{"/elsewhere":{"hasTrustDialogAccepted":false}}}' >| $CD/.claude.json
 bw $W $S -- echo 'the deck' >/dev/null 2>&1
 is 'shop-api folder is trusted' "$(jq -r --arg p $W/shop-api '.projects[$p].hasTrustDialogAccepted' $CD/.claude.json)" true

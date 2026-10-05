@@ -68,7 +68,7 @@ carry a kitty user var `demo=NAME` so beats can find them):
 | 2 `shop-api` | claude (`shop-claude`), a shell (`shop-shell`) | ⌘§ target |
 | 3 `infra` | claude (`infra-claude`) | ⌥⇥ shows its title |
 | 4 `docs` | two idle shells (`docs-a`, `docs-b`) | tidy-windows: **close** one or both (clean, pushed, six weeks old, duplicates) |
-| 5 `scratch` | a lone shop-api shell (`stray`) | tidy-windows: **move** to tab 2 (deterministic, `plan_moves`) |
+| 5 `scratch` | shop-api's dev server (`stray`, a stand-in `bin/dev-server` that prints "listening" and waits) | tidy-windows: **move** to tab 2 (`plan_moves`). The model must keep it, and its prompt says never to close a server; an idle shell here was closed as a duplicate, even with shop-api's tree dirty |
 
 `blog` has no window: beat 4 opens one beside the slides, and since focus is then in it, ⌘I and ⌘B act on `blog`.
 

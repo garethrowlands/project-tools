@@ -9,7 +9,7 @@ reveal 'slides: this deck' 2.5
 reveal 'shop-api: Claude Code adding rate' 3.5
 reveal 'infra: Claude Code moving' 3
 reveal 'docs: two shells, untouched' 3
-reveal 'scratch: a stray shop-api shell' 3
+reveal "scratch: shop-api's dev server" 3
 reveal "Let's look: ⌃⇥" 2.5
 for tab in shop-api infra docs scratch slides; do
   press ctrl+tab
