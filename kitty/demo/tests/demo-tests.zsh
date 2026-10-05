@@ -687,7 +687,7 @@ shape3() { zsh $DEMO_ROOT/play 3 --dry-run --only $1 2>&1 | grep -E '^(press|ado
 is 'ch3 beat 1 jumps to shop-api and back' "$(shape3 1)" \
   'press cmd+§,adopt picker,wait-text picker,type-text picker,press enter,wait-tab shop-api,press ctrl+shift+tab,wait-tab web-app'
 is 'ch3 beat 2 browses the switcher and leaves' "$(shape3 2)" \
-  'press alt+tab,adopt switcher,wait-text switcher,press down,press down,press escape,wait-gone switcher'
+  'press alt+tab,adopt switcher,wait-text switcher,type-text switcher,wait-text switcher,press escape,wait-gone switcher'
 is 'ch3 beat 3 tidies with the real key' "$(shape3 3)" \
   'adopt docs-log,adopt stray,press cmd+shift+w,adopt tidy,wait-text tidy,press enter,wait-gone docs-log,wait-in-tab stray'
 is 'ch3 beat 4 opens blog beside the slides' "$(shape3 4)" \

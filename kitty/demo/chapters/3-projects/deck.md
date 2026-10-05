@@ -27,6 +27,7 @@ Every window, live: Option+Tab
 
 * Claude Code panes show their
   conversation title
+* Type to filter: titles count too
 * The preview is the live screen
 * Esc leaves you where you were
 

@@ -74,7 +74,7 @@ carry a kitty user var `demo=NAME` so beats can find them):
 |---|---|---|---|---|
 | 0 | **Getting around projects.** One kitty window, a tab per project. | — | the deck, five tabs | — |
 | 1 | **Jump to a project: ⌘§.** Open projects first, then the rest, ranked by how often you go there. ⌃⇧⇥ comes back. | ⌘§ · `shop` · ↩ · ⌃⇧⇥ | the picker over the tab, tab 2, the deck again | active tab is `shop-api`, then `web-app` |
-| 2 | **Every window, live: ⌥⇥.** Claude Code panes show their conversation title. | ⌥⇥ · ↓ ↓ (preview follows) · ⎋ | the list with `[Add rate limiting…]`, `[Move Terraform…]` | the switcher's overlay opens and closes |
+| 2 | **Every window, live: ⌥⇥.** Claude Code panes show their conversation title; type to filter on it. | ⌥⇥ · `rate` (filters to the shop-api Claude pane, previewed) · ⎋ | the list with `[Add rate limiting…]`, `[Move Terraform…]` | the switcher's overlay opens and closes |
 | 3 | **Tidy up: ⌘⇧W.** Claude reviews every window: close the stale, regroup by project. | ⌘⇧W · (wait for the picker) · ↩ | rows pre-selected; tabs 4 and 5 leave the tab bar | `docs-log` gone; `stray` in tab `shop-api` |
 | 4 | **A project with no window: ↩ opens a shell there, beside you.** | ⌘§ · `blog` · ↩ | a blog shell beside the slides | one new pane, cwd `~/kitty-demo/blog` |
 | 5 | **Open the IDE: ⌘I** | ⌘I | kitty left half, VS Code on blog right half; it closes, kitty fills | a VS Code window titled blog |
