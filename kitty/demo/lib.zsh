@@ -236,10 +236,10 @@ demo_cleanup() {
     demo_kitten goto-layout --match window_id:$deck $DEMO_LAYOUT >/dev/null 2>&1
   fi
   demo_hs 'return demoStage.finish()' >/dev/null 2>&1
-  # In a chapter's own kitty instance, closing the deck's OS window quits the
-  # instance (macos_quit_when_last_window_closed); it ends this process too,
-  # so it comes last.
-  (( DEMO_INSIDE )) && demo_kitten close-os-window --match id:$deck >/dev/null 2>&1
+  # In a chapter's own kitty instance, quit that instance (it runs with
+  # confirm_os_window_close=0, so kitty doesn't ask; kitten @ has no command
+  # to close an OS window). It ends this process too, so it comes last.
+  (( DEMO_INSIDE )) && demo_kitten action quit >/dev/null 2>&1
   return 0
 }
 

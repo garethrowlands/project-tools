@@ -348,7 +348,7 @@ grep -q 'if tiled then M.closeTiled() end' $DEMO_ROOT/stage.lua && ok 'finish cl
 # cleanup inside the instance closes the deck's OS window, last
 reset_stubs; DEMO_INSIDE=1
 demo_cleanup
-is 'inside cleanup closes the instance last' "$(tail -1 $T/kcalls)" 'close-os-window --match id:7'
+is 'inside cleanup quits the instance last' "$(tail -1 $T/kcalls)" 'action quit'
 DEMO_INSIDE=0
 
 # --- review fixes (stubbed) ---
@@ -714,6 +714,18 @@ demo_hs() { [[ $1 == *"application.get('com.microsoft.VSCode')"* ]] && print tru
 out=$(CLAUDE_DEMO_DIR=$T/none DEMO_WORLD=$T/mine DEMO_CHAPTER_DIR=$C3 demo_preflight_instance 2>&1)
 [[ $out == *'Quit VS Code'* ]] && ok 'pre-flight refuses a running VS Code' || bad "pre-flight with VS Code: $out"
 [[ $out == *'an Edge tab is open on github.com/garethrowlands/project-tools'* ]] && ok 'pre-flight refuses an open project-tools tab in Edge' || bad "pre-flight with Edge tab: $out"
+
+# the stub accepts any kitten @ command: check every one the demo uses exists
+# in kitty 0.49 (there is no close-os-window, for instance)
+rc=(action close-tab close-window create-marker detach-tab detach-window disable-ligatures env focus-tab
+    focus-window get-colors get-text goto-layout kitten last-used-layout launch load-config ls new-window
+    remove-marker resize-os-window resize-window run screenshot scroll-window select-window send-key
+    send-text set-background-image set-background-opacity set-colors set-enabled-layouts set-font-size
+    set-os-window-title set-spacing set-tab-color set-tab-title set-user-vars set-window-logo
+    set-window-title signal-child)
+used=(${(u)${(f)"$(grep -ohE 'demo_kitten [a-z-]+' $DEMO_ROOT/*.zsh $DEMO_ROOT/play $DEMO_ROOT/chapters/*/beats/*.zsh | awk '{print $2}')"}})
+missing=(${used:|rc})
+is 'every kitten @ command the demo uses exists' "$missing" ''
 
 # (later tasks add sections above this line)
 exit $fail

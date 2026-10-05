@@ -111,9 +111,9 @@ macos_quit_when_last_window_closed=yes --session $DEMO_STATE/session.kitty`
 with the staged environment (and the outer kitty's `KITTY_*` variables
 removed). The session's `deck` window runs `play 3 --inside …` (same
 options), which presents the deck and directs; `kitten @` reaches the
-instance through its own `KITTY_LISTEN_ON`. The inner cleanup closes the
-instance's OS window last, so the instance quits and the outer `play`
-returns. Hammerspoon pins the instance's window, so the user's kitty is
+instance through its own `KITTY_LISTEN_ON`. The inner cleanup runs `kitten @ action quit`
+last (kitten @ has no command to close an OS window), so the instance
+quits and the outer `play` returns. Hammerspoon pins the instance's window, so the user's kitty is
 never moved.
 
 ### New verbs
