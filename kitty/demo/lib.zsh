@@ -527,6 +527,20 @@ wait-gone() {
 }
 demo_window_gone() { ! demo_window_exists $1 }
 
+# wait-any-gone NAME...: wait until at least one of the NAMEd windows has
+# closed (tidy-windows may close one or both of two duplicates).
+wait-any-gone() {
+  demo_dry wait-any-gone "$@" && return 0
+  local -a ids; local n
+  for n in "$@"; do ids+=($(demo_id $n)) || return; done
+  demo_poll "one of $* to close" demo_any_gone $ids
+}
+demo_any_gone() {
+  local id
+  for id in "$@"; do demo_window_gone $id && return 0; done
+  return 1
+}
+
 # wait-in-tab NAME TITLE: wait until NAME's window is in the tab titled TITLE.
 wait-in-tab() {
   demo_dry wait-in-tab "$@" && return 0
@@ -548,9 +562,18 @@ demo_active_tab_is() {
 }
 
 # demo_snapshot: one line per tab with its layout and windows (id, * for
-# focused, title), for play.log when a beat fails.
+# focused, title), then the last lines of the tab's focused pane (a tool's
+# error there, like tidy-windows', would otherwise go when the demo cleans
+# up), for play.log when a beat fails.
 demo_snapshot() {
+  local id line
   demo_kitten ls 2>/dev/null | jq -r '.[].tabs[] |
+    "\([.windows[] | select(.is_focused) | .id][0] // "")\t" +
     "kitty: tab layout=\(.layout) windows=" +
-    ([.windows[] | "\(.id)\(if .is_focused then "*" else "" end):\(.title)"] | join(" "))'
+    ([.windows[] | "\(.id)\(if .is_focused then "*" else "" end):\(.title)"] | join(" "))' |
+  while IFS=$'\t' read -r id line; do
+    print -r -- $line
+    [[ -n $id ]] || continue
+    demo_kitten get-text --match id:$id 2>/dev/null | grep -v '^[[:space:]]*$' | tail -8 | sed 's/^/  | /'
+  done
 }

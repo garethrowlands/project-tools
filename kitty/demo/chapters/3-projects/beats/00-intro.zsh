@@ -8,7 +8,7 @@ beat-pause 2
 reveal 'web-app: these slides' 2.5
 reveal 'shop-api: Claude Code adding rate' 3.5
 reveal 'infra: Claude Code moving' 3
-reveal 'docs: a git log left open' 3
+reveal 'docs: two shells, untouched' 3
 reveal 'scratch: a stray shop-api shell' 3
 reveal "Let's look: Ctrl+Tab" 2.5
 for tab in shop-api infra docs scratch web-app; do

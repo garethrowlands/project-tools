@@ -216,7 +216,15 @@ functions[demo_hs]=$functions[orig_hs]
 # --- failure snapshot ---------------------------------------------------------------
 reset_stubs
 KLSJSON='[{"tabs":[{"layout":"stack","windows":[{"id":7,"title":"deck","is_focused":true},{"id":9,"title":"zsh","is_focused":false}]}]}]'
-is 'a failure logs each tab layout and its panes' "$(demo_snapshot)" 'kitty: tab layout=stack windows=7*:deck 9:zsh'
+KSCREEN=$'line one\n\ntidy-windows: move window 6: no matching window\npress any key'
+is 'a failure logs each tab layout, its panes and the end of its visible pane' "$(demo_snapshot)" \
+  $'kitty: tab layout=stack windows=7*:deck 9:zsh\n  | line one\n  | tidy-windows: move window 6: no matching window\n  | press any key'
+# wait-any-gone: tidy-windows may close one or both of two duplicates
+DEMO_IDS[a]=31 DEMO_IDS[b]=32
+wait-any-gone a b 2>/dev/null && bad 'wait-any-gone passed with both open' || ok 'wait-any-gone waits while both are open'
+print 32 >> $T/dead
+wait-any-gone a b 2>/dev/null && ok 'wait-any-gone passes once one has closed' || bad 'wait-any-gone missed a closed window'
+reset_stubs
 
 # --- card ---------------------------------------------------------------------
 source $DEMO_ROOT/card
@@ -602,9 +610,14 @@ print -r -- '{"type":"user","sessionId":"sid-infra"}' >| $CD/projects/-x/sid-inf
 bw() { CLAUDE_DEMO_DIR=$CD zsh $C3/build-world "$@" }
 bw $W $S -- echo 'the deck' >/dev/null 2>$T/bw.err; is 'build-world succeeds' $? 0
 for p in shop-api web-app infra docs blog; do
-  [[ -d $W/$p/.git && -z $(git -C $W/$p status --porcelain) ]] && ok "$p is clean" || bad "$p is dirty"
   is "$p has nothing unpushed" "$(git -C $W/$p rev-list --count @{u}..HEAD)" 0
 done
+for p in web-app infra docs blog; do
+  [[ -d $W/$p/.git && -z $(git -C $W/$p status --porcelain) ]] && ok "$p is clean" || bad "$p is dirty"
+done
+# shop-api has work in progress (Claude is adding rate limiting), so
+# tidy-windows keeps its shells ("prefer keep when the tree is dirty")
+is 'shop-api has an uncommitted change to a tracked file' "$(git -C $W/shop-api status --porcelain | cut -c1-2)" ' M'
 is 'blog points at the real repo' "$(git -C $W/blog remote get-url origin)" https://github.com/garethrowlands/project-tools.git
 is 'shop-api points at a fake host' "$(git -C $W/shop-api remote get-url origin)" git@example.com:demo/shop-api.git
 (( $(git -C $W/docs log -1 --format=%ct) < EPOCHSECONDS - 30 * 86400 )) && ok 'docs looks stale' || bad 'docs commits are recent'
@@ -613,6 +626,8 @@ is 'zoxide ranks the projects' "$(_ZO_DATA_DIR=$S/zoxide zoxide query --list | s
 [[ ! -e $S/projects.txt ]] && ok 'project cache is cleared' || bad 'project cache left behind'
 grep -qx "launch --hold --var demo=deck 'echo' 'the deck'" $S/session.kitty && ok 'deck window runs the deck command, and holds' || bad "deck line: $(grep demo=deck $S/session.kitty)"
 grep -q 'demo=web-shell' $S/session.kitty && bad 'the slides share their tab with a shell' || ok 'the slides have their tab to themselves'
+is 'docs has two idle shells, nothing running' "$(grep -A4 '^new_tab docs' $S/session.kitty | grep '^launch' | paste -sd, -)" \
+  'launch --var demo=docs-a,launch --var demo=docs-b'
 grep -qx 'launch --var demo=shop-claude claude --resume sid-shop' $S/session.kitty && ok 'shop-api tab resumes its session' || bad 'no shop-api claude line'
 grep -qx 'launch --var demo=infra-claude claude --resume sid-infra' $S/session.kitty && ok 'infra tab resumes its session' || bad 'no infra claude line'
 is 'session tabs' "$(sed -n 's/^new_tab //p' $S/session.kitty | paste -sd' ' -)" 'web-app shop-api infra docs scratch'
@@ -705,7 +720,7 @@ is 'ch3 beat 1 jumps to shop-api and back' "$(shape3 1)" \
 is 'ch3 beat 2 browses the switcher and leaves' "$(shape3 2)" \
   'press alt+tab,adopt switcher,wait-text switcher,type-text switcher,wait-text switcher,press escape,wait-gone switcher'
 is 'ch3 beat 3 tidies with the real key' "$(shape3 3)" \
-  'adopt docs-log,adopt stray,press cmd+shift+w,adopt tidy,wait-text tidy,press enter,wait-gone docs-log,wait-in-tab stray'
+  'adopt docs-a,adopt docs-b,adopt stray,press cmd+shift+w,adopt tidy,wait-text tidy,press enter,wait-any-gone docs-a,wait-in-tab stray'
 is 'ch3 beat 4 opens blog beside the slides' "$(shape3 4)" \
   'press cmd+§,adopt picker,wait-text picker,type-text picker,press-new blog,type-text blog,wait-text blog'
 is 'ch3 beat 5 tiles the IDE' "$(shape3 5)" 'stage tile-next,press cmd+i,stage wait-tiled,stage close-tiled'

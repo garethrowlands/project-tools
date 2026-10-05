@@ -73,6 +73,9 @@ for p in $PROJECTS; do
   [[ $p == docs ]] && when=$(( EPOCHSECONDS - 42 * 86400 ))
   make_repo $p $url $when
 done
+# shop-api has work in progress (Claude is adding rate limiting): a dirty
+# tree, so tidy-windows keeps its shells and moves the stray one instead
+print -r -- '- [ ] rate limit POST /orders' >> $world/shop-api/NOTES.md
 
 # zoxide: a fresh db, more visits for the projects the picker should rank first
 rm -rf $state/zoxide && mkdir -p $state/zoxide
@@ -111,7 +114,8 @@ done
   print -r -- 'new_tab infra'; print -r -- 'layout tall'; print -r -- "cd $world/infra"
   print -r -- "launch --var demo=infra-claude claude --resume ${SID[infra]:-none}"
   print -r -- 'new_tab docs'; print -r -- 'layout tall'; print -r -- "cd $world/docs"
-  print -r -- 'launch --var demo=docs-log git log'
+  print -r -- 'launch --var demo=docs-a'
+  print -r -- 'launch --var demo=docs-b'
   print -r -- 'new_tab scratch'; print -r -- 'layout tall'; print -r -- "cd $world/shop-api"
   print -r -- 'launch --var demo=stray'
   print -r -- 'focus_tab 0'

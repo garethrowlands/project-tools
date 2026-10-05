@@ -25,7 +25,7 @@ The setup: a tab per project
   limiting, plus a shell
 * infra: Claude Code moving
   Terraform state
-* docs: a git log left open weeks ago
+* docs: two shells, untouched for weeks
 * scratch: a stray shop-api shell
 
 Let's look: Ctrl+Tab, tab by tab.
