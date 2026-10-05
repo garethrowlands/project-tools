@@ -4,6 +4,7 @@
 slide goto 8 'Open the IDE'
 beat-pause 2
 reveal 'VS Code or IntelliJ' 3
+reveal 'Watch: Cmd+I on the blog pane' 3
 stage tile-next com.microsoft.VSCode blog
 press cmd+i
 stage wait-tiled

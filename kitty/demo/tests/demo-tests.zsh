@@ -777,5 +777,17 @@ done
 items=$(print -r -- ${(F)slides3[2,10]} | grep -c '^\* ')
 is 'ch3 reveals every list item of slides 2-10' "$(cat $C3/beats/*.zsh | grep -c '^reveal ')" $(( items + 1 ))
 
+# --- chapter 3: say what's about to happen -----------------------------------------
+# each demo slide (4-9) ends with a "Watch:" item, revealed just before the key
+for n in {4..9}; do
+  last=$(print -r -- $slides3[$n] | grep '^\* ' | tail -1)
+  [[ $last == '* Watch: '* ]] && ok "ch3 slide $n ends by saying what happens next" || bad "ch3 slide $n ends with: $last"
+done
+for f in $C3/beats/0[1-6]-*.zsh; do
+  before=$(awk '/^press/ {exit} /^reveal / {r=$0} END {print r}' $f)
+  [[ $before == "reveal 'Watch: "* || $before == "reveal \"Watch: "* ]] && ok "${f:t:r} reveals its Watch: item right before the key" \
+    || bad "${f:t:r}: last reveal before the key is: $before"
+done
+
 # (later tasks add sections above this line)
 exit $fail

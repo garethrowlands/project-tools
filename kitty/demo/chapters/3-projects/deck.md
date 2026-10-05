@@ -59,6 +59,7 @@ Jump to a project: Cmd+§
   by how often you go there
 * Type to filter, Enter to jump
 * Ctrl+Shift+Tab comes back
+* Watch: Cmd+§, "shop", Enter, and back
 
 <!-- end_slide -->
 
@@ -74,6 +75,7 @@ Every window, live: Option+Tab
 * Type to filter: titles count too
 * The preview is the live screen
 * Esc leaves you where you were
+* Watch: Option+Tab, then type "rate"
 
 <!-- end_slide -->
 
@@ -88,6 +90,7 @@ Tidy up: Cmd+Shift+W
 * Stale ones: close
 * Strays: back to their project's tab
 * Enter applies; Tab unticks one
+* Watch: Cmd+Shift+W, then Enter
 
 <!-- end_slide -->
 
@@ -100,6 +103,7 @@ A project with no window
 
 * Cmd+§, pick it, Enter
 * A shell opens there, beside you
+* Watch: Cmd+§, "blog", Enter
 
 <!-- end_slide -->
 
@@ -112,6 +116,7 @@ Open the IDE: Cmd+I
 
 * VS Code or IntelliJ, on the
   project you're in
+* Watch: Cmd+I on the blog pane
 
 <!-- end_slide -->
 
@@ -124,6 +129,7 @@ The project's web page: Cmd+B
 
 * Its GitHub or GitLab page
 * An open tab is reused
+* Watch: Cmd+B on the blog pane
 
 <!-- end_slide -->
 

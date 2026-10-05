@@ -4,6 +4,7 @@ slide goto 9 'web page'
 beat-pause 2
 reveal 'Its GitHub or GitLab page' 2.5
 reveal 'An open tab is reused' 2.5
+reveal 'Watch: Cmd+B on the blog pane' 3
 stage tile-next com.microsoft.edgemac project-tools
 press cmd+b
 stage wait-tiled

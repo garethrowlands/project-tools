@@ -14,6 +14,7 @@ reveal 'Claude reviews every window' 2.5
 reveal 'Stale ones: close' 2
 reveal 'Strays: back to their' 2.5
 reveal 'Enter applies' 2.5
+reveal 'Watch: Cmd+Shift+W, then Enter' 3
 press cmd+shift+w
 adopt tidy 'cmdline:"(^|/)tidy-windows$"'
 DEMO_TIMEOUT=30 wait-text tidy 'enter: apply marked'

@@ -5,6 +5,7 @@ slide goto 7 'no window'
 beat-pause 2
 reveal 'Cmd+§, pick it, Enter' 2.5
 reveal 'A shell opens there' 2.5
+reveal 'Watch: Cmd+§, "blog", Enter' 3
 press cmd+§
 adopt picker 'cmdline:"(^|/)switch-project$"'
 wait-text picker 'Project> '
