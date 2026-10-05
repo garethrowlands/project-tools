@@ -1,5 +1,5 @@
 # Beat 7: the cheat sheet; the blog pane closes.
-slide goto 10 "That's getting around"
+slide goto 11 "That's getting around"
 pane close blog
 beat-pause 1.5
 reveal '⌘§ jump to a project' 1.5

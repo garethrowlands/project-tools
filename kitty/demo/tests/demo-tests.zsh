@@ -369,6 +369,14 @@ reveal 'Stale ones: close' 2>/dev/null && bad 'reveal passed an item that never 
 is 'reveal gives up after three presses of next' "$(grep -c '^send-key --match id:7 right' $T/kcalls)" 3
 is 'reveal dry-runs' "$(DEMO_DRY=1 reveal 'Stale ones' 2.5)" "reveal 'Stale ones' 2.5"
 
+# --- tour-tabs (stubbed) ---
+reset_stubs
+KLSJSON='[{"tabs":[{"is_active":false,"windows":[{"id":7}]},{"is_active":true,"windows":[{"id":21}]}]}]'
+demo_deck_tab_active && bad 'the slides tab counted as active from another tab' || ok 'another tab is not the slides tab'
+KLSJSON='[{"tabs":[{"is_active":true,"windows":[{"id":7}]},{"is_active":false,"windows":[{"id":21}]}]}]'
+demo_deck_tab_active && ok 'the slides tab is active' || bad 'missed the slides tab being active'
+is 'tour-tabs dry-runs' "$(DEMO_DRY=1 tour-tabs 2)" 'tour-tabs 2'
+
 # --- review fixes (stubbed) ---
 reset_stubs; KLSJSON='[{"tabs":[{"layout":"tall","windows":[{"id":7}]}]}]'
 KITTY_PID=4242 demo_begin $T/pidf >/dev/null 2>&1
@@ -699,7 +707,7 @@ zsh $DEMO_ROOT/play 1 --inside --dry-run >/dev/null 2>&1; is '--inside is accept
 
 # --- chapter 3 -----------------------------------------------------------------------
 slides3=("${(@ps:<!-- end_slide -->:)$(<$C3/deck.md)}")
-is 'chapter 3 has 10 slides' $#slides3 10
+is 'chapter 3 has 11 slides' $#slides3 11
 is 'chapter 3 slides fit beside a pane' "$(perl -CSD -nle 'print if length > 40' $C3/deck.md)" ''
 for f in $C3/beats/*.zsh; do
   for line in ${(f)"$(grep '^slide goto' $f)"}; do
@@ -721,6 +729,10 @@ is 'ch3 beat 2 browses the switcher and leaves' "$(shape3 2)" \
   'press alt+tab,adopt switcher,wait-text switcher,type-text switcher,wait-text switcher,press escape,wait-gone switcher'
 is 'ch3 beat 3 tidies with the real key' "$(shape3 3)" \
   'adopt docs-a,adopt docs-b,adopt stray,press cmd+shift+w,adopt tidy,wait-text tidy,press enter,wait-any-gone docs-a,wait-in-tab stray'
+is 'ch3 beat 3 shows the result: a slide, then the tour' \
+  "$(zsh $DEMO_ROOT/play 3 --dry-run --only 3 2>&1 | grep -E '^(slide|tour-tabs|press enter)' | awk '{print $1, $2, $3}' | sed 's/ *$//' | paste -sd, -)" \
+  'slide goto 6,press enter,slide goto 7,tour-tabs'
+is 'ch3 beat 3 holds the picker 5 s before applying' "$(grep -B1 '^press enter' $C3/beats/03-tidy.zsh | head -1)" 'beat-pause 5'
 is 'ch3 beat 4 opens blog beside the slides' "$(shape3 4)" \
   'press cmd+§,adopt picker,wait-text picker,type-text picker,press-new blog,type-text blog,wait-text blog'
 is 'ch3 beat 5 tiles the IDE' "$(shape3 5)" 'stage tile-next,press cmd+i,stage wait-tiled,stage close-tiled'
@@ -734,7 +746,7 @@ done
 for k in ${(u)${(f)"$(zsh $DEMO_ROOT/play 3 --dry-run 2>&1 | awk '$1 == "press" {print $2} $1 == "press-new" {print $3}')"}}; do
   demo_press_args $k >/dev/null 2>&1 && ok "ch3 key $k has a badge" || bad "ch3 key $k has no badge"
 done
-body=$(print -r -- $slides3[10] | sed -n '/^=\{3,\}$/,$p' | grep -v '^=*$' | grep -v '^$' | grep -v '^<!--')
+body=$(print -r -- $slides3[11] | sed -n '/^=\{3,\}$/,$p' | grep -v '^=*$' | grep -v '^$' | grep -v '^<!--')
 is 'ch3 cheat sheet is one list item per key' "$(print -r -- $body | grep -vc '^\* ')" 0
 
 # --- review fixes ---
@@ -760,7 +772,7 @@ is 'every kitten @ command the demo uses exists' "$missing" ''
 
 # --- chapter 3 reveals ---
 # every list slide (2-10) reveals its items one at a time
-for n in {2..10}; do
+for n in {2..11}; do
   [[ $slides3[$n] == *'<!-- incremental_lists: true -->'* ]] && ok "ch3 slide $n reveals its list" || bad "ch3 slide $n shows its list at once"
 done
 # every reveal names text on the slide its beat last went to
@@ -774,12 +786,12 @@ for f in $C3/beats/*.zsh; do
   done
 done
 # one reveal per list item, plus slide 2's closing "Let's look" line
-items=$(print -r -- ${(F)slides3[2,10]} | grep -c '^\* ')
+items=$(print -r -- ${(F)slides3[2,11]} | grep -c '^\* ')
 is 'ch3 reveals every list item of slides 2-10' "$(cat $C3/beats/*.zsh | grep -c '^reveal ')" $(( items + 1 ))
 
 # --- chapter 3: say what's about to happen -----------------------------------------
 # each demo slide (4-9) ends with a "Watch:" item, revealed just before the key
-for n in {4..9}; do
+for n in {4..10}; do
   last=$(print -r -- $slides3[$n] | grep '^\* ' | tail -1)
   [[ $last == '* Watch: '* ]] && ok "ch3 slide $n ends by saying what happens next" || bad "ch3 slide $n ends with: $last"
 done

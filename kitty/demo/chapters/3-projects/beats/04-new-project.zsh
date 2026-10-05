@@ -1,7 +1,7 @@
 # Beat 4: blog has no window yet: Cmd+§, "blog", Enter opens a shell there,
 # in this tab beside the slides (switch-project's Enter launches a window in
 # the current tab). It shows where it started.
-slide goto 7 'no window'
+slide goto 8 'no window'
 beat-pause 2
 reveal '⌘§, pick it, ↩' 2.5
 reveal 'A shell opens there' 2.5

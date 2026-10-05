@@ -95,6 +95,20 @@ Tidy up: ⇧⌘W
 
 <!-- jump_to_middle -->
 
+After the tidy-up
+=================
+
+<!-- incremental_lists: true -->
+
+* The stray shop-api shell has moved
+  to the shop-api tab
+* docs is down to one shell, or gone
+* Watch: ⌃⇥, tab by tab
+
+<!-- end_slide -->
+
+<!-- jump_to_middle -->
+
 A project with no window
 ========================
 

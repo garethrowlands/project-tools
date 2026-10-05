@@ -18,8 +18,18 @@ reveal 'Watch: ⇧⌘W, then ↩' 3
 press cmd+shift+w
 adopt tidy 'cmdline:"(^|/)tidy-windows$"'
 DEMO_TIMEOUT=30 wait-text tidy 'enter: apply marked'
-beat-pause 3
+# time to read the pre-selected rows
+beat-pause 5
 press enter
 wait-any-gone docs-a docs-b
 wait-in-tab stray shop-api
-beat-pause 3
+beat-pause 1
+# tidy-windows exits quietly once applied, and its changes are in other
+# tabs: show them, as the intro showed them before
+slide goto 7 'After the tidy-up'
+beat-pause 2
+reveal 'The stray shop-api shell' 3
+reveal 'docs is down to one shell' 3
+reveal 'Watch: ⌃⇥, tab by tab' 3
+tour-tabs
+beat-pause 1
