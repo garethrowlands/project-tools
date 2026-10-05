@@ -78,7 +78,10 @@ while IFS=$'\t' read -r id action target_tab display; do
       fi
       ;;
     move)
-      if kitty @ detach-window --match "id:${id}" --target-tab "${target_tab:-new}" 2>"$err_file"; then
+      # --target-tab takes a match expression (id:N), not a bare tab id
+      local target=new
+      [[ -n "$target_tab" ]] && target="id:${target_tab}"
+      if kitty @ detach-window --match "id:${id}" --target-tab "$target" 2>"$err_file"; then
         (( moved++ ))
       else
         (( failed++ )); failures+=("move window ${id}: $(<"$err_file")")
