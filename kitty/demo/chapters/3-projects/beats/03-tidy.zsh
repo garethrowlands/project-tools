@@ -26,11 +26,8 @@ wait-in-tab stray shop-api
 wait-tab slides
 beat-pause 1
 # tidy-windows exits quietly once applied, and its changes are in other
-# tabs: show them, as the intro showed them before
+# tabs: the slide says what changed
 slide goto 7 'After the tidy-up'
 beat-pause 2
 reveal "shop-api's dev server is back" 3
 reveal 'docs is down to one shell' 3
-reveal 'Watch: ⌃⇥, tab by tab' 3
-tour-tabs
-beat-pause 1

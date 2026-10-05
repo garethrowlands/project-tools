@@ -104,7 +104,6 @@ After the tidy-up
 * shop-api's dev server is back in
   the shop-api tab, still running
 * docs is down to one shell, or gone
-* Watch: ⌃⇥, tab by tab
 
 <!-- end_slide -->
 

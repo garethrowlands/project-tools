@@ -527,24 +527,6 @@ wait-gone() {
 }
 demo_window_gone() { ! demo_window_exists $1 }
 
-# tour-tabs [SECONDS]: Ctrl+Tab from tab to tab, holding SECONDS (default
-# 2.5) on each, until the slides' tab is active again (kitty's next tab
-# wraps round). For showing tabs when which ones are left isn't known.
-tour-tabs() {
-  demo_dry tour-tabs "$@" && return 0
-  local i
-  for (( i = 0; i < 20; i++ )); do
-    press-focus ctrl+tab || return
-    demo_deck_tab_active && return 0
-    beat-pause ${1:-2.5}
-  done
-  demo_err "tour-tabs: never got back to the slides' tab"
-}
-demo_deck_tab_active() {
-  [[ $(demo_kitten ls | jq --argjson d ${DEMO_IDS[deck]:-0} \
-    '[.[].tabs[] | select(.is_active) | select(any(.windows[]; .id == $d))] | length') == 1 ]]
-}
-
 # wait-any-gone NAME...: wait until at least one of the NAMEd windows has
 # closed (tidy-windows may close one or both of two duplicates).
 wait-any-gone() {
