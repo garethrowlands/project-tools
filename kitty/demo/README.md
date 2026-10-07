@@ -38,6 +38,7 @@ kitty/demo/play 2 --only 4         # one beat
 kitty/demo/play 2 --from 4         # from beat 4 on
 kitty/demo/play 1 --slow 2         # every pause doubled
 kitty/demo/play 1 --dry-run        # print every verb, touch nothing
+kitty/demo/play 3 --record ~/Movies/chapter-3.mov   # record the take
 ```
 
 Chapter 2's beats 2–7 use the panes beat 1 opens, so rehearse them with
@@ -76,7 +77,13 @@ that session with its own socket, and the session's deck window runs `play
 CHAPTER --inside`. Quitting the deck quits that instance; your own kitty is
 never touched.
 
-Start a screen recording (Cmd+Shift+5) first, then hands off. Abort with
+`--record FILE` records the take to a new `.mov`: it starts once the first
+slide is up and stops before anything closes, so the video runs from the
+first slide to the last with nothing to trim. Hammerspoon runs
+`screencapture`, so it needs Screen Recording permission (System Settings ›
+Privacy & Security; the first take asks), and kitty must be on the main
+display. Without `--record`, start a screen recording (⇧⌘5) first, then
+hands off. Abort with
 **Ctrl+Alt+Cmd+.** or by quitting presenterm (`q`); either way the demo closes
 everything it opened and restores the window frame and layout. The director's
 log is `$TMPDIR/kitty-demo/play.log`; failures also show as a notification.

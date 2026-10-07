@@ -19,7 +19,7 @@ DEMO_ROOT=${${(%):-%x}:A:h}
 source $DEMO_ROOT/lib.zsh
 
 demo_usage() {
-  print -r -- 'usage: play [CHAPTER [--from N | --only N] [--slow FACTOR] [--dry-run]]'
+  print -r -- 'usage: play [CHAPTER [--from N | --only N] [--slow FACTOR] [--record FILE] [--dry-run]]'
 }
 
 # demo_chapter_dir ARG: the chapter directory for "2" or "2-windows".
@@ -142,6 +142,12 @@ demo_preflight() {
   (( ok ))
 }
 
+# demo_record_preflight FILE: play --record writes a new file, never over one.
+demo_record_preflight() {
+  [[ ! -e $1 ]] || { print -ru2 -- "play: $1 exists: record to a new file"; return 1 }
+  [[ -d ${1:h} ]] || { print -ru2 -- "play: there is no folder ${1:h} to record into"; return 1 }
+}
+
 # demo_inside_socket_ok: inside an instance, kitten @ must reach the demo's
 # own kitty, never the user's (tidy-windows there would close real windows).
 demo_inside_socket_ok() {
@@ -216,7 +222,8 @@ demo_present() {
 
 # The background half of a real run, from the moment presenterm starts.
 demo_direct() {
-  demo_begin $DEMO_STATE/play.pid && wait-text deck "$(demo_deck_title $DEMO_CHAPTER_DIR/deck.md)" && demo_run_beats "$@" && return 0
+  demo_begin $DEMO_STATE/play.pid && wait-text deck "$(demo_deck_title $DEMO_CHAPTER_DIR/deck.md)" \
+    && demo_record_start && demo_run_beats "$@" && return 0
   demo_snapshot
   demo_hs "return demoStage.notify($(demo_lua_str "kitty demo stopped at beat ${DEMO_BEAT:-?}: see $DEMO_STATE/play.log"))" >/dev/null 2>&1
   return 1
@@ -247,6 +254,9 @@ demo_play_main() {
           --slow) DEMO_SLOW=$2 ;;
         esac
         shift 2 ;;
+      --record)
+        (( $# >= 2 )) || { demo_usage >&2; return 2 }
+        DEMO_RECORD=${2:a}; shift 2 ;;
       --dry-run) DEMO_DRY=1; shift ;;
       --inside)  inside=1; shift ;;
       -h|--help) demo_usage; return 0 ;;
@@ -259,6 +269,7 @@ demo_play_main() {
   (( from )) && passthrough+=(--from $from)
   [[ -n $only ]] && passthrough+=(--only $only)
   [[ $DEMO_SLOW != 1 ]] && passthrough+=(--slow $DEMO_SLOW)
+  [[ -n $DEMO_RECORD ]] && passthrough+=(--record $DEMO_RECORD)
   beats=( ${(f)"$(demo_select_beats $DEMO_CHAPTER_DIR/beats $from $only)"} )
   (( $#beats )) || { print -u2 'play: no beats selected'; return 2 }
 
@@ -268,6 +279,9 @@ demo_play_main() {
     return
   fi
 
+  if [[ -n $DEMO_RECORD ]] && (( ! inside )); then
+    demo_record_preflight $DEMO_RECORD || return 1
+  fi
   if [[ -r $DEMO_CHAPTER_DIR/instance ]] && (( ! inside )); then
     demo_preflight && demo_preflight_instance || return 1
     demo_run_instance $passthrough

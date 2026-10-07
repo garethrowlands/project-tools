@@ -19,6 +19,8 @@ local otherTitle, otherWasRunning, otherWin, placeTimer
 -- tileNext: {bundle, win, savedFrame (if it was already open), wasRunning}.
 local EDGE = "com.microsoft.edgemac"
 local tiled, tileTimer
+-- play --record: the screencapture task recording the pinned window's display.
+local recordTask
 local events = hs.eventtap.event
 
 local function postMove(p)
@@ -255,6 +257,33 @@ function M.closeTiled()
   return "ok"
 end
 
+-- Start recording the pinned window's display to `path`. Run from here, not
+-- from play, so recordStop can interrupt() it: SIGINT is how screencapture
+-- finishes its file, and a script's background job would ignore it.
+-- screencapture -v records the main display only.
+function M.recordStart(path)
+  if not main then return "no pinned window" end
+  if main:screen():id() ~= hs.screen.primaryScreen():id() then
+    return "kitty is not on the main display (screencapture -v records only that one)"
+  end
+  if recordTask and recordTask:isRunning() then return "already recording" end
+  recordTask = hs.task.new("/usr/sbin/screencapture", nil, {"-v", "-C", "-D1", path})
+  if not recordTask:start() then
+    recordTask = nil
+    return "screencapture would not start"
+  end
+  return "ok"
+end
+
+function M.recordRunning()
+  return (recordTask and recordTask:isRunning()) and "yes" or "no"
+end
+
+function M.recordStop()
+  if recordTask and recordTask:isRunning() then recordTask:interrupt() end
+  return "ok"
+end
+
 -- Ease (in-out) the pointer to (x, y) over ms milliseconds, at about 60 Hz.
 function M.glide(x, y, ms)
   stopGlide()
@@ -302,6 +331,7 @@ function M.finish()
   if pressTimer then pressTimer:stop(); pressTimer = nil end
   if otherTitle then M.closeOther(otherTitle) end
   if tiled then M.closeTiled() end
+  if recordTask then M.recordStop() end
   if main and savedFrame then main:setFrame(savedFrame, 0) end
   if abortKey then abortKey:delete(); abortKey = nil end
   main, savedFrame, pidFile = nil, nil, nil

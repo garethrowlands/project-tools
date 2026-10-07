@@ -15,6 +15,7 @@ typeset -g  DEMO_DRY=${DEMO_DRY:-0} DEMO_SLOW=${DEMO_SLOW:-1} DEMO_BEAT=${DEMO_B
 typeset -g  DEMO_STATE=${DEMO_STATE:-${TMPDIR:-/tmp}/kitty-demo}
 typeset -g  DEMO_TIMEOUT=${DEMO_TIMEOUT:-5}   # seconds a readiness poll may take
 typeset -g  DEMO_LAYOUT=''                    # the deck tab's layout before the run
+typeset -g  DEMO_RECORD=${DEMO_RECORD:-}     # play --record FILE: the video to write
 typeset -g  DEMO_INSIDE=${DEMO_INSIDE:-0}     # 1: running in a chapter's own kitty instance
 
 # The outside world, as functions the tests replace.
@@ -241,11 +242,36 @@ demo_pin() {
   [[ $DEMO_PIN_REPLY == ok ]]
 }
 
+# demo_record_start: with play --record, start recording the pinned kitty
+# window's display. Hammerspoon runs screencapture, so it can stop it with
+# SIGINT, which is how screencapture finishes its file (a background job of
+# this script would ignore SIGINT). Nothing to do without --record.
+demo_record_start() {
+  [[ -n $DEMO_RECORD ]] || return 0
+  local reply
+  reply=$(demo_hs "return demoStage.recordStart($(demo_lua_str $DEMO_RECORD))")
+  [[ $reply == ok ]] || { demo_err "cannot record: ${reply:-no reply}"; return 1 }
+  demo_sleep 1
+  demo_recording || { demo_err "screencapture stopped at once: give Hammerspoon Screen Recording permission (System Settings › Privacy & Security)"; return 1 }
+}
+
+# demo_record_stop: stop recording and wait until the file is written.
+demo_record_stop() {
+  [[ -n $DEMO_RECORD ]] || return 0
+  demo_hs 'return demoStage.recordStop()' >/dev/null
+  local DEMO_TIMEOUT=${DEMO_TIMEOUT_RECORD:-15}
+  demo_poll "screencapture to finish writing $DEMO_RECORD" demo_not_recording
+}
+demo_recording()     { [[ $(demo_hs 'return demoStage.recordRunning()') == yes ]] }
+demo_not_recording() { ! demo_recording }
+
 # Close every window the demo opened, newest first (ones already gone are
 # fine), then restore the deck tab's layout and the window frame. Runs from
 # play's EXIT trap, so it always succeeds.
 demo_cleanup() {
   local id deck=${DEMO_IDS[deck]}
+  # first, so the video ends on the last slide, not on the teardown
+  demo_record_stop >/dev/null 2>&1
   for id in ${(Oa)DEMO_CREATED}; do
     demo_kitten close-window --match id:$id >/dev/null 2>&1
   done

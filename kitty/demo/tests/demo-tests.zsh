@@ -375,6 +375,31 @@ KITTY_PID=4242 demo_begin $T/pidf >/dev/null 2>&1
 grep -qF "demoStage.begin(\"$T/pidf\", 4242)" $T/hcalls && ok 'demo_begin pins the kitty with our pid' || bad "begin call: $(grep begin $T/hcalls)"
 grep -q 'application():pid()' $DEMO_ROOT/stage.lua && ok 'stage.lua checks kitty by pid' || bad 'stage.lua still tells kitty apart only by bundle id'
 
+# --- record (stubbed) ---
+demo_hs() {
+  print -r -- "$1" >> $T/hcalls
+  case $1 in
+    *recordRunning*) print -r -- ${HSRUNNING:-no} ;;
+    *)               print -r -- ${HSREPLY:-ok} ;;
+  esac
+}
+reset_stubs; DEMO_RECORD=
+demo_record_start 2>/dev/null; demo_record_stop 2>/dev/null
+is 'no --record, no recording' "$(grep -c record $T/hcalls)" 0
+DEMO_RECORD=$T/take.mov
+HSRUNNING=yes demo_record_start 2>/dev/null && ok 'recording starts' || bad 'recording did not start'
+grep -qF "demoStage.recordStart(\"$T/take.mov\")" $T/hcalls && ok 'Hammerspoon records to the file' || bad "start call: $(grep record $T/hcalls)"
+HSRUNNING=no demo_record_start 2>$T/rec.err && bad 'a recorder that died at once passed' \
+  || [[ $(<$T/rec.err) == *'Screen Recording'* ]] && ok 'a recorder that dies at once points at the permission' || bad "dead recorder: $(<$T/rec.err)"
+reset_stubs; HSRUNNING=no demo_record_stop 2>/dev/null && grep -q 'demoStage.recordStop()' $T/hcalls && ok 'recording stops' || bad 'recording did not stop'
+HSRUNNING=yes DEMO_TIMEOUT_RECORD=0.2 demo_record_stop 2>/dev/null && bad 'stop passed while still recording' || ok 'stop waits for the file to be written'
+# cleanup stops the recording before anything closes, so the video ends on the last slide
+reset_stubs; HSRUNNING=no; DEMO_CREATED=(31); demo_cleanup
+is 'cleanup stops the recording first' "$(head -1 $T/hcalls)" 'return demoStage.recordStop()'
+is '...before closing panes' "$(grep -c 'close-window --match id:31' $T/kcalls)" 1
+grep -q 'if recordTask then M.recordStop() end' $DEMO_ROOT/stage.lua && ok 'an aborted run stops recording too' || bad 'finish leaves a recording running'
+DEMO_RECORD=; reset_stubs
+
 # --- play -------------------------------------------------------------------------
 # Sourcing play re-sources lib.zsh, which replaces the stubs above with the
 # real kitty/Hammerspoon functions; sections from here on run play as a
@@ -831,6 +856,20 @@ is 'ch3 ends on its closing slide' "$(zsh $DEMO_ROOT/play 3 --dry-run 2>&1 | gre
 # the pointer starts clear of the slide text, top right, not dead centre
 grep -q 'local PARK = {x = 0.8, y = 0.2}' $DEMO_ROOT/stage.lua && grep -q 'postMove({x = f.x + f.w \* PARK.x, y = f.y + f.h \* PARK.y})' $DEMO_ROOT/stage.lua \
   && ok 'begin parks the pointer top right' || bad 'begin still parks the pointer elsewhere'
+
+# --- play --record ---
+zsh $DEMO_ROOT/play 1 --record >/dev/null 2>&1; is '--record without a file is a usage error' $? 2
+: >| $T/exists.mov
+demo_record_preflight $T/exists.mov 2>$T/rp.err && bad 'an existing recording would be overwritten' \
+  || [[ $(<$T/rp.err) == *exists* ]] && ok 'refuses to overwrite a recording' || bad "existing file: $(<$T/rp.err)"
+demo_record_preflight $T/no/such/dir/take.mov 2>$T/rp.err && bad 'a missing folder passed' || ok 'refuses a missing folder'
+demo_record_preflight $T/new.mov && ok 'a new file in an existing folder is fine' || bad 'refused a fine path'
+# the outer play hands an absolute --record to the inner one
+( cd $T
+  demo_preflight() { return 0 }; demo_preflight_instance() { return 0 }
+  demo_run_instance() { print -r -- "$*" >| $T/passed }
+  demo_play_main 3 --from 2 --record take3.mov >/dev/null 2>&1 )
+is 'the outer play passes --record on, made absolute' "$(<$T/passed)" "--from 2 --record $(cd $T && print -r -- ${${:-take3.mov}:a})"
 
 # (later tasks add sections above this line)
 exit $fail
