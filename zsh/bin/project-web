@@ -6,17 +6,6 @@ _project_web_git_root() {
   git -C "$dir" rev-parse --show-toplevel 2>/dev/null
 }
 
-_project_web_detect() {
-  local url="$1"
-  if [[ "$url" == *gitlab* ]]; then
-    echo "gitlab"
-  elif [[ "$url" == *github.com* ]]; then
-    echo "github"
-  else
-    echo "generic"
-  fi
-}
-
 _project_web_https_url() {
   local url="$1"
   url="${url%.git}"
@@ -27,18 +16,6 @@ _project_web_https_url() {
     url="https://$host/$path"
   fi
   echo "$url"
-}
-
-_project_web_glab() {
-  # `glab` is aliased in interactive shells to `op plugin run -- glab` so
-  # 1Password can inject a fresh GitLab token. Aliases don't exist in this
-  # script's process, so call the same wrapper explicitly here rather than
-  # falling back to the bare `glab` binary's own (often stale) credentials.
-  if command -v op >/dev/null 2>&1; then
-    op plugin run -- glab "$@"
-  else
-    command glab "$@"
-  fi
 }
 
 _project_web_focus_edge_tab() {
@@ -84,13 +61,7 @@ fi
 local base_url
 base_url=$(_project_web_https_url "$remote_url")
 
-_project_web_focus_edge_tab "$base_url" && exit 0
-
-local kind
-kind=$(_project_web_detect "$remote_url")
-
-case "$kind" in
-  gitlab) (cd "$project" && _project_web_glab repo view -w) ;;
-  github) (cd "$project" && gh repo view -w) ;;
-  generic) open "$base_url" ;;
-esac
+# Open the URL derived from the remote directly rather than via `glab`/`gh
+# repo view -w`: those need an API token (1Password Touch ID for glab), and
+# glab appends /-/tree/<current branch>, which 404s for unpushed branches.
+_project_web_focus_edge_tab "$base_url" || open "$base_url"

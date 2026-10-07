@@ -137,7 +137,7 @@ project-web [path]
 
 - Defaults to `$PWD` if no path is given; uses the git root
 - If a Microsoft Edge tab already has that repo's URL (or a sub-page like an open issue/PR) open, focuses that tab/window instead of opening a new one
-- Dispatches by the origin remote's host: GitLab remotes use `glab repo view -w`, GitHub remotes use `gh repo view -w`, anything else falls back to deriving an `https://` URL from the remote and opening it
+- Otherwise opens the project root, using an `https://` URL derived from the origin remote (no `glab`/`gh` call, so no API token is needed)
 
 ### Installation
 
