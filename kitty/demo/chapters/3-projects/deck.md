@@ -101,6 +101,8 @@ After the tidy-up
 
 <!-- incremental_lists: true -->
 
+* Look at the tab bar: scratch has
+  gone, and maybe docs too
 * shop-api's dev server is back in
   the shop-api tab, still running
 * docs is down to one shell, or gone

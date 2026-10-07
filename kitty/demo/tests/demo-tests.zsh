@@ -770,6 +770,8 @@ is 'ch3 beat 3 shows the result on a slide, no tour' \
   "$(zsh $DEMO_ROOT/play 3 --dry-run --only 3 2>&1 | grep -E '^(slide|press)' | awk '{print $1, $2, $3}' | sed 's/ *$//' | paste -sd, -)" \
   'slide goto 6,press cmd+shift+w,press enter,slide goto 7'
 grep -q '^tour-tabs' $C3/beats/03-tidy.zsh && bad 'ch3 beat 3 still tours the tabs' || ok 'ch3 beat 3 lets the slide show the result'
+[[ $(print -r -- $slides3[7] | grep '^\* ' | head -1) == '* Look at the tab bar'* ]] && ok 'ch3 After the tidy-up points at the tab bar first' \
+  || bad "ch3 After the tidy-up starts with: $(print -r -- $slides3[7] | grep '^\* ' | head -1)"
 is 'ch3 After the tidy-up says nothing about a tour' "$(print -r -- $slides3[7] | grep -c 'Watch:')" 0
 is 'ch3 beat 3 holds the picker 5 s before applying' "$(grep -B1 '^press enter' $C3/beats/03-tidy.zsh | head -1)" 'beat-pause 5'
 is 'ch3 beat 4 opens blog beside the slides' "$(shape3 4)" \

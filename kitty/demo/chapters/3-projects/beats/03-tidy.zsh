@@ -29,5 +29,6 @@ beat-pause 1
 # tabs: the slide says what changed
 slide goto 7 'After the tidy-up'
 beat-pause 2
+reveal 'Look at the tab bar' 3.5
 reveal "shop-api's dev server is back" 3
 reveal 'docs is down to one shell' 3
