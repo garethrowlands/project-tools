@@ -221,7 +221,7 @@ demo_stage_current() {
 
 # Start of a real run: the deck's tab goes to the chapter's layout
 # (DEMO_START_LAYOUT, from its `layout` file; default splits, for vsplit/hsplit) and Hammerspoon pins the focused kitty OS window, makes it
-# fill the screen, parks the pointer in it and arms the abort hotkey, which
+# fill the screen, parks the pointer near its top right and arms the abort hotkey, which
 # signals the pid in PIDFILE.
 demo_begin() {
   local deck=${DEMO_IDS[deck]} pidfile=$1

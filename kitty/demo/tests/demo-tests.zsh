@@ -710,7 +710,7 @@ zsh $DEMO_ROOT/play 1 --inside --dry-run >/dev/null 2>&1; is '--inside is accept
 
 # --- chapter 3 -----------------------------------------------------------------------
 slides3=("${(@ps:<!-- end_slide -->:)$(<$C3/deck.md)}")
-is 'chapter 3 has 11 slides' $#slides3 11
+is 'chapter 3 has 12 slides' $#slides3 12
 is 'chapter 3 slides fit beside a pane' "$(perl -CSD -nle 'print if length > 40' $C3/deck.md)" ''
 for f in $C3/beats/*.zsh; do
   for line in ${(f)"$(grep '^slide goto' $f)"}; do
@@ -823,6 +823,14 @@ for k in ${(u)${(f)"$(zsh $DEMO_ROOT/play 2 --dry-run 2>&1 | awk '$1 == "press" 
   grep -qF -- "$(demo_badge $k)" $C2/deck.md && ok "ch2 deck shows $k as its badge $(demo_badge $k)" \
     || bad "ch2 deck never shows $k as $(demo_badge $k)"
 done
+
+# --- chapter 3 closing; pointer park -------------------------------------------------
+is 'ch3 closes on a slide naming the tools and where they live' \
+  "$(print -r -- $slides3[12] | grep -cE 'switch-project|github.com/garethrowlands/project-tools')" 2
+is 'ch3 ends on its closing slide' "$(zsh $DEMO_ROOT/play 3 --dry-run 2>&1 | grep '^slide goto' | tail -1 | awk '{print $3}')" 12
+# the pointer starts clear of the slide text, top right, not dead centre
+grep -q 'local PARK = {x = 0.8, y = 0.2}' $DEMO_ROOT/stage.lua && grep -q 'postMove({x = f.x + f.w \* PARK.x, y = f.y + f.h \* PARK.y})' $DEMO_ROOT/stage.lua \
+  && ok 'begin parks the pointer top right' || bad 'begin still parks the pointer elsewhere'
 
 # (later tasks add sections above this line)
 exit $fail

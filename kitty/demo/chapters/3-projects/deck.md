@@ -158,3 +158,16 @@ That's getting around
 * ⇧⌘W tidy up
 * ⌘I the IDE
 * ⌘B the web page
+
+<!-- end_slide -->
+
+<!-- jump_to_middle -->
+
+The tools
+=========
+
+zsh and fzf, each on a kitty key:
+switch-project · window · tidy-windows
+ide · project-web
+
+github.com/garethrowlands/project-tools

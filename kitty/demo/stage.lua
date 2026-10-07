@@ -79,8 +79,12 @@ function M.press(mods, key, label)
   return "ok"
 end
 
+-- Where begin parks the pointer, as fractions of the kitty window.
+local PARK = {x = 0.8, y = 0.2}
+
 -- Pin the focused (kitty) window, make it fill its screen (the user tiles
--- windows full, half or quarter screen), park the pointer in its middle and
+-- windows full, half or quarter screen), park the pointer near its top right
+-- (clear of the slide text; dead centre looked unnatural) and
 -- arm Ctrl+Alt+Cmd+. to abort the run.
 -- kittyPid, when given, is the kitty process play runs in: the focused
 -- window must belong to it (a second kitty shares the bundle id).
@@ -95,7 +99,7 @@ function M.begin(pidPath, kittyPid)
   savedFrame = main:frame()
   main:setFrame(main:screen():frame(), 0)
   local f = main:frame()
-  postMove({x = f.x + f.w / 2, y = f.y + f.h / 2})
+  postMove({x = f.x + f.w * PARK.x, y = f.y + f.h * PARK.y})
   abortKey = abortKey or hs.hotkey.bind({"ctrl", "alt", "cmd"}, ".", M.abort)
   return "ok"
 end
