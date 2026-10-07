@@ -375,6 +375,15 @@ KITTY_PID=4242 demo_begin $T/pidf >/dev/null 2>&1
 grep -qF "demoStage.begin(\"$T/pidf\", 4242)" $T/hcalls && ok 'demo_begin pins the kitty with our pid' || bad "begin call: $(grep begin $T/hcalls)"
 grep -q 'application():pid()' $DEMO_ROOT/stage.lua && ok 'stage.lua checks kitty by pid' || bad 'stage.lua still tells kitty apart only by bundle id'
 
+# --- demo_poll measures time, not attempts ---
+# a check that is slow to fail (a hung Hammerspoon: hs -c waits 4 s) must not
+# stretch the timeout: 0.5 s means 0.5 s, not 5 tries x 0.4 s
+slow_check() { command sleep 0.4; return 1 }
+t0=$EPOCHREALTIME
+DEMO_TIMEOUT=0.5 demo_poll 'a slow check' slow_check 2>/dev/null
+(( EPOCHREALTIME - t0 < 1.3 )) && ok 'demo_poll gives up on time, however slow its check' \
+  || bad "demo_poll took $(( EPOCHREALTIME - t0 ))s for a 0.5s timeout"
+
 # --- record (stubbed) ---
 demo_hs() {
   print -r -- "$1" >> $T/hcalls

@@ -77,11 +77,16 @@ demo_lua_str() {
 }
 
 # demo_poll WHAT CMD...: run CMD every 0.1 s until it succeeds, for at most
-# DEMO_TIMEOUT seconds. For readiness only; pacing is beat-pause.
+# DEMO_TIMEOUT seconds of real time (not a count of tries: a check that is
+# slow to fail, like a call to a hung Hammerspoon, mustn't stretch it). For
+# readiness only; pacing is beat-pause.
 demo_poll() {
-  local what=$1 i; shift
-  for (( i = 0; i < DEMO_TIMEOUT * 10; i++ )); do
+  zmodload -F zsh/datetime p:EPOCHREALTIME
+  local what=$1; shift
+  local deadline=$(( EPOCHREALTIME + DEMO_TIMEOUT ))
+  while :; do
     "$@" && return 0
+    (( EPOCHREALTIME < deadline )) || break
     demo_sleep 0.1
   done
   demo_err "timed out after ${DEMO_TIMEOUT}s waiting for $what"
