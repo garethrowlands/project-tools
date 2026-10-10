@@ -19,7 +19,7 @@ from kitty.fast_data_types import get_boss
 MARKERS = (
     (('blocked',), '!', 'red'),
     (('done',), '✓', 'green'),
-    (('working', 'shell'), '…', 'yellow'),
+    (('working',), '…', 'yellow'),
 )
 
 

@@ -15,7 +15,7 @@ Two jobs:
    was loaded.)
 
 2. Every POLL_SECONDS, works out the agent state of every window running
-   `claude` — blocked, working, shell, done or idle — and publishes it as the
+   `claude` — blocked, working, done or idle — and publishes it as the
    window's `agent_state` user var. When a state changes it redraws the tab
    bar (tab_bar.py turns the var into a tab marker) and, if the agent got
    blocked or finished in a window you aren't looking at, sends a desktop
@@ -57,9 +57,8 @@ def agent_state(status: str, since: float, seen_at: str, looked_at: bool) -> str
         return 'blocked'
     if status == 'busy':
         return 'working'
-    if status == 'shell':
-        return 'shell'
-    if status == 'idle':
+    # 'shell': undocumented; a session sits in it once its turn has finished
+    if status in ('idle', 'shell'):
         if seen_at.isdigit() and not looked_at and since > int(seen_at):
             return 'done'
         return 'idle'
@@ -135,10 +134,26 @@ def poll(boss: Any) -> None:
         del published[window_id]
 
 
+def retire_older_copies() -> None:
+    """kitty caches a watcher by path and never unloads one, so a changed copy
+    of this file only gets loaded under a new name, alongside the old one —
+    whose timer would go on publishing states by its old rules, and sending
+    its own notifications. Its poll becomes a no-op, and the focus events of
+    the windows it is attached to are served by this copy."""
+    from kitty.launch import watcher_modules
+    for module in list(watcher_modules.values()):
+        older = getattr(module.get('poll'), '__globals__', None)
+        if older is None or older is globals() or 'published' not in older:
+            continue
+        older['poll'] = lambda boss: None
+        older['refresh'] = refresh
+
+
 def start_timer() -> None:
     global timer_started
     if timer_started:
         return
+    retire_older_copies()
     from kitty.fast_data_types import add_timer, get_boss
     add_timer(lambda *a: poll(get_boss()), POLL_SECONDS, True)
     timer_started = True

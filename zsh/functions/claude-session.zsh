@@ -108,10 +108,12 @@ _claude_session_title_from_file() {
 #
 #   blocked  waiting on you (a permission prompt or a question)
 #   working  busy
-#   shell    "shell": not seen documented; taken to be running a shell command,
-#            so working by another name
 #   done     idle, and it went idle after you last looked at its window
 #   idle     idle, and you've seen it
+#
+# "shell" counts as idle: it isn't documented, but a session sits in it after
+# its turn has finished (seemingly while a shell command it started is still
+# running in the background), so it is waiting for you just as an idle one is.
 #
 # "Last looked" is the window's `seen_at` user var, stamped by
 # kitty/focus_watcher.py on focus gain and loss (pass it as $2; anything
@@ -129,8 +131,7 @@ _claude_session_state() {
   case $session_status in
     waiting) state=blocked ;;
     busy)    state=working ;;
-    shell)   state=shell ;;
-    idle)
+    idle|shell)
       state=idle
       [[ "$seen_at" == <-> && "$is_current" != 1 ]] && (( since > seen_at )) && state='done'
       ;;

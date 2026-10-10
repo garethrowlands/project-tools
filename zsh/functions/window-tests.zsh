@@ -100,15 +100,15 @@ is 'other config dir: state and last ai-title'   "$(row 9)" '! proj > i [Real ti
 is 'parked session takes the job'"'"'s title'    "$(row 10)" '· proj > j [the parked job]'
 is 'rows stay in kitty order' "$(print -r -- "$LIST" | cut -f1 | tr '\n' ' ')" '1 2 3 4 5 6 7 8 9 10 '
 
+# "shell" is idle by another name
 session 113 shell 2000
-windows 1 13:claude:m:1000
+windows 1 13:claude:m:1000 14:claude:m:3000
+session 114 shell 2000
 LIST=$(list 1)
-is 'shell is working by another name'            "$(row 13)" '… proj > m [slug-113]'
-: >| $T/order
-RAW=$(HOME=$T/home PATH=$T/bin:$PATH zsh -f $ROOT/zsh/bin/window-list $T/closed $T/order)
-[[ $RAW == *$'\033[38;5;208m…'* ]] && ok 'shell has its own colour' || bad "shell colour: ${(q+)RAW}"
-windows 1 1:claude:a:1000 13:claude:m:1000 2:claude:b:1000
-is 'shell does not need you: next-agent passes'  "$(next_agent)" '@ focus-window --match id:13'
+is 'shell since after seen_at is done'           "$(row 13)" '✓ proj > m [slug-113]'
+is 'shell since before seen_at is idle'          "$(row 14)" '· proj > m [slug-114]'
+windows 2 2:claude:b:1000 13:claude:m:1000 4:claude:d:3000
+is 'next-agent seeks out a finished shell one'   "$(next_agent)" '@ focus-window --match id:13'
 
 # pid 101 again, left behind in the other config dir by a dead process
 session 101 busy 100 .claude-k

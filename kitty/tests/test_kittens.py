@@ -331,7 +331,8 @@ for focused in (True, False):
 for status, since, seen_at, looked_at, want in [
     ('waiting', 2000, '1000', False, 'blocked'),
     ('busy', 2000, '1000', False, 'working'),
-    ('shell', 2000, '1000', False, 'shell'),
+    ('shell', 2000, '1000', False, 'done'),
+    ('shell', 2000, '3000', False, 'idle'),
     ('idle', 2000, '1000', False, 'done'),
     ('idle', 2000, '3000', False, 'idle'),
     ('idle', 2000, '', False, 'idle'),
@@ -445,6 +446,19 @@ fw.poll(boss)
 check('poll forgets closed windows', set(fw.published) == {2}, fw.published)
 os.environ['HOME'] = real_home
 
+# a changed watcher is loaded beside the old copy, which it has to silence
+old = load('focus_watcher')
+old.timer_started = True
+kitty.launch.watcher_modules['/old/focus_watcher.py'] = dict(vars(old))
+kitty.launch.watcher_modules['/new/focus_watcher.py'] = dict(vars(fw))
+kitty.launch.watcher_modules['/other/watcher.py'] = {'on_focus_change': lambda *a: None}
+fw.retire_older_copies()
+old.published[9] = 'working'
+old.poll(AgentBoss())
+check('an older copy of the watcher stops polling', old.published == {9: 'working'}, old.published)
+check('an older copy hands its focus events to this one', old.refresh is fw.refresh and fw.refresh.__module__ == 'focus_watcher')
+check('this copy keeps polling', fw.poll.__name__ == 'poll' and vars(fw)['poll'] is fw.poll)
+
 # tab_bar.py: one marker per tab, the most pressing of its windows' agent states
 import kitty.tab_bar as ktb  # noqa: E402
 
@@ -464,7 +478,6 @@ red, green, yellow, back = fmt.fg.red, fmt.fg.green, fmt.fg.yellow, fmt.fg.tab
 check('tab marker: blocked beats everything', tab_marker('working', 'done', 'blocked', '') == f'{red}! {back}', repr(tab_marker('working', 'done', 'blocked', '')))
 check('tab marker: done beats working', tab_marker('idle', 'working', 'done') == f'{green}✓ {back}')
 check('tab marker: working', tab_marker('idle', 'working') == f'{yellow}… {back}')
-check('tab marker: shell counts as working', tab_marker('shell') == f'{yellow}… {back}')
 check('tab marker: nothing for idle agents or none', tab_marker('idle', '') == '' and tab_marker() == '')
 check('tab marker: colours differ and are set', len({red, green, yellow, back}) == 4 and all((red, green, yellow, back)), (red, green, yellow, back))
 tb.get_boss = lambda: None
