@@ -23,12 +23,11 @@ _claude_session_file() {
   # CLAUDE_CONFIG_DIR=~/.claude-k for a separate work profile) — its
   # sessions/projects live entirely under that dir instead of ~/.claude, so
   # every ~/.claude* directory that looks like a config dir has to be checked.
-  local -a config_dirs
-  config_dirs=(~/.claude*(N/))
-  local config_dir
-  for config_dir in "${config_dirs[@]}"; do
-    [[ -r "$config_dir/sessions/$pid.json" ]] && { print -r -- "$config_dir/sessions/$pid.json"; return }
-  done
+  # Should two of them have a file for this pid (one left by a dead process
+  # whose pid has been reused), the most recently modified is the live one's.
+  local -a session_files
+  session_files=(~/.claude*/sessions/$pid.json(N.om))
+  (( $#session_files )) && print -r -- $session_files[1]
 }
 
 # Claude session titles.

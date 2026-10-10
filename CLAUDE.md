@@ -41,7 +41,7 @@ map kitty_mod+j         launch --type=overlay --cwd=current next-agent
 map kitty_mod+shift+j   launch --type=overlay --cwd=current next-agent --prev
 ```
 
-`switch-project` and `window` are picker-per-target (jump to one project/window); `tidy-windows` is a bulk review across all open windows — kept as a separate binding rather than merged into `window`, since it fires an Anthropic API call on each run. `next-agent` has no picker: it focuses the next window whose Claude agent is blocked or has finished unseen (which needs `watcher focus_watcher.py` in `kitty.conf`), or with none of those just the next agent window; `--prev` goes backwards. See `.claude/skills/install-scripts/SKILL.md` for the full setup (symlinks, `listen_on` for `window`'s live preview, these bindings).
+`switch-project` and `window` are picker-per-target (jump to one project/window); `tidy-windows` is a bulk review across all open windows — kept as a separate binding rather than merged into `window`, since it fires an Anthropic API call on each run. The same agent states appear as tab markers and desktop notifications without any key, from `kitty/focus_watcher.py` (polls each agent's state) and `kitty/tab_bar.py` (`{custom}` in `tab_title_template`); see `docs/project-picker.md`. `next-agent` has no picker: it focuses the next window whose Claude agent is blocked or has finished unseen (which needs `watcher focus_watcher.py` in `kitty.conf`), or with none of those just the next agent window; `--prev` goes backwards. See `.claude/skills/install-scripts/SKILL.md` for the full setup (symlinks, `listen_on` for `window`'s live preview, these bindings).
 
 ## Dependencies
 

@@ -110,6 +110,14 @@ RAW=$(HOME=$T/home PATH=$T/bin:$PATH zsh -f $ROOT/zsh/bin/window-list $T/closed 
 windows 1 1:claude:a:1000 13:claude:m:1000 2:claude:b:1000
 is 'shell does not need you: next-agent passes'  "$(next_agent)" '@ focus-window --match id:13'
 
+# pid 101 again, left behind in the other config dir by a dead process
+session 101 busy 100 .claude-k
+touch -t 202001010000 $T/home/.claude-k/sessions/101.json
+windows 7 1:claude:a:1000
+LIST=$(list 7)
+is 'two config dirs, one pid: the newer file'    "$(row 1)" '! proj > a [slug-101]'
+rm $T/home/.claude-k/sessions/101.json
+
 print -r -- '{"pid": 111, "status": "thinking", "statusUpdatedAt": 1}' >| $T/home/.claude/sessions/111.json
 print -r -- 'not json' >| $T/home/.claude/sessions/112.json
 windows 1 11:claude:k:1000 12:claude:l:1000

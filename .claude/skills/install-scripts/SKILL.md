@@ -55,6 +55,22 @@ ln -s $PWD/kitty/focus_watcher.py ~/.config/kitty/focus_watcher.py
 echo 'watcher focus_watcher.py' >> ~/.config/kitty/kitty.conf
 ```
 
+The same watcher drives the tab markers (`!` an agent in the tab is blocked, `✓` one has finished unseen, `…` one is working) and the "Claude needs you" / "Claude finished" desktop notifications. The markers also need `tab_bar.py`, and `{custom}` at the front of the tab title template in `kitty.conf`:
+
+```zsh
+ln -s $PWD/kitty/tab_bar.py ~/.config/kitty/tab_bar.py
+```
+
+```
+tab_title_template "{custom}{fmt.fg.red}{bell_symbol}{activity_symbol}{fmt.fg.tab}{title}"
+```
+
+kitty loads a watcher file once and caches it by path, so after changing `focus_watcher.py` a config reload isn't enough. Either restart kitty, or — to keep your windows — symlink it under a fresh name, point the `watcher` line at that, and reload the config (Cmd+Ctrl+,):
+
+```zsh
+ln -s $PWD/kitty/focus_watcher.py ~/.config/kitty/agent_watcher.py   # then: watcher agent_watcher.py
+```
+
 ## kitty link handling (`kitty/`)
 
 Symlink the kittens and config into the kitty config directory (kitty follows the symlinks), include the mappings, and source the zsh side. Move any existing `~/.config/kitty/open-actions.conf` aside first — this one replaces it.

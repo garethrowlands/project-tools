@@ -1,4 +1,4 @@
-"""Tests for open_local.py, hint_menu.py, open-actions.conf and focus_watcher.py.
+"""Tests for open_local.py, hint_menu.py, open-actions.conf, focus_watcher.py and tab_bar.py.
 
 Run with kitty's bundled Python (the kittens import kitty internals):
 
@@ -308,6 +308,7 @@ for letter, hint_type, match, groups, expect in [
 
 # focus_watcher.py: seen_at is stamped on focus gain and on focus loss
 fw = load('focus_watcher')
+fw.timer_started = True  # no poll timer in the tests
 
 
 class WatchedWindow:
@@ -325,6 +326,149 @@ for focused in (True, False):
     seen_at = watched.user_vars.get('seen_at', '')
     check(f'focus_watcher stamps seen_at on focus {"gain" if focused else "loss"}',
           seen_at.isdigit() and before <= int(seen_at) <= int(time.time()), watched.user_vars)
+
+# focus_watcher.py: agent states, published as the agent_state user var
+for status, since, seen_at, looked_at, want in [
+    ('waiting', 2000, '1000', False, 'blocked'),
+    ('busy', 2000, '1000', False, 'working'),
+    ('shell', 2000, '1000', False, 'shell'),
+    ('idle', 2000, '1000', False, 'done'),
+    ('idle', 2000, '3000', False, 'idle'),
+    ('idle', 2000, '', False, 'idle'),
+    ('idle', 2000, '-', False, 'idle'),
+    ('idle', 2000, '1000', True, 'idle'),
+    ('thinking', 2000, '1000', False, ''),
+]:
+    got = fw.agent_state(status, since, seen_at, looked_at)
+    check(f'agent_state: {status}, since {since}, seen_at {seen_at!r}, looked_at {looked_at} -> {want!r}', got == want, got)
+
+
+class AgentWindow:
+    def __init__(self, id, pid, proc='claude', seen_at='1000', cwd='/p/shop-api'):
+        self.id, self.os_window_id, self.cwd_of_child = id, 1, cwd
+        self.user_vars = {'seen_at': seen_at} if seen_at else {}
+        self.child = type('Child', (), {'foreground_processes': [{'pid': 1, 'cmdline': ['-zsh']}, {'pid': pid, 'cmdline': [f'/usr/local/bin/{proc}']}]})()
+
+    def set_user_var(self, key, val):
+        if val is None:
+            self.user_vars.pop(key, None)
+        else:
+            self.user_vars[key] = val
+
+    def tabref(self):
+        return type('Tab', (), {'effective_title': 'proj'})()
+
+
+class AgentBoss:
+    def __init__(self, *windows):
+        self.all_windows, self.active_window = list(windows), None
+        self.dirty, self.notified, self.focused = 0, [], []
+        boss = self
+
+        class TabManager:
+            def mark_tab_bar_dirty(self):
+                boss.dirty += 1
+
+        class Notifications:
+            def create_notification_cmd(self):
+                return type('Cmd', (), {})()
+
+            def notify_with_command(self, cmd, channel_id):
+                boss.notified.append((channel_id, cmd.title, cmd.body, cmd.on_activation))
+
+        self.os_window_map, self.notification_manager = {1: TabManager()}, Notifications()
+
+    def set_active_window(self, window, switch_os_window_if_needed=False):
+        self.focused.append((window, switch_os_window_if_needed))
+
+
+def write_session(home, pid, status, since, config='.claude'):
+    os.makedirs(os.path.join(home, config, 'sessions'), exist_ok=True)
+    with open(os.path.join(home, config, 'sessions', f'{pid}.json'), 'w') as fh:
+        json.dump({'pid': pid, 'status': status, 'statusUpdatedAt': since * 1000}, fh)
+
+
+real_home, agent_home = os.environ.get('HOME'), os.path.realpath(tempfile.mkdtemp(prefix='kitty-agent-test-'))
+os.environ['HOME'] = agent_home
+fw.is_looked_at = lambda boss, window: boss.active_window is window
+
+write_session(agent_home, 501, 'busy', 2000)
+write_session(agent_home, 502, 'waiting', 2000, '.claude-k')
+write_session(agent_home, 503, 'waiting', 2000)
+check('session_file finds a session in another config dir', fw.session_file(502) == os.path.join(agent_home, '.claude-k', 'sessions', '502.json'), fw.session_file(502))
+check('session_file: none for an unknown pid', fw.session_file(599) == '')
+write_session(agent_home, 501, 'idle', 100, '.claude-k')
+os.utime(os.path.join(agent_home, '.claude-k', 'sessions', '501.json'), (1, 1))
+check('session_file: of two for one pid, the newer', fw.session_file(501) == os.path.join(agent_home, '.claude', 'sessions', '501.json'), fw.session_file(501))
+
+a, b, c, d = AgentWindow(1, 501), AgentWindow(2, 502), AgentWindow(3, 503, proc='zsh'), AgentWindow(4, 599)
+boss = AgentBoss(a, b, c, d)
+boss.active_window = b
+fw.poll(boss)
+check('poll publishes each agent\'s state', (a.user_vars.get('agent_state'), b.user_vars.get('agent_state')) == ('working', 'blocked'), (a.user_vars, b.user_vars))
+check('poll: a session file for a pid that isn\'t claude now is ignored', 'agent_state' not in c.user_vars, c.user_vars)
+check('poll: claude with no session file has no state', 'agent_state' not in d.user_vars, d.user_vars)
+check('poll redraws the tab bar once per change', boss.dirty == 2, boss.dirty)
+check('poll: no notification for the window you are looking at', boss.notified == [], boss.notified)
+fw.poll(boss)
+check('poll: nothing changed, nothing redrawn', boss.dirty == 2, boss.dirty)
+
+write_session(agent_home, 501, 'waiting', 2100)
+fw.poll(boss)
+check('poll: blocked elsewhere notifies, saying where', [n[:3] for n in boss.notified] == [(1, 'Claude needs you', 'proj › shop-api')], boss.notified)
+fw.poll(boss)
+check('poll: one notification per change', len(boss.notified) == 1, boss.notified)
+boss.notified[0][3]()
+check('clicking the notification focuses that window', boss.focused == [(1, True)], boss.focused)
+
+write_session(agent_home, 501, 'idle', 2200)
+fw.poll(boss)
+check('poll: finished elsewhere is done, and notifies', a.user_vars.get('agent_state') == 'done' and boss.notified[-1][:2] == (1, 'Claude finished'), (a.user_vars, boss.notified))
+boss.active_window = a
+fw.on_focus_change(boss, a, {'focused': True})
+check('focusing a done window makes it idle at once', a.user_vars.get('agent_state') == 'idle' and len(boss.notified) == 2, a.user_vars)
+
+write_session(agent_home, 502, 'idle', 2300, '.claude-k')
+boss.active_window = b
+fw.poll(boss)
+check('poll: finishing while you watch is idle, not done', b.user_vars.get('agent_state') == 'idle' and len(boss.notified) == 2, (b.user_vars, boss.notified))
+
+a.child.foreground_processes[-1]['cmdline'] = ['/bin/zsh']
+fw.poll(boss)
+check('poll: the state goes when claude exits', 'agent_state' not in a.user_vars, a.user_vars)
+with open(os.path.join(agent_home, '.claude-k', 'sessions', '502.json'), 'w') as fh:
+    fh.write('not json')
+fw.poll(boss)
+check('poll: a malformed session file is no state', 'agent_state' not in b.user_vars, b.user_vars)
+boss.all_windows = [b]
+fw.poll(boss)
+check('poll forgets closed windows', set(fw.published) == {2}, fw.published)
+os.environ['HOME'] = real_home
+
+# tab_bar.py: one marker per tab, the most pressing of its windows' agent states
+import kitty.tab_bar as ktb  # noqa: E402
+
+tb = load('tab_bar')
+# real colour codes; `tab` (back to the tab's own colour) needs a tab being drawn
+real_fg = ktb.ColorFormatter('fg')
+fmt = type('Fmt', (), {'fg': type('Fg', (), {'red': real_fg.red, 'green': real_fg.green, 'yellow': real_fg.yellow, 'tab': '<tab>'})()})()
+
+
+def tab_marker(*states):
+    windows = [type('W', (), {'user_vars': {'agent_state': s} if s else {}})() for s in states]
+    tb.get_boss = lambda: type('Boss', (), {'tab_for_id': lambda self, tab_id: windows if tab_id == 7 else None})()
+    return tb.draw_title({'tab_id': 7, 'fmt': fmt})
+
+
+red, green, yellow, back = fmt.fg.red, fmt.fg.green, fmt.fg.yellow, fmt.fg.tab
+check('tab marker: blocked beats everything', tab_marker('working', 'done', 'blocked', '') == f'{red}! {back}', repr(tab_marker('working', 'done', 'blocked', '')))
+check('tab marker: done beats working', tab_marker('idle', 'working', 'done') == f'{green}✓ {back}')
+check('tab marker: working', tab_marker('idle', 'working') == f'{yellow}… {back}')
+check('tab marker: shell counts as working', tab_marker('shell') == f'{yellow}… {back}')
+check('tab marker: nothing for idle agents or none', tab_marker('idle', '') == '' and tab_marker() == '')
+check('tab marker: colours differ and are set', len({red, green, yellow, back}) == 4 and all((red, green, yellow, back)), (red, green, yellow, back))
+tb.get_boss = lambda: None
+check('tab marker: an error draws nothing', tb.draw_title({'tab_id': 7, 'fmt': fmt}) == '')
 
 print(f'\n{failures} failure(s)' if failures else '\nALL OK')
 sys.exit(1 if failures else 0)

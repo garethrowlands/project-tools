@@ -51,6 +51,19 @@ Anything else (no session file, malformed, a status this doesn't know) is no sta
 
 `window-list` passes `seen_at` through its tab-separated rows as `-` when absent: tab is IFS whitespace, so `read` would swallow an empty field and shift the rest.
 
+### Tab markers and notifications
+
+The same states also show without asking. `kitty/focus_watcher.py` doesn't only stamp `seen_at`: every 2 seconds (`add_timer`, started from the watcher's `on_load`) it works out the state of every window whose foreground process is `claude`, by the rules above (`agent_state` in the watcher mirrors `_claude_session_state` — keep the two in step), and publishes it as the window's `agent_state` user var, removing the var when there's no state. A focus change refreshes that one window at once, so a `done` clears as you arrive. Polling rather than Claude Code hooks: it's the picker's own source of truth, so the two can't disagree; it sees what no hook fires for (an Esc interrupt, a question prompt, `shell`); it needs nothing in any profile's Claude settings; and the cost is a few small file reads, for a lag of up to 2s.
+
+When a window's state changes, the watcher:
+
+- marks that OS window's tab bar dirty, and **`kitty/tab_bar.py`**'s `draw_title` — kitty calls it for `{custom}` in `tab_title_template` — gives each tab one marker for the most pressing state among its windows: red `!` blocked, else green `✓` done, else yellow `…` working or shell; nothing otherwise.
+- if it became `blocked` or `done` in a window you aren't looking at (not the active window of the focused OS window — which includes kitty not being frontmost at all), sends a desktop notification through kitty's notification manager: "Claude needs you" or "Claude finished", with `<tab title> › <cwd basename>`. Clicking it focuses the window. One per change, never repeated while the state holds. Claude Code's own notifications are separate; if both fire for a permission prompt, turn its channel off in `/config`.
+
+Unlike `seen_at`, the poll covers every window, including ones older than the watcher (kitty loads a watcher file once and caches it by path, and its focus events only reach windows created after that; to pick up a changed watcher without restarting kitty, symlink it under a new name, point `watcher` at that and reload the config) — those just never show `done`.
+
+If two config dirs each have a `sessions/<pid>.json` for the same pid (one left by a dead process whose pid was reused under the other profile), both the zsh and the watcher lookups take the most recently modified.
+
 ## zoxide ranking
 
 The `fd` scan cache stays the source of truth for projects; zoxide only adds to it and orders it. Rules applied in `_project_build_list`'s awk:
