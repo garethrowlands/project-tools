@@ -96,6 +96,13 @@ def test_build_rows_maps_fields_including_tab_id():
     assert row["last_focused_at"] == 12.5
     assert row["pid"] == 4242
     assert row["proc"] == "nvim"
+    assert row["seen_at"] is None
+
+
+def test_build_rows_reads_seen_at_user_var():
+    module = load_module()
+    window = {**make_window(1, "/p/a"), "user_vars": {"seen_at": "1700000000"}}
+    assert module.build_rows(make_kitty_ls({7: [window]}))[0]["seen_at"] == "1700000000"
 
 
 # --- claude_session_name ---
@@ -183,6 +190,51 @@ def test_claude_session_name_malformed_file_returns_none(tmp_path):
     config_dir = make_config_dir(tmp_path)
     (config_dir / "sessions" / "1234.json").write_text("not json")
     assert module.claude_session_name(1234, config_dirs=[config_dir]) is None
+
+
+def test_claude_session_name_prefers_newest_file_across_config_dirs(tmp_path):
+    import os
+
+    module = load_module()
+    default_dir = make_config_dir(tmp_path, ".claude")
+    work_dir = make_config_dir(tmp_path, ".claude-k")
+    stale = write_session(default_dir, 9999, name="stale-slug")
+    write_session(work_dir, 9999, name="live-slug")
+    os.utime(stale, (1, 1))
+    assert module.claude_session_name(9999, config_dirs=[default_dir, work_dir]) == "live-slug"
+
+
+# --- agent state ---
+
+
+def test_agent_state_table():
+    module = load_module()
+    assert module.agent_state("waiting", 200, "100", False) == "blocked"
+    assert module.agent_state("busy", 200, "100", False) == "working"
+    assert module.agent_state("idle", 200, "100", False) == "done"
+    assert module.agent_state("shell", 200, "100", False) == "done"
+    assert module.agent_state("idle", 50, "100", False) == "idle"
+    assert module.agent_state("idle", 200, "100", True) == "idle"  # you're looking at it
+    assert module.agent_state("idle", 200, None, False) == "idle"  # watcher never saw the window
+    assert module.agent_state("something-new", 200, "100", False) is None
+
+
+def test_claude_agent_state_reads_session_file(tmp_path):
+    module = load_module()
+    config_dir = make_config_dir(tmp_path)
+    write_session(config_dir, 1234, status="idle", statusUpdatedAt=200_000)
+    assert module.claude_agent_state(1234, "100", False, config_dirs=[config_dir]) == "done"
+    assert module.claude_agent_state(1234, "300", False, config_dirs=[config_dir]) == "idle"
+
+
+def test_claude_agent_state_missing_or_malformed_is_none(tmp_path):
+    module = load_module()
+    config_dir = make_config_dir(tmp_path)
+    assert module.claude_agent_state(1234, "100", False, config_dirs=[config_dir]) is None
+    (config_dir / "sessions" / "1234.json").write_text("not json")
+    assert module.claude_agent_state(1234, "100", False, config_dirs=[config_dir]) is None
+    write_session(config_dir, 1235, status="idle", statusUpdatedAt="soon")
+    assert module.claude_agent_state(1235, "100", False, config_dirs=[config_dir]) is None
 
 
 # --- parse_boottime / idle_label ---
@@ -315,6 +367,27 @@ def test_build_windows_payload_skips_claude_session_lookup_for_non_claude_proc(m
     rows = [{"id": 1, "tab_id": 1, "cwd": "/p/a", "is_focused": False, "last_focused_at": 0.0, "pid": 42, "proc": "vim"}]
     windows = module.build_windows_payload(rows, {}, boot_epoch_s=0.0, now_epoch_s=0.0)
     assert windows[0]["claude_session"] is None
+
+
+def test_build_windows_payload_includes_claude_state(monkeypatch):
+    module = load_module()
+    monkeypatch.setattr(module, "claude_session_name", lambda pid: None)
+    calls = []
+
+    def fake_state(pid, seen_at, looked_at):
+        calls.append((pid, seen_at, looked_at))
+        return "done"
+
+    monkeypatch.setattr(module, "claude_agent_state", fake_state)
+    base = {"cwd": "/p/a", "last_focused_at": 0.0, "is_focused": False, "seen_at": "100"}
+    rows = [
+        {**base, "id": 1, "pid": 41, "proc": "claude"},
+        {**base, "id": 2, "pid": 42, "proc": "claude"},
+        {**base, "id": 3, "pid": 43, "proc": "zsh"},
+    ]
+    windows = module.build_windows_payload(rows, {}, boot_epoch_s=0.0, now_epoch_s=0.0, current_window_id=2)
+    assert [w["claude_state"] for w in windows] == ["done", "done", None]
+    assert calls == [(41, "100", False), (42, "100", True)]
 
 
 # --- project_key / project_label ---
@@ -474,6 +547,45 @@ def test_merge_actions_label_omits_bracket_when_no_claude_session():
     windows = [{"id": 1, "cwd": "/p/a", "idle_label": "1h idle", "git": None, "claude_session": None}]
     result = module.merge_actions(windows, {"recommendations": []}, {})
     assert "[" not in result[0]["label"]
+
+
+def test_merge_actions_label_marks_agent_state():
+    module = load_module()
+    base = {"cwd": "/p/a", "idle_label": "1h idle", "git": None, "claude_session": "my-session"}
+    windows = [{**base, "id": 1, "claude_state": "blocked"}, {**base, "id": 2, "claude_state": "idle"}]
+    result = module.merge_actions(windows, {"recommendations": []}, {})
+    assert result[0]["label"].endswith("(1h idle) ! [my-session]")
+    assert result[1]["label"].endswith("(1h idle) [my-session]")
+    assert [r["claude_state"] for r in result] == ["blocked", "idle"]
+
+
+# --- protect_active_agents ---
+
+
+def test_protect_active_agents_overrides_close():
+    module = load_module()
+    for state in ("working", "blocked", "done"):
+        rows = [{"id": 1, "action": "close", "target_tab": None, "reason": "stale", "label": "x", "claude_state": state}]
+        result = module.protect_active_agents(rows)
+        assert result[0]["action"] == "keep"
+        assert result[0]["reason"] == module.ACTIVE_AGENT_REASONS[state]
+
+
+def test_protect_active_agents_leaves_idle_and_non_claude_closes():
+    module = load_module()
+    rows = [
+        {"id": 1, "action": "close", "target_tab": None, "reason": "stale", "label": "x", "claude_state": "idle"},
+        {"id": 2, "action": "close", "target_tab": None, "reason": "stale", "label": "y", "claude_state": None},
+    ]
+    assert [r["action"] for r in module.protect_active_agents(rows)] == ["close", "close"]
+
+
+def test_protect_active_agents_leaves_moves_alone():
+    module = load_module()
+    rows = [{"id": 1, "action": "move", "target_tab": 2, "reason": "r", "label": "x", "claude_state": "working"}]
+    result = module.protect_active_agents(rows)
+    assert result[0]["action"] == "move"
+    assert result[0]["target_tab"] == 2
 
 
 # --- protect_current_window ---

@@ -23,7 +23,8 @@ Two jobs:
 
 The state comes from Claude Code's ~/.claude*/sessions/<pid>.json, by the same
 rules as `_claude_session_state` in zsh/functions/claude-session.zsh, which the
-window picker and next-agent use — keep the two in step. That file is
+window picker and next-agent use, and `agent_state` in
+python/tidy-windows-advise/advise — keep the three in step. That file is
 undocumented internal state, so anything missing or malformed means "no
 state", never an error.
 """

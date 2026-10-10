@@ -99,7 +99,8 @@ _claude_session_title_from_file() {
   [[ -n "$name" ]] && print -r -- "$name"
 }
 
-# Agent state.
+# Agent state. (kitty/focus_watcher.py and python/tidy-windows-advise/advise
+# apply the same rules in Python — keep the three in step.)
 #
 # The session file carries "status" (busy | shell | idle | waiting) and
 # "statusUpdatedAt" (ms epoch, written only when the status changes — an idle

@@ -62,6 +62,8 @@ def build_rows(kitty_ls_json: list) -> list[dict]:
                         "cmdline": fg[0].get("cmdline", []),
                         "is_focused": bool(window.get("is_focused")),
                         "last_focused_at": window.get("last_focused_at"),
+                        # when you last looked at the window, stamped by kitty/focus_watcher.py
+                        "seen_at": (window.get("user_vars") or {}).get("seen_at"),
                         # last foreground process is the front-most running command
                         # (e.g. `claude`) - used to look up a Claude session name below.
                         "pid": fg[-1].get("pid"),
@@ -154,15 +156,64 @@ def _title_from_session_file(config_dir: Path, session_file: Path) -> str | None
     return name if isinstance(name, str) and name else None
 
 
-def claude_session_name(pid, config_dirs: list[Path] | None = None) -> str | None:
-    """Look up a running Claude Code session's title by its pid."""
+def _session_file(pid, config_dirs: list[Path] | None = None) -> tuple[Path, Path] | None:
+    """(config dir, session file) of a claude process's pid. Should two config dirs have
+    one for this pid (one left by a dead process whose pid has been reused), the most
+    recently modified is the live process's."""
     if not pid:
         return None
+    found = []
     for config_dir in config_dirs if config_dirs is not None else _config_dirs():
         session_file = config_dir / "sessions" / f"{pid}.json"
         if session_file.is_file():
-            return _title_from_session_file(config_dir, session_file)
+            found.append((config_dir, session_file))
+    return max(found, key=lambda f: f[1].stat().st_mtime) if found else None
+
+
+def claude_session_name(pid, config_dirs: list[Path] | None = None) -> str | None:
+    """Look up a running Claude Code session's title by its pid."""
+    found = _session_file(pid, config_dirs)
+    return _title_from_session_file(*found) if found else None
+
+
+# ── Claude agent state ───────────────────────────────────────────────────────
+#
+# What the agent in a window is doing, by the same rules as `_claude_session_state` in
+# zsh/functions/claude-session.zsh (the window picker, next-agent) and `agent_state` in
+# kitty/focus_watcher.py (tab markers, notifications) - keep the three in step. From the
+# session file's "status" and "statusUpdatedAt" (ms epoch of the last status change):
+#
+#   blocked  "waiting": on you, for a permission or an answer
+#   working  "busy"
+#   done     "idle" or "shell", since after you last looked at the window (its `seen_at`)
+#   idle     "idle" or "shell", and you've seen it
+#
+# The window you are in right now is never "done": you are looking at it.
+
+
+def agent_state(status, since_s: float, seen_at, looked_at: bool) -> str | None:
+    if status == "waiting":
+        return "blocked"
+    if status == "busy":
+        return "working"
+    if status in ("idle", "shell"):
+        if str(seen_at or "").isdigit() and not looked_at and since_s > int(seen_at):
+            return "done"
+        return "idle"
     return None
+
+
+def claude_agent_state(pid, seen_at, looked_at: bool, config_dirs: list[Path] | None = None) -> str | None:
+    """A running Claude Code session's agent state by its pid, None if it can't be told."""
+    found = _session_file(pid, config_dirs)
+    data = _read_json(found[1]) if found else None
+    if not data:
+        return None
+    try:
+        since_s = float(data.get("statusUpdatedAt") or 0) / 1000
+    except (TypeError, ValueError):
+        return None
+    return agent_state(data.get("status"), since_s, seen_at, looked_at)
 
 
 # ── idle time ────────────────────────────────────────────────────────────────
@@ -251,10 +302,15 @@ def git_summary(cwd: str) -> dict | None:
 
 
 def build_windows_payload(
-    rows: list[dict], git_cache: dict[str, dict | None], boot_epoch_s: float, now_epoch_s: float
+    rows: list[dict],
+    git_cache: dict[str, dict | None],
+    boot_epoch_s: float,
+    now_epoch_s: float,
+    current_window_id: int | None = None,
 ) -> list[dict]:
     windows = []
     for row in rows:
+        is_claude = row.get("proc") == "claude"
         windows.append(
             {
                 **row,
@@ -265,7 +321,12 @@ def build_windows_payload(
                 # Only trust a pid's session file when that pid is *currently* running
                 # claude (kitty's own live process data) - a pid whose claude session
                 # ended and got reused by an unrelated process must not show a stale title.
-                "claude_session": claude_session_name(row.get("pid")) if row.get("proc") == "claude" else None,
+                "claude_session": claude_session_name(row.get("pid")) if is_claude else None,
+                "claude_state": (
+                    claude_agent_state(row.get("pid"), row.get("seen_at"), row["id"] == current_window_id)
+                    if is_claude
+                    else None
+                ),
             }
         )
     return windows
@@ -336,7 +397,10 @@ Judge staleness from: idle time, whether the git working tree is dirty or clean,
 the upstream branch, how long ago the last commit was, and whether this window is a redundant duplicate
 of another window already open on the same project. A window's claude_session field, if present, names
 the Claude Code session running there - a distinctive name (not a generic default) suggests active,
-purposeful work and is a reason to lean toward "keep".
+purposeful work and is a reason to lean toward "keep". Its claude_state field says what that session
+is doing: "working" (mid-task), "blocked" (waiting on the user for a permission or an answer), "done"
+(finished, and the user has not looked at the result yet) or "idle" (finished, and the user has seen
+it). Never recommend "close" for a working, blocked or done window; judge an idle one like any other.
 The is_focused field (reflected as "active in tab" in the idle field) means this window was the
 last-active window within its own tab - it does NOT mean the user is looking at it right now (kitty
 tracks that per tab, and several tabs can each show is_focused independently). Treat it as a weak
@@ -367,6 +431,7 @@ def _window_for_prompt(w: dict) -> dict:
         "idle": w["idle_label"],
         "git": git,
         "claude_session": w.get("claude_session"),
+        "claude_state": w.get("claude_state"),
     }
 
 
@@ -391,6 +456,10 @@ def advise(windows: list[dict], model: str, client: "anthropic.Anthropic") -> di
 # ── combining ────────────────────────────────────────────────────────────────
 
 
+# the window picker's markers, for the states that need you to know about them
+AGENT_MARKERS = {"blocked": "!", "done": "✓", "working": "…"}
+
+
 def merge_actions(windows: list[dict], recommendations: dict, moves: dict[int, int]) -> list[dict]:
     by_id = {r["id"]: r for r in recommendations.get("recommendations", [])} if recommendations else {}
 
@@ -407,11 +476,14 @@ def merge_actions(windows: list[dict], recommendations: dict, moves: dict[int, i
         else:
             action, target_tab, reason = "keep", None, NO_RECOMMENDATION
         label = f"{project_label(w)} > {Path(w['cwd']).name} ({w['idle_label']})"
+        if w.get("claude_state") in AGENT_MARKERS:
+            label += f" {AGENT_MARKERS[w['claude_state']]}"
         if w.get("claude_session"):
             label += f" [{w['claude_session']}]"
         final.append(
             {
                 "id": w["id"],
+                "claude_state": w.get("claude_state"),
                 "action": action,
                 "target_tab": target_tab,
                 "reason": reason,
@@ -444,6 +516,26 @@ def protect_current_window(final_rows: list[dict], current_window_id: int | None
             r["reason"] = CURRENT_WINDOW_REASON
             if CURRENT_WINDOW_MARKER not in r["label"]:
                 r["label"] = f"{r['label']} {CURRENT_WINDOW_MARKER}"
+    return final_rows
+
+
+ACTIVE_AGENT_REASONS = {
+    "working": "Claude is working here — never auto-closed",
+    "blocked": "Claude is waiting on you here — never auto-closed",
+    "done": "Claude finished here and you haven't looked yet — never auto-closed",
+}
+
+
+def protect_active_agents(final_rows: list[dict]) -> list[dict]:
+    """Hard-override "close" to "keep" for a window whose Claude agent is working, blocked
+    on you, or has finished without you having seen the result: closing it would kill the
+    task or throw away an answer you haven't read. Enforced in code, like the current
+    window, rather than left to the model. A move is harmless (the session carries on in
+    its new tab), so moves stand."""
+    for r in final_rows:
+        if r["action"] == "close" and r.get("claude_state") in ACTIVE_AGENT_REASONS:
+            r["action"] = "keep"
+            r["reason"] = ACTIVE_AGENT_REASONS[r["claude_state"]]
     return final_rows
 
 
@@ -503,7 +595,7 @@ def main() -> None:
 
     boot_epoch_s = boot_epoch()
     now_epoch_s = time.time()
-    windows = build_windows_payload(rows, git_cache, boot_epoch_s, now_epoch_s)
+    windows = build_windows_payload(rows, git_cache, boot_epoch_s, now_epoch_s, args.current_window_id)
     moves = plan_moves(windows)
 
     try:
@@ -515,6 +607,7 @@ def main() -> None:
         recommendations = {}
 
     final_rows = merge_actions(windows, recommendations, moves)
+    final_rows = protect_active_agents(final_rows)
     final_rows = protect_current_window(final_rows, args.current_window_id)
 
     if args.dry_run:
