@@ -58,7 +58,14 @@ list() {
   HOME=$T/home PATH=$T/bin:$PATH WINDOW_CURRENT_ID=$1 zsh -f $ROOT/zsh/bin/window-list $T/closed $T/order \
     | sed $'s/\033\\[[0-9;]*m//g'
 }
-row() { print -r -- "$LIST" | awk -F'\t' -v id=$1 '$1 == id {print $2}' }
+# a row's label, the padding between its name and project squeezed to one space
+row() { print -r -- "$LIST" | awk -F'\t' -v id=$1 '$1 == id {print $2}' | sed 's/\([^ ]\)  */\1 /g' }
+# relist — like list, but keeps the order file, as fzf's reload after a close does
+relist() {
+  HOME=$T/home PATH=$T/bin:$PATH zsh -f $ROOT/zsh/bin/window-list $T/closed $T/order \
+    | sed $'s/\033\\[[0-9;]*m//g'
+}
+ids() { print -r -- "$LIST" | cut -f1 | tr '\n' ' ' }
 next_agent() {
   : >| $T/kitty.calls
   HOME=$T/home PATH=$T/bin:$PATH zsh -f $ROOT/zsh/bin/next-agent "$@" >| $T/out
@@ -88,25 +95,62 @@ ALL=(1:claude:a:1000 2:claude:b:1000 3:claude:c:1000 4:claude:d:3000 5:claude:e:
 : >| $T/closed
 windows 7 $ALL
 LIST=$(list 7)
-is 'waiting is blocked'                          "$(row 1)" '! proj > a [slug-101]'
-is 'busy is working'                             "$(row 2)" '… proj > b [slug-102]'
-is 'idle since after seen_at is done'            "$(row 3)" '✓ proj > c [slug-103]'
-is 'idle since before seen_at is idle'           "$(row 4)" '· proj > d [slug-104]'
-is 'idle with no seen_at is never done'          "$(row 5)" '· proj > e [slug-105]'
-is 'a stale session file for a non-claude pid'   "$(row 6)" '  proj > f (zsh)'
-is 'the current window is never done'            "$(row 7)" '· proj > g [slug-107]'
-is 'claude with no session file has no marker'   "$(row 8)" '  proj > h (claude)'
-is 'other config dir: state and last ai-title'   "$(row 9)" '! proj > i [Real title]'
-is 'parked session takes the job'"'"'s title'    "$(row 10)" '· proj > j [the parked job]'
-is 'rows stay in kitty order' "$(print -r -- "$LIST" | cut -f1 | tr '\n' ' ')" '1 2 3 4 5 6 7 8 9 10 '
+is 'waiting is blocked'                          "$(row 1)" '! slug-101 a'
+is 'busy is working'                             "$(row 2)" '… slug-102 b'
+is 'idle since after seen_at is done'            "$(row 3)" '✓ slug-103 c'
+is 'idle since before seen_at is idle'           "$(row 4)" '· slug-104 d'
+is 'idle with no seen_at is never done'          "$(row 5)" '· slug-105 e'
+is 'a stale session file for a non-claude pid'   "$(row 6)" '  zsh f'
+is 'the current window is never done'            "$(row 7)" '· slug-107 g'
+is 'claude with no session file has no marker'   "$(row 8)" '  claude h'
+is 'other config dir: state and last ai-title'   "$(row 9)" '! Real title i'
+is 'parked session takes the job'"'"'s title'    "$(row 10)" '· the parked job j'
+is 'rows stay in kitty order, then their tab'    "$(ids)" '1 2 3 4 5 6 7 8 9 10 tab:1 '
+is 'the tab is a header row'                     "$(row tab:1)" '── proj'
+is 'projects line up after the longest name'     "$(print -r -- "$LIST" | awk -F'\t' '$1 == 6 {print $2}')" '  zsh             f'
+
+# --- window-list: one header per tab, after its windows (fzf lists bottom-up,
+# so that shows it above them) ---
+
+# two_tabs TITLE ID... — moves those windows to a second tab (id 2) called TITLE
+two_tabs() {
+  local title=$1; shift
+  jq --arg title $title --argjson ids "[${(j:,:)@}]" '
+    .[0].tabs[0].windows as $w |
+    .[0].tabs[0].windows = [$w[] | select(.id as $i | $ids | index($i) | not)] |
+    .[0].tabs += [{id: 2, title: $title, is_focused: false, is_active: false,
+                   windows: [$w[] | select(.id as $i | $ids | index($i))]}]
+  ' $T/ls.json >| $T/tmp.json && mv $T/tmp.json $T/ls.json
+}
+windows 1 1:claude:proj:1000 6:zsh:f:1000 2:claude:b:1000 3:zsh:other:1000
+two_tabs '~/src/some/other' 2 3
+LIST=$(list 1)
+is 'each tab follows its own windows'            "$(ids)" '1 6 tab:1 2 3 tab:2 '
+is 'a path for a tab title is cut to its tail'   "$(row tab:2)" '── other'
+is 'a window names its project'                  "$(row 2)" '… slug-102 b'
+is 'even when it is the tab'"'"'s own'           "$(row 3)" '  zsh other'
+
+# closing: the row stays put, dimmed, under its header; a header closes nothing
+print -r -- "$LIST" | cut -f1 | sed 's/^closed://' >| $T/order
+: >| $T/kitty.calls
+HOME=$T/home PATH=$T/bin:$PATH zsh -f $ROOT/zsh/bin/window-list $T/closed $T/order close tab:2
+is 'closing a header row does nothing'           "$(grep -c close-window $T/kitty.calls)" '0'
+HOME=$T/home PATH=$T/bin:$PATH zsh -f $ROOT/zsh/bin/window-list $T/closed $T/order close 2
+HOME=$T/home PATH=$T/bin:$PATH zsh -f $ROOT/zsh/bin/window-list $T/closed $T/order close 3
+is 'closing a window asks kitty to'              "$(grep -c close-window $T/kitty.calls)" '2'
+jq 'del(.[0].tabs[1])' $T/ls.json >| $T/tmp.json && mv $T/tmp.json $T/ls.json
+LIST=$(relist)
+is 'a closed tab keeps its header and rows'      "$(ids)" '1 6 tab:1 closed:2 closed:3 tab:2 '
+is 'a closed row keeps its label'                "$(row closed:2)" '[closed] slug-102 b'
+: >| $T/closed
 
 # "shell" is idle by another name
 session 113 shell 2000
 windows 1 13:claude:m:1000 14:claude:m:3000
 session 114 shell 2000
 LIST=$(list 1)
-is 'shell since after seen_at is done'           "$(row 13)" '✓ proj > m [slug-113]'
-is 'shell since before seen_at is idle'          "$(row 14)" '· proj > m [slug-114]'
+is 'shell since after seen_at is done'           "$(row 13)" '✓ slug-113 m'
+is 'shell since before seen_at is idle'          "$(row 14)" '· slug-114 m'
 windows 2 2:claude:b:1000 13:claude:m:1000 4:claude:d:3000
 is 'next-agent seeks out a finished shell one'   "$(next_agent)" '@ focus-window --match id:13'
 
@@ -115,15 +159,15 @@ session 101 busy 100 .claude-k
 touch -t 202001010000 $T/home/.claude-k/sessions/101.json
 windows 7 1:claude:a:1000
 LIST=$(list 7)
-is 'two config dirs, one pid: the newer file'    "$(row 1)" '! proj > a [slug-101]'
+is 'two config dirs, one pid: the newer file'    "$(row 1)" '! slug-101 a'
 rm $T/home/.claude-k/sessions/101.json
 
 print -r -- '{"pid": 111, "status": "thinking", "statusUpdatedAt": 1}' >| $T/home/.claude/sessions/111.json
 print -r -- 'not json' >| $T/home/.claude/sessions/112.json
 windows 1 11:claude:k:1000 12:claude:l:1000
 LIST=$(list 1)
-is 'an unknown status has no marker'             "$(row 11)" '  proj > k (claude)'
-is 'a malformed session file has no marker'      "$(row 12)" '  proj > l (claude)'
+is 'an unknown status has no marker'             "$(row 11)" '  claude k'
+is 'a malformed session file has no marker'      "$(row 12)" '  claude l'
 
 # --- next-agent: agents needing you first (blocked before done, longest-standing
 # first, cycling); with none, the next agent window in kitty order ---

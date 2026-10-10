@@ -11,63 +11,121 @@ order_file=$2
 # Title and agent-state lookups for windows running `claude`
 source "${0:A:h}/../functions/claude-session.zsh"
 
-# Builds one fzf row label from a window's tab title, cwd, foreground-process
-# basename, and pid — shared by the "close" case and the live-list case below.
-# The live list also passes the window's seen_at user var and whether it is
-# the window the picker was opened from, to get the state marker; the "close"
-# case leaves them out, and its marker blank.
-_window_list_label() {
-  local tab=$1 cwd=$2 proc=$3 pid=$4 seen_at=$5 is_current=$6
-  local base=${cwd:t}
-  local state=""
-  [[ "$proc" == "claude" && -n "$seen_at" ]] && state=${"$(_claude_session_state "$pid" "$seen_at" "$is_current")"%%$'\t'*}
-  local label="$(_claude_session_marker "$state") "
-  label+=$([[ -n "$base" ]] && print -r -- "$tab > $base" || print -r -- "$tab")
-  local title=""
-  [[ "$proc" == "claude" ]] && title=$(_claude_session_title "$pid")
+# A window's row leads with what it is running — a `claude` window's
+# conversation title, any other window's foreground process — since that is
+# what tells windows apart; its project (cwd basename) follows, dimmed. The tab
+# is not on the row: each tab gets a header row over its windows (see the end
+# of this file).
+
+# Names can't line up past this many columns; a longer one pushes its project out
+name_width_max=48
+
+# _window_list_name PROC PID [SEEN_AT IS_CURRENT] — sets reply to a window's
+# state marker, its name, and the SGR code the name is shown in. The live list
+# passes the window's seen_at user var and whether it is the window the picker
+# was opened from, to get the marker; the "close" case leaves them out, and
+# its marker blank.
+_window_list_name() {
+  local proc=$1 pid=$2 seen_at=$3 is_current=$4
+  local state="" title=""
+  if [[ "$proc" == "claude" ]]; then
+    [[ -n "$seen_at" ]] && state=${"$(_claude_session_state "$pid" "$seen_at" "$is_current")"%%$'\t'*}
+    title=$(_claude_session_title "$pid")
+  fi
   if [[ -n "$title" ]]; then
-    label+=" "$'\033[1;36m'"[$title]"$'\033[0m'
-  elif [[ -n "$proc" ]]; then
-    label+=" ($proc)"
+    reply=("$(_claude_session_marker "$state")" "$title" '1;36')
+  else
+    reply=("$(_claude_session_marker "$state")" "$proc" '2')
+  fi
+}
+
+# _window_list_label MARKER NAME SGR CWD [WIDTH] — one fzf row label, the name
+# padded to WIDTH so that the projects line up
+_window_list_label() {
+  local marker=$1 name=$2 sgr=$3 base=${4:t} width=${5:-0}
+  local label="$marker "$'\033['"${sgr}m${name}"$'\033[0m'
+  if [[ -n "$base" ]]; then
+    local pad=$(( width - ${#name} ))
+    (( pad > 0 )) && label+=${(l:pad:):-}
+    label+="  "$'\033[2m'"$base"$'\033[0m'
   fi
   print -r -- "$label"
 }
 
+# A tab titled with a path (kitty's default is the active window's title,
+# often its cwd) is known by the last component
+_window_list_tab_name() {
+  [[ $1 == */* ]] && print -r -- "${1:t}" || print -r -- "$1"
+}
+
 if [[ $3 == close ]]; then
   window_id="${4#closed:}"
+  # a tab's header row is not a window
+  [[ $window_id == <-> ]] || exit 0
   awk -F'\t' -v id="$window_id" '$1==id{exit 1}' "$closed_entries" || exit 0
-  local row tab cwd proc pid label
+  local row tab_id tab cwd proc pid label
   row=$(kitty @ ls 2>/dev/null | jq -r --argjson wid "$window_id" '
     .[].tabs[] | . as $tab | .windows[] | select(.id == $wid) | . as $w |
-    [($tab.title), ($w.foreground_processes[0].cwd // $w.title // ""),
+    [($tab.id | tostring), ($tab.title), ($w.foreground_processes[0].cwd // $w.title // ""),
      ($w.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last),
      ($w.foreground_processes[-1].pid // "" | tostring)
     ] | join("\t")
   ')
-  label=""
   if [[ -n "$row" ]]; then
-    IFS=$'\t' read -r tab cwd proc pid <<< "$row"
-    label=$(_window_list_label "$tab" "$cwd" "$proc" "$pid")
+    IFS=$'\t' read -r tab_id tab cwd proc pid <<< "$row"
+    _window_list_name "$proc" "$pid"
+    label=$(_window_list_label "$reply[@]" "$cwd")
+    # the tab goes along, so the row keeps its header once the tab is gone
+    printf '%s\t%s\t%s\t%s\n' "$window_id" "$label" "$tab_id" "$(_window_list_tab_name "$tab")" >> "$closed_entries"
   fi
-  [[ -n "$label" ]] && printf '%s\t%s\n' "$window_id" "$label" >> "$closed_entries"
   kitty @ close-window --match "id:$window_id" 2>/dev/null
   exit 0
 fi
 
-# Build the live window list: id<TAB>label, in kitty's natural order.
+# Build the live window list: id<TAB>label<TAB>tab id<TAB>tab name, in kitty's
+# natural order — which keeps each tab's windows together. Two passes, as the
+# names have to be known before they can be padded to line up.
 # seen_at is "-" when the window has none: an empty field would be swallowed
 # by read, tab being IFS whitespace.
-live_list=$(kitty @ ls 2>/dev/null | jq -r '
-  .[].tabs[] | . as $tab | .windows[] | select(.is_self | not) | . as $w |
-  [($w.id | tostring), ($tab.title),
-   ($w.foreground_processes[0].cwd // $w.title // ""),
-   ($w.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last),
-   ($w.foreground_processes[-1].pid // "" | tostring),
-   ($w.user_vars.seen_at // "-")
-  ] | join("\t")
-' | while IFS=$'\t' read -r id tab cwd proc pid seen_at; do
-  printf '%s\t%s\n' "$id" "$(_window_list_label "$tab" "$cwd" "$proc" "$pid" "$seen_at" $(( id == ${WINDOW_CURRENT_ID:-0} )))"
-done)
+live_list=$(
+  local -a ids tab_ids tabs cwds markers names sgrs
+  local id tab_id tab cwd proc pid seen_at
+  kitty @ ls 2>/dev/null | jq -r '
+    .[].tabs[] | . as $tab | .windows[] | select(.is_self | not) | . as $w |
+    [($w.id | tostring), ($tab.id | tostring), ($tab.title),
+     ($w.foreground_processes[0].cwd // $w.title // ""),
+     ($w.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last),
+     ($w.foreground_processes[-1].pid // "" | tostring),
+     ($w.user_vars.seen_at // "-")
+    ] | join("\t")
+  ' | while IFS=$'\t' read -r id tab_id tab cwd proc pid seen_at; do
+    _window_list_name "$proc" "$pid" "$seen_at" $(( id == ${WINDOW_CURRENT_ID:-0} ))
+    ids+=("$id") tab_ids+=("$tab_id") tabs+=("$(_window_list_tab_name "$tab")") cwds+=("$cwd")
+    markers+=("$reply[1]") names+=("$reply[2]") sgrs+=("$reply[3]")
+  done
+  local i width=0
+  for i in {1..$#ids}; do
+    (( $#ids )) || break
+    (( ${#names[i]} > width && ${#names[i]} <= name_width_max )) && width=${#names[i]}
+  done
+  for i in {1..$#ids}; do
+    (( $#ids )) || break
+    printf '%s\t%s\t%s\t%s\n' "$ids[i]" \
+      "$(_window_list_label "$markers[i]" "$names[i]" "$sgrs[i]" "$cwds[i]" $width)" "$tab_ids[i]" "$tabs[i]"
+  done
+)
+
+# Rows in their final order, still carrying their tab, go through this last:
+# it puts a header row (id "tab:<tab id>") after each tab's windows — after,
+# because fzf lists bottom-up, so that is what shows the header above them.
+_window_list_headers() {
+  awk -F'\t' '
+  function header() { if (n) print "tab:" last "\t\033[2m──\033[0m \033[1m" name "\033[0m" }
+  $1 == "" { next }
+  n && $3 != last { header() }
+  { print $1 "\t" $2; last = $3; name = $4; n++ }
+  END { header() }'
+}
 
 if [[ -s "$order_file" ]]; then
   # Reload after a close: use the saved order so closed entries stay in place
@@ -76,41 +134,41 @@ if [[ -s "$order_file" ]]; then
     while ((getline id < of) > 0) { order[++n] = id; in_order[id] = 1 }
     while ((getline line < cf) > 0) {
       split(line, a, "\t")
-      if (a[1] != "") closed_label[a[1]] = a[2]
+      if (a[1] != "") { closed_label[a[1]] = a[2]; closed_tab[a[1]] = a[3] "\t" a[4] }
     }
   }
-  { live[$1] = $2 }
+  $1 != "" { live[$1] = $0 }
   END {
     for (i = 1; i <= n; i++) {
       id = order[i]
       if (id in live)
-        print id "\t" live[id]
+        print live[id]
       else if (id in closed_label)
-        print "closed:" id "\t\033[2m[closed] " closed_label[id] "\033[0m"
+        print "closed:" id "\t\033[2m[closed] " closed_label[id] "\033[0m\t" closed_tab[id]
     }
     for (id in live)
-      if (!(id in in_order)) print id "\t" live[id]
-  }'
+      if (!(id in in_order)) print live[id]
+  }' | _window_list_headers
 else
   # Initial load: kitty order, merge any pre-existing closed entries
   printf '%s\n' "$live_list" | awk -F'\t' -v cf="$closed_entries" '
   BEGIN {
     while ((getline line < cf) > 0) {
       n = split(line, a, "\t")
-      if (n >= 2) closed_label[a[1]] = a[2]
+      if (n >= 2) { closed_label[a[1]] = a[2]; closed_tab[a[1]] = a[3] "\t" a[4] }
     }
   }
-  {
+  $1 != "" {
     id = $1
     seen[id] = 1
     if (id in closed_label)
-      print "closed:" id "\t\033[2m[closed] " $2 "\033[0m"
+      print "closed:" id "\t\033[2m[closed] " $2 "\033[0m\t" $3 "\t" $4
     else
-      print id "\t" $2
+      print
   }
   END {
     for (id in closed_label)
       if (!(id in seen))
-        print "closed:" id "\t\033[2m[closed] " closed_label[id] "\033[0m"
-  }'
+        print "closed:" id "\t\033[2m[closed] " closed_label[id] "\033[0m\t" closed_tab[id]
+  }' | _window_list_headers
 fi

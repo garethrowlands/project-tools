@@ -39,13 +39,15 @@ fi
 local start_bind=()
 [[ $prev_pos -gt 0 ]] && start_bind=(--bind "load:pos($prev_pos)")
 
+# Each tab's windows are followed by a header row (id "tab:<tab id>"), which
+# fzf's bottom-up list shows above them, and which nothing acts on
 selection=$(printf '%s\n' "$window_list" | fzf --ansi --with-nth=2.. --no-sort \
      "${start_bind[@]}" \
      --header $'ctrl-t: move to new tab  ctrl-w: close window\nclaude: \033[1;31m!\033[0m needs you  \033[1;32m✓\033[0m done, unseen  \033[33m…\033[0m working  \033[2m·\033[0m idle' \
      --preview 'kitty @ get-text --match id:{1} --extent=screen --ansi 2>/dev/null | perl -pe "s/(\e\[[0-9;]*m|[ \t])*$//"' \
      --preview-window 'right:50%' \
-     --bind 'return:transform([[ {1} != closed:* ]] && echo accept)' \
-     --bind 'ctrl-t:transform([[ {1} != closed:* ]] && [[ -n {1} ]] && echo "become(echo newtab:{1})")' \
+     --bind 'return:transform([[ {1} != *:* ]] && echo accept)' \
+     --bind 'ctrl-t:transform([[ {1} != *:* ]] && [[ -n {1} ]] && echo "become(echo newtab:{1})")' \
      --bind "ctrl-w:execute(zsh $window_list_cmd $closed_entries $order_file close {1})+reload(zsh $window_list_cmd $closed_entries $order_file)")
 
 kitten @ last-used-layout 2>/dev/null || true
