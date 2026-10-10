@@ -105,6 +105,53 @@ def test_build_rows_reads_seen_at_user_var():
     assert module.build_rows(make_kitty_ls({7: [window]}))[0]["seen_at"] == "1700000000"
 
 
+def test_running_commands_empty_at_a_shell_prompt():
+    module = load_module()
+    assert module.running_commands([{"cmdline": ["-zsh"]}]) == []
+    assert module.running_commands([{}]) == []
+
+
+def test_running_commands_lists_non_shell_processes_once():
+    module = load_module()
+    fg = [{"cmdline": ["/x/esbuild", "--service", "--ping"]}, {"cmdline": ["node", "likec4", "dev"]},
+          {"cmdline": ["node", "worker"]}]
+    assert module.running_commands(fg) == ["esbuild", "node"]
+
+
+def test_running_commands_empty_for_a_forgotten_picker():
+    module = load_module()
+    fg = [{"cmdline": ["fzf", "--ansi"]}, {"cmdline": ["zsh", "/x/bin/window"]}, {"cmdline": ["zsh", "/x/bin/window"]}]
+    assert module.running_commands(fg) == []
+
+
+def test_running_commands_empty_for_a_claude_window():
+    module = load_module()
+    fg = [{"cmdline": ["glab", "mcp", "serve"]}, {"cmdline": ["caffeinate", "-i"]}, {"cmdline": ["claude"]}]
+    assert module.running_commands(fg) == []
+
+
+def test_build_rows_lists_every_foreground_process():
+    module = load_module()
+    window = make_window(1, "/p/a")
+    window["foreground_processes"] = [{"cwd": "/p/a", "cmdline": ["esbuild", "--service"]},
+                                      {"cwd": "/p/a", "cmdline": ["node", "likec4", "dev"]}]
+    row = module.build_rows(make_kitty_ls({7: [window]}))[0]
+    assert row["processes"] == ["esbuild --service", "node likec4 dev"]
+    assert row["running"] == ["esbuild", "node"]
+
+
+def test_build_rows_marks_overlays_from_tab_groups():
+    module = load_module()
+    ls = make_kitty_ls({7: [make_window(1, "/p/a"), make_window(2, "/p/a"), make_window(3, "/p/b")]})
+    ls[0]["tabs"][0]["groups"] = [{"id": 10, "windows": [2, 1]}, {"id": 11, "windows": [3]}]  # kitty lists the overlay first
+    assert [r["is_overlay"] for r in module.build_rows(ls)] == [False, True, False]
+
+
+def test_build_rows_no_overlays_without_groups():
+    module = load_module()
+    assert module.build_rows(make_kitty_ls({7: [make_window(1, "/p/a")]}))[0]["is_overlay"] is False
+
+
 # --- claude_session_name ---
 
 
@@ -237,52 +284,70 @@ def test_claude_agent_state_missing_or_malformed_is_none(tmp_path):
     assert module.claude_agent_state(1235, "100", False, config_dirs=[config_dir]) is None
 
 
-# --- parse_boottime / idle_label ---
+# --- kitty_now / idle_seconds / idle_label ---
 
 
-def test_parse_boottime():
+def test_kitty_now_is_newest_last_focused_at_including_self():
     module = load_module()
-    epoch = module.parse_boottime("{ sec = 1700000000, usec = 500000 }")
-    assert epoch == 1700000000.5
+    ls = make_kitty_ls({1: [make_window(1, "/p/a", last_focused_at=100.0)],
+                        2: [make_window(2, "/p/b", last_focused_at=250.5, is_self=True)]})
+    assert module.kitty_now(ls) == 250.5
 
 
-def test_boot_epoch_returns_none_when_sysctl_unavailable(monkeypatch):
+def test_kitty_now_none_without_any_stamp():
     module = load_module()
-
-    def raise_missing(*args, **kwargs):
-        raise FileNotFoundError("no sysctl")
-
-    monkeypatch.setattr(module.subprocess, "run", raise_missing)
-    assert module.boot_epoch() is None
+    window = make_window(1, "/p/a")
+    del window["last_focused_at"]
+    assert module.kitty_now(make_kitty_ls({1: [window]})) is None
 
 
-def test_idle_label_unknown_boot_epoch_falls_back_to_idle():
+def test_idle_seconds_prefers_seen_at():
     module = load_module()
-    assert module.idle_label(100.0, False, None, 200.0) == "idle"
+    assert module.idle_seconds(100.0, "1000", 400.0, 1600.0) == 600
+
+
+def test_idle_seconds_falls_back_to_kitty_clock():
+    module = load_module()
+    assert module.idle_seconds(100.0, None, 400.0, 1600.0) == 300.0
+    assert module.idle_seconds(100.0, "not-a-number", 400.0, 1600.0) == 300.0
+
+
+def test_idle_seconds_unknown_without_either():
+    module = load_module()
+    assert module.idle_seconds(None, None, 400.0, 1600.0) is None
+    assert module.idle_seconds(100.0, None, None, 1600.0) is None
+
+
+def test_idle_seconds_never_negative():
+    module = load_module()
+    assert module.idle_seconds(500.0, None, 400.0, 1600.0) == 0
+    assert module.idle_seconds(None, "2000", None, 1600.0) == 0
+
+
+def test_idle_label_unknown_falls_back_to_idle():
+    module = load_module()
+    assert module.idle_label(None, False) == "idle"
 
 
 def test_idle_label_focused():
     module = load_module()
-    assert module.idle_label(100.0, True, 0.0, 10000.0) == "active in tab"
+    assert module.idle_label(10000.0, True) == "active in tab"
 
 
 def test_idle_label_minutes():
     module = load_module()
-    # boot=0, last_focused_at=0 -> idle since epoch 0; now = 300s later = 5 minutes
-    label = module.idle_label(0.0, False, 0.0, 300.0)
-    assert label == "5m idle"
+    assert module.idle_label(300.0, False) == "5m idle"
+    assert module.idle_label(5.0, False) == "1m idle"
 
 
 def test_idle_label_hours():
     module = load_module()
-    label = module.idle_label(0.0, False, 0.0, 3 * 3600.0)
-    assert label == "3h idle"
+    assert module.idle_label(3 * 3600.0, False) == "3h idle"
 
 
 def test_idle_label_days():
     module = load_module()
-    label = module.idle_label(0.0, False, 0.0, 2 * 86400.0)
-    assert label == "2d idle"
+    assert module.idle_label(2 * 86400.0, False) == "2d idle"
 
 
 # --- git_summary ---
@@ -331,6 +396,18 @@ def test_git_summary_subdirectory_reports_repo_root(tmp_path):
     assert summary["root"] == str(repo.resolve())
 
 
+def test_git_summary_worktree_belongs_to_the_main_repo(tmp_path):
+    module = load_module()
+    repo = init_repo(tmp_path)
+    worktree = tmp_path / "repo-feature"
+    run_git(repo, "worktree", "add", "-q", str(worktree), "-b", "feature")
+    summary = module.git_summary(str(worktree))
+    assert summary["root"] == str(worktree.resolve())
+    assert summary["branch"] == "feature"
+    assert summary["project_root"] == str(repo.resolve())
+    assert module.git_summary(str(repo))["project_root"] == str(repo.resolve())
+
+
 def test_git_summary_non_git_dir_returns_none(tmp_path):
     module = load_module()
     plain = tmp_path / "plain"
@@ -348,7 +425,7 @@ def test_build_windows_payload_merges_and_dedupes_git(tmp_path):
         {"id": 2, "tab_id": 1, "cwd": "/p/a", "is_focused": True, "last_focused_at": 0.0},
     ]
     git_cache = {"/p/a": {"root": "/p/a", "branch": "main"}}
-    windows = module.build_windows_payload(rows, git_cache, boot_epoch_s=0.0, now_epoch_s=0.0)
+    windows = module.build_windows_payload(rows, git_cache, kitty_now_s=0.0, now_epoch_s=0.0)
     assert windows[0]["git"] is windows[1]["git"]
     assert windows[1]["idle_label"] == "active in tab"
 
@@ -357,7 +434,7 @@ def test_build_windows_payload_includes_claude_session(monkeypatch):
     module = load_module()
     monkeypatch.setattr(module, "claude_session_name", lambda pid: "my-session" if pid == 42 else None)
     rows = [{"id": 1, "tab_id": 1, "cwd": "/p/a", "is_focused": False, "last_focused_at": 0.0, "pid": 42, "proc": "claude"}]
-    windows = module.build_windows_payload(rows, {}, boot_epoch_s=0.0, now_epoch_s=0.0)
+    windows = module.build_windows_payload(rows, {}, kitty_now_s=0.0, now_epoch_s=0.0)
     assert windows[0]["claude_session"] == "my-session"
 
 
@@ -365,7 +442,7 @@ def test_build_windows_payload_skips_claude_session_lookup_for_non_claude_proc(m
     module = load_module()
     monkeypatch.setattr(module, "claude_session_name", lambda pid: "my-session")
     rows = [{"id": 1, "tab_id": 1, "cwd": "/p/a", "is_focused": False, "last_focused_at": 0.0, "pid": 42, "proc": "vim"}]
-    windows = module.build_windows_payload(rows, {}, boot_epoch_s=0.0, now_epoch_s=0.0)
+    windows = module.build_windows_payload(rows, {}, kitty_now_s=0.0, now_epoch_s=0.0)
     assert windows[0]["claude_session"] is None
 
 
@@ -385,12 +462,19 @@ def test_build_windows_payload_includes_claude_state(monkeypatch):
         {**base, "id": 2, "pid": 42, "proc": "claude"},
         {**base, "id": 3, "pid": 43, "proc": "zsh"},
     ]
-    windows = module.build_windows_payload(rows, {}, boot_epoch_s=0.0, now_epoch_s=0.0, current_window_id=2)
+    windows = module.build_windows_payload(rows, {}, kitty_now_s=0.0, now_epoch_s=0.0, current_window_id=2)
     assert [w["claude_state"] for w in windows] == ["done", "done", None]
     assert calls == [(41, "100", False), (42, "100", True)]
 
 
 # --- project_key / project_label ---
+
+
+def test_project_key_groups_a_worktree_with_its_main_repo():
+    module = load_module()
+    w = {"cwd": "/p/a-feature/sub", "git": {"root": "/p/a-feature", "project_root": "/p/a"}}
+    assert module.project_key(w) == "/p/a"
+    assert module.project_label(w) == "a"
 
 
 def test_project_key_uses_git_root():
@@ -588,6 +672,60 @@ def test_protect_active_agents_leaves_moves_alone():
     assert result[0]["target_tab"] == 2
 
 
+def test_merge_actions_label_names_what_is_running():
+    module = load_module()
+    windows = [{"id": 1, "cwd": "/p/a", "idle_label": "1h idle", "git": None, "running": ["esbuild", "node"]}]
+    result = module.merge_actions(windows, {"recommendations": []}, {})
+    assert result[0]["label"].endswith("(1h idle) (esbuild, node)")
+    assert result[0]["running"] == ["esbuild", "node"]
+
+
+def test_merge_actions_always_closes_an_overlay():
+    module = load_module()
+    windows = [{"id": 1, "cwd": "/p/a", "idle_label": "1h idle", "git": None, "is_overlay": True, "running": ["less"]}]
+    recs = {"recommendations": [{"id": 1, "action": "keep", "reason": "looks busy"}]}
+    result = module.merge_actions(windows, recs, {1: 2})
+    assert result[0]["action"] == "close"
+    assert result[0]["reason"] == module.OVERLAY_REASON
+    assert "(overlay) (less)" in result[0]["label"]
+    # ...and running something doesn't save it
+    assert module.protect_running_processes(result)[0]["action"] == "close"
+
+
+def test_overlay_with_an_active_agent_is_still_kept():
+    module = load_module()
+    windows = [{"id": 1, "cwd": "/p/a", "idle_label": "1h idle", "git": None, "is_overlay": True, "claude_state": "working"}]
+    result = module.protect_active_agents(module.merge_actions(windows, {}, {}))
+    assert result[0]["action"] == "keep"
+
+
+# --- protect_running_processes ---
+
+
+def test_protect_running_processes_overrides_close():
+    module = load_module()
+    rows = [{"id": 1, "action": "close", "target_tab": None, "reason": "stale", "label": "x", "running": ["node"]}]
+    result = module.protect_running_processes(rows)
+    assert result[0]["action"] == "keep"
+    assert "running node" in result[0]["reason"]
+
+
+def test_protect_running_processes_leaves_shell_windows_and_moves_alone():
+    module = load_module()
+    rows = [
+        {"id": 1, "action": "close", "target_tab": None, "reason": "stale", "label": "x", "running": []},
+        {"id": 2, "action": "move", "target_tab": 3, "reason": "r", "label": "y", "running": ["node"]},
+    ]
+    assert [r["action"] for r in module.protect_running_processes(rows)] == ["close", "move"]
+
+
+def test_advise_prompt_lists_all_processes():
+    module = load_module()
+    window = {"id": 1, "cwd": "/p/a", "cmdline": ["esbuild"], "processes": ["esbuild --service", "node likec4 dev"],
+              "is_focused": False, "idle_label": "1h idle", "git": None}
+    assert "node likec4 dev" in module.build_prompt([window])
+
+
 # --- protect_current_window ---
 
 
@@ -695,7 +833,6 @@ def test_main_falls_back_to_keep_when_advise_raises_dry_run(tmp_path, monkeypatc
     ls_path.write_text(json.dumps(ls))
 
     monkeypatch.setattr(module.anthropic, "Anthropic", MagicMock(side_effect=RuntimeError("no key")))
-    monkeypatch.setattr(module, "boot_epoch", lambda: 0.0)
     monkeypatch.setattr(sys, "argv", ["advise", "--kitty-ls", str(ls_path), "--dry-run"])
 
     module.main()
@@ -727,7 +864,6 @@ def test_main_prints_stderr_message_when_nothing_actionable(tmp_path, monkeypatc
     ls_path.write_text(json.dumps(ls))
 
     monkeypatch.setattr(module.anthropic, "Anthropic", MagicMock(side_effect=RuntimeError("no key")))
-    monkeypatch.setattr(module, "boot_epoch", lambda: 0.0)
     monkeypatch.setattr(sys, "argv", ["advise", "--kitty-ls", str(ls_path)])
 
     module.main()

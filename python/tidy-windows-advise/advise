@@ -40,11 +40,37 @@ def _cmdline_basename(cmdline: list | None) -> str:
     return Path(first).name
 
 
+SHELLS = {"zsh", "bash", "fish", "sh", "dash", "ksh", "tcsh", "nu", "xonsh"}
+# A picker left open (bin/window, sw, the project picker: fzf under a zsh script) holds
+# nothing but its list, so it doesn't count as running anything - a stale one can be closed.
+PICKERS = {"fzf"}
+
+
+def running_commands(foreground_processes: list) -> list[str]:
+    """Basenames of what a window is running besides a shell prompt, e.g. ["node", "esbuild"]
+    for a dev server - closing the window would kill them. Empty for a window sitting at its
+    shell or showing a forgotten fzf picker, and for one running `claude`: its child
+    processes (MCP servers, caffeinate) come and go with the session, whose own agent state
+    decides whether it is safe to close."""
+    names = [_cmdline_basename(p.get("cmdline")) for p in foreground_processes]
+    if "claude" in names:
+        return []
+    return list(dict.fromkeys(n for n in names if n and n not in SHELLS | PICKERS))
+
+
 def build_rows(kitty_ls_json: list) -> list[dict]:
     """Flatten `kitty @ ls` JSON into one row per real (non-self) window with a cwd."""
     rows = []
     for os_window in kitty_ls_json:
         for tab in os_window.get("tabs", []):
+            # A tab's groups each hold a base window and the overlays on it. kitty doesn't
+            # list them base-first, but an overlay is always created after the window it
+            # covers and ids only go up, so the base is the lowest id in its group.
+            overlay_ids = {
+                wid
+                for group in tab.get("groups") or []
+                for wid in sorted(group.get("windows") or [])[1:]
+            }
             for window in tab.get("windows", []):
                 if window.get("is_self"):
                     continue
@@ -60,6 +86,11 @@ def build_rows(kitty_ls_json: list) -> list[dict]:
                         "title": window.get("title", ""),
                         "cwd": cwd,
                         "cmdline": fg[0].get("cmdline", []),
+                        # every foreground process, not just the first: a dev server's
+                        # first is often a helper (esbuild), not the server itself
+                        "processes": [" ".join(p.get("cmdline") or []) for p in fg],
+                        "running": running_commands(fg),
+                        "is_overlay": window["id"] in overlay_ids,
                         "is_focused": bool(window.get("is_focused")),
                         "last_focused_at": window.get("last_focused_at"),
                         # when you last looked at the window, stamped by kitty/focus_watcher.py
@@ -219,42 +250,49 @@ def claude_agent_state(pid, seen_at, looked_at: bool, config_dirs: list[Path] | 
 # ── idle time ────────────────────────────────────────────────────────────────
 
 
-def parse_boottime(sysctl_output: str) -> float:
-    """Parse `sysctl -n kern.boottime` output (`{ sec = 123, usec = 456 }`) to epoch seconds."""
-    sec = 0.0
-    usec = 0.0
-    for part in sysctl_output.replace("{", "").replace("}", "").split(","):
-        part = part.strip()
-        if part.startswith("sec"):
-            sec = float(part.split("=")[1].strip())
-        elif part.startswith("usec"):
-            usec = float(part.split("=")[1].strip())
-    return sec + usec / 1_000_000
+# How long since you last looked at a window. Two sources, best first:
+#
+# - the window's `seen_at` user var: wall-clock seconds, stamped by kitty/focus_watcher.py
+#   whenever the window gains or loses focus. Exact, but only on windows the watcher has seen.
+# - kitty's own `last_focused_at`. That is on kitty's monotonic clock, which has no fixed
+#   relation to wall-clock time (on macOS it stops while the machine sleeps, so "boot time
+#   plus last_focused_at" can be days out). It can only be compared with another reading of
+#   the same clock, and `kitty @ ls` doesn't give the current one - so the newest
+#   last_focused_at of any window stands in for "now". That is when you entered the window
+#   you ran this from (just now, for the overlay tidy-windows is normally launched in), so
+#   it can only understate an idle time, by however long you had been in that window.
 
 
-def boot_epoch() -> float | None:
-    """Best-effort; returns None if `sysctl` is unavailable/unsupported (e.g. non-macOS, sandboxed)."""
-    try:
-        output = subprocess.run(
-            ["sysctl", "-n", "kern.boottime"], capture_output=True, text=True, check=True
-        ).stdout
-        return parse_boottime(output)
-    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
+def kitty_now(kitty_ls_json: list) -> float | None:
+    """The newest `last_focused_at` of any window (the overlay itself included)."""
+    stamps = [
+        float(window["last_focused_at"])
+        for os_window in kitty_ls_json
+        for tab in os_window.get("tabs", [])
+        for window in tab.get("windows", [])
+        if isinstance(window.get("last_focused_at"), (int, float))
+    ]
+    return max(stamps) if stamps else None
+
+
+def idle_seconds(last_focused_at, seen_at, kitty_now_s: float | None, now_epoch_s: float) -> float | None:
+    if str(seen_at or "").isdigit():
+        return max(now_epoch_s - int(seen_at), 0)
+    if last_focused_at is None or kitty_now_s is None:
         return None
+    return max(kitty_now_s - float(last_focused_at), 0)
 
 
-def idle_label(last_focused_at, is_focused: bool, boot_epoch_s: float | None, now_epoch_s: float) -> str:
+def idle_label(idle_s: float | None, is_focused: bool) -> str:
     if is_focused:
         # NOT "the window the user is using right now" - kitty's is_focused is per-tab (the
         # last-active window *within that tab*), so several unrelated windows can show this
         # simultaneously. Worded to avoid being mistaken for protect_current_window's
         # unambiguous "YOU ARE HERE" marker, which is the real current-window signal.
         return "active in tab"
-    if last_focused_at is None or boot_epoch_s is None:
+    if idle_s is None:
         return "idle"
-    idle_seconds = now_epoch_s - (boot_epoch_s + float(last_focused_at))
-    idle_seconds = max(idle_seconds, 0)
-    minutes = idle_seconds / 60
+    minutes = idle_s / 60
     if minutes < 60:
         return f"{max(1, round(minutes))}m idle"
     hours = minutes / 60
@@ -291,8 +329,13 @@ def git_summary(cwd: str) -> dict | None:
         if len(parts) == 2:
             behind, ahead = int(parts[0]), int(parts[1])
     last_commit_relative = _git(cwd, "log", "-1", "--format=%cr") or "no commits"
+    # A linked worktree is a branch of its repo checked out elsewhere, not a project of
+    # its own: its project is the main worktree, the folder holding the shared .git dir.
+    common_dir = _git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    project_root = str(Path(common_dir).parent) if common_dir and Path(common_dir).name == ".git" else root
     return {
         "root": root,
+        "project_root": project_root,
         "branch": branch,
         "dirty": dirty,
         "ahead": ahead,
@@ -304,7 +347,7 @@ def git_summary(cwd: str) -> dict | None:
 def build_windows_payload(
     rows: list[dict],
     git_cache: dict[str, dict | None],
-    boot_epoch_s: float,
+    kitty_now_s: float | None,
     now_epoch_s: float,
     current_window_id: int | None = None,
 ) -> list[dict]:
@@ -315,7 +358,8 @@ def build_windows_payload(
             {
                 **row,
                 "idle_label": idle_label(
-                    row["last_focused_at"], row["is_focused"], boot_epoch_s, now_epoch_s
+                    idle_seconds(row["last_focused_at"], row.get("seen_at"), kitty_now_s, now_epoch_s),
+                    row["is_focused"],
                 ),
                 "git": git_cache.get(row["cwd"]),
                 # Only trust a pid's session file when that pid is *currently* running
@@ -337,8 +381,8 @@ def build_windows_payload(
 
 def project_key(window: dict) -> str:
     git = window.get("git")
-    if git and git.get("root"):
-        return git["root"]
+    if git and (git.get("project_root") or git.get("root")):
+        return git.get("project_root") or git["root"]
     return window["cwd"]
 
 
@@ -397,7 +441,8 @@ Judge staleness from: idle time, whether the git working tree is dirty or clean,
 the upstream branch, how long ago the last commit was, and whether this window is a redundant duplicate
 of another window already open on the same project. A window's claude_session field, if present, names
 the Claude Code session running there - a distinctive name (not a generic default) suggests active,
-purposeful work and is a reason to lean toward "keep". Its claude_state field says what that session
+purposeful work and is a reason to lean toward "keep". A window whose processes are just fzf under a
+shell script is a picker someone left open; once it has been idle a while it is safe to close. Its claude_state field says what that session
 is doing: "working" (mid-task), "blocked" (waiting on the user for a permission or an answer), "done"
 (finished, and the user has not looked at the result yet) or "idle" (finished, and the user has seen
 it). Never recommend "close" for a working, blocked or done window; judge an idle one like any other.
@@ -405,9 +450,10 @@ The is_focused field (reflected as "active in tab" in the idle field) means this
 last-active window within its own tab - it does NOT mean the user is looking at it right now (kitty
 tracks that per tab, and several tabs can each show is_focused independently). Treat it as a weak
 signal only, not a strong reason to keep.
-Never recommend "close" for a window whose cmdline suggests a long-running server, watcher, or daemon
-process (e.g. contains "serve", "watch", "--watch", "dev", "listen", "daemon", "tail -f", "mcp serve")
-- closing it would kill that process.
+The processes field lists the command line of every foreground process in the window. Never recommend
+"close" for a window where any of them suggests a long-running server, watcher, or daemon process (e.g.
+contains "serve", "watch", "--watch", "dev", "listen", "daemon", "tail -f", "mcp serve") - closing it
+would kill that process.
 Prefer "keep" when uncertain or when the window has a dirty git tree.
 Return only the structured JSON described by the schema — no commentary.
 """.strip()
@@ -427,6 +473,7 @@ def _window_for_prompt(w: dict) -> dict:
         "project": project_label(w),
         "cwd": w["cwd"],
         "cmdline": w.get("cmdline"),
+        "processes": w.get("processes"),
         "is_focused": w["is_focused"],
         "idle": w["idle_label"],
         "git": git,
@@ -456,6 +503,12 @@ def advise(windows: list[dict], model: str, client: "anthropic.Anthropic") -> di
 # ── combining ────────────────────────────────────────────────────────────────
 
 
+# An overlay other than the one tidy-windows itself runs in (is_self, never listed) is one
+# you walked away from - a picker, a pager - since you can only be in one place. Closing it
+# just reveals the window underneath, so it is always recommended, without asking the model.
+# (An overlay running an active Claude agent is still kept: see protect_active_agents.)
+OVERLAY_REASON = "overlay left open — closing it reveals the window underneath"
+
 # the window picker's markers, for the states that need you to know about them
 AGENT_MARKERS = {"blocked": "!", "done": "✓", "working": "…"}
 
@@ -466,7 +519,9 @@ def merge_actions(windows: list[dict], recommendations: dict, moves: dict[int, i
     final = []
     for w in windows:
         rec = by_id.get(w["id"])
-        if rec and rec.get("action") == "close":
+        if w.get("is_overlay"):
+            action, target_tab, reason = "close", None, OVERLAY_REASON
+        elif rec and rec.get("action") == "close":
             action, target_tab, reason = "close", None, rec.get("reason", "")
         elif w["id"] in moves:
             action, target_tab = "move", moves[w["id"]]
@@ -476,6 +531,10 @@ def merge_actions(windows: list[dict], recommendations: dict, moves: dict[int, i
         else:
             action, target_tab, reason = "keep", None, NO_RECOMMENDATION
         label = f"{project_label(w)} > {Path(w['cwd']).name} ({w['idle_label']})"
+        if w.get("is_overlay"):
+            label += " (overlay)"
+        if w.get("running"):
+            label += f" ({', '.join(w['running'])})"
         if w.get("claude_state") in AGENT_MARKERS:
             label += f" {AGENT_MARKERS[w['claude_state']]}"
         if w.get("claude_session"):
@@ -484,6 +543,8 @@ def merge_actions(windows: list[dict], recommendations: dict, moves: dict[int, i
             {
                 "id": w["id"],
                 "claude_state": w.get("claude_state"),
+                "running": w.get("running") or [],
+                "is_overlay": bool(w.get("is_overlay")),
                 "action": action,
                 "target_tab": target_tab,
                 "reason": reason,
@@ -536,6 +597,19 @@ def protect_active_agents(final_rows: list[dict]) -> list[dict]:
         if r["action"] == "close" and r.get("claude_state") in ACTIVE_AGENT_REASONS:
             r["action"] = "keep"
             r["reason"] = ACTIVE_AGENT_REASONS[r["claude_state"]]
+    return final_rows
+
+
+def protect_running_processes(final_rows: list[dict]) -> list[dict]:
+    """Hard-override "close" to "keep" for a window that is running something other than a
+    shell prompt (see `running_commands`): closing it would kill that process, and whether
+    a dev server or watcher is still wanted isn't something to guess from its command
+    line. An abandoned overlay is the exception (see OVERLAY_REASON). Enforced in code - the model, asked not to close such windows, has done so
+    anyway. Moves stand: the process carries on in its new tab."""
+    for r in final_rows:
+        if r["action"] == "close" and r.get("running") and not r.get("is_overlay"):
+            r["action"] = "keep"
+            r["reason"] = f"running {', '.join(r['running'])} — never auto-closed (closing would kill it)"
     return final_rows
 
 
@@ -593,9 +667,9 @@ def main() -> None:
     unique_cwds = {r["cwd"] for r in rows}
     git_cache = {cwd: git_summary(cwd) for cwd in unique_cwds}
 
-    boot_epoch_s = boot_epoch()
+    kitty_now_s = kitty_now(kitty_ls_json)
     now_epoch_s = time.time()
-    windows = build_windows_payload(rows, git_cache, boot_epoch_s, now_epoch_s, args.current_window_id)
+    windows = build_windows_payload(rows, git_cache, kitty_now_s, now_epoch_s, args.current_window_id)
     moves = plan_moves(windows)
 
     try:
@@ -608,6 +682,7 @@ def main() -> None:
 
     final_rows = merge_actions(windows, recommendations, moves)
     final_rows = protect_active_agents(final_rows)
+    final_rows = protect_running_processes(final_rows)
     final_rows = protect_current_window(final_rows, args.current_window_id)
 
     if args.dry_run:
