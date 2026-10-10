@@ -1,5 +1,7 @@
 # sw — pick a worktree or branch of the current repo; cd to worktrees, git switch to plain branches
 # (or, with ctrl-o, check a plain branch out in a new sibling worktree and cd there).
+# ctrl-i opens the highlighted worktree in its IDE (bin/ide) — the main worktree for a
+# branch without one — and leaves the picker open.
 
 # fzf's preview runs in a fresh shell, so it is a script: bin/sw-preview, found
 # relative to this file.
@@ -54,8 +56,11 @@ _sw_list() {
 
 sw() {
   local out key line dir branch
-  out=$(_sw_list | fzf --ansi --height 40% --reverse --delimiter=$'\t' --with-nth=3 \
-    --expect=ctrl-o --header='enter: switch here · ctrl-o: new worktree' \
+  # fzf replaces {1} with the row's quoted worktree path, '' for a plain branch,
+  # which opens the main worktree instead.
+  out=$(_sw_list | SW_ROOT=$(_sw_root) fzf --ansi --height 40% --reverse --delimiter=$'\t' --with-nth=3 \
+    --expect=ctrl-o --header='enter: switch here · ctrl-o: new worktree · ctrl-i: ide' \
+    --bind 'ctrl-i:execute-silent(dir={1}; ide "${dir:-$SW_ROOT}")' \
     --preview="${(q)_sw_preview} {1} {2}" --preview-window=right,55%) || return
   # --expect puts the key pressed (empty for enter) on the first line.
   key=${out%%$'\n'*}

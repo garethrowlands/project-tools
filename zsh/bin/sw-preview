@@ -10,6 +10,7 @@
 #   - worktrees only: the kitty windows open in it, a `claude` one with its
 #     agent-state marker and conversation title, as in the `window` picker
 #   - worktrees only: uncommitted changes
+#   - its newest commit's full message
 #   - its commits that aren't on the default branch, and their diffstat
 
 # Title and agent-state lookups for windows running `claude`
@@ -86,6 +87,17 @@ _sw_preview_changes() {
   print
 }
 
+# The newest commit in full: its message is the best description of where the
+# branch has got to.
+_sw_preview_last_commit() {
+  local -a message
+  message=("${(@f)$(git log -1 --format=%B "$ref" 2>/dev/null)}")
+  print -r -- "${bold}Last commit${reset} ${dim}$(git log -1 --format='%h · %an' "$ref" 2>/dev/null)${reset}"
+  print -rl -- "  "${^message[1,16]}
+  (( $#message > 16 )) && print -r -- "  ${dim}… $(( $#message - 16 )) more lines${reset}"
+  print
+}
+
 ref=$branch
 [[ "$branch" == '(detached)' ]] && ref=$(git -C "$worktree" rev-parse --short HEAD 2>/dev/null)
 [[ -n "$ref" ]] || exit 0
@@ -108,6 +120,8 @@ if [[ -n "$worktree" ]]; then
   _sw_preview_windows
   _sw_preview_changes
 fi
+
+_sw_preview_last_commit
 
 if [[ -z "$base" ]]; then
   print -r -- "${bold}Recent commits${reset}"

@@ -87,6 +87,16 @@ _assert_eq "${out%% ·*}" "old-branch  0 ahead, 1 behind main " "sw-preview: pla
 _assert_eq "$(print -r -- "$out" | tail -1)" "No commits beyond main" "sw-preview: a branch with nothing beyond main says so"
 [[ $out == *Uncommitted* ]] && _fail "sw-preview: no worktree sections for a plain branch" || _pass "sw-preview: no worktree sections for a plain branch"
 
+_g branch with-body "$(_g commit-tree -p old-branch -m $'subject\n\nline one\n\nline two' 'old-branch^{tree}')"
+out=$(_preview "" with-body | sed -n '/^Last commit/,/^Not on main/p' | sed '1s/ .*//;$d')
+_assert_eq "$out" "Last
+  subject
+  
+  line one
+  
+  line two" "sw-preview: shows the newest commit's full message"
+_g branch -q -D with-body
+
 out=$(_preview "$_zt/repo" main)
 _assert_eq "$(print -r -- "$out" | sed -n '/^Recent commits/,$p' | sed 's/^  [0-9a-f]* /  /')" "Recent commits
   b
