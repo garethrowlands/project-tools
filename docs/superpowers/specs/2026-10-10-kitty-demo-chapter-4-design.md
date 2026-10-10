@@ -34,7 +34,7 @@ beside the slides; nothing outside the demo's own kitty instance and
 
 | # | Slide (shown first) | Keys / clicks | What you see | Check |
 |---|---|---|---|---|
-| 0 | **Working in a project** (premise: a small fix without leaving the terminal, in shop-api); **Three helpers** (⌘-click opens links · ⌘P picks things off the screen · micro takes Mac keys) | — | slides beside shop-api's shell | — |
+| 0 | **Working in a project** (premise: a small fix without leaving the terminal, in shop-api); **Two helpers** (⌘-click opens links · ⌘P picks things off the screen) | — | slides beside shop-api's shell | — |
 | 1 | **⌘-click a file: Markdown opens rendered**; Watch: ⌘ click NOTES.md | `ls`; ⌘ click `NOTES.md`; `q` | eza lists shop-api with links; glow shows the to-do; back to the shell | glow's overlay appears and closes |
 | 2 | **⌘-click a directory: the shell moves there**; Watch: ⌘ click src | ⌘ click `src` | the prompt's directory becomes `src` | `pwd` shows `…/shop-api/src` |
 | 3 | **Open it at the line: ⌘P n**; Watch: ⌘P, n, then the hint; then "Fix it, ⌘S, done" | `rg TODO` (`--no-heading`, so each hit reads `file:line:`); ⌘P; `n`; the hit's label; then the fix typed over the TODO line, ⌘S, quit micro | the menu over a dimmed pane; micro opens `orders.py` at the TODO line; the fix appears; micro reports the save | micro's overlay shows `orders.py`; then the file on disk has the fix and no TODO |
