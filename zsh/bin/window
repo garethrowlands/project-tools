@@ -18,6 +18,10 @@ closed_entries=$(mktemp)
 order_file=$(mktemp)
 trap "rm -f $closed_entries $order_file" EXIT
 
+# window-list never marks the window you came from as "done" (you are looking
+# at it); exported so fzf's reload of window-list sees it too
+export WINDOW_CURRENT_ID=$prev_id
+
 local window_list
 window_list=$(zsh "$window_list_cmd" "$closed_entries" "$order_file")
 
@@ -37,7 +41,7 @@ local start_bind=()
 
 selection=$(printf '%s\n' "$window_list" | fzf --ansi --with-nth=2.. --no-sort \
      "${start_bind[@]}" \
-     --header 'ctrl-t: move to new tab  ctrl-w: close window' \
+     --header $'ctrl-t: move to new tab  ctrl-w: close window\nclaude: \033[1;31m!\033[0m needs you  \033[1;32m✓\033[0m done, unseen  \033[33m…\033[0m working  \033[2m·\033[0m idle' \
      --preview 'kitty @ get-text --match id:{1} --extent=screen --ansi 2>/dev/null | perl -pe "s/(\e\[[0-9;]*m|[ \t])*$//"' \
      --preview-window 'right:50%' \
      --bind 'return:transform([[ {1} != closed:* ]] && echo accept)' \

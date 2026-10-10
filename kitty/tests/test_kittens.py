@@ -1,4 +1,4 @@
-"""Tests for open_local.py, hint_menu.py and open-actions.conf.
+"""Tests for open_local.py, hint_menu.py, open-actions.conf and focus_watcher.py.
 
 Run with kitty's bundled Python (the kittens import kitty internals):
 
@@ -18,6 +18,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 from urllib.parse import quote, unquote, urlparse
 
 from kitty.config import load_config
@@ -304,6 +305,26 @@ for letter, hint_type, match, groups, expect in [
         ol.handle_result(list(action.args), None, 7, FakeBoss(FakeWindow()))
     check(f'{letter} -> {hint_type} hints, then the click rules open {expect[0]}', args == [hint_type] and launched and launched[0][1] == expect,
           (args, url, launched))
+
+# focus_watcher.py: seen_at is stamped on focus gain and on focus loss
+fw = load('focus_watcher')
+
+
+class WatchedWindow:
+    def __init__(self):
+        self.user_vars = {}
+
+    def set_user_var(self, key, val):
+        self.user_vars[key] = val
+
+
+for focused in (True, False):
+    watched = WatchedWindow()
+    before = int(time.time())
+    fw.on_focus_change(None, watched, {'focused': focused})
+    seen_at = watched.user_vars.get('seen_at', '')
+    check(f'focus_watcher stamps seen_at on focus {"gain" if focused else "loss"}',
+          seen_at.isdigit() and before <= int(seen_at) <= int(time.time()), watched.user_vars)
 
 print(f'\n{failures} failure(s)' if failures else '\nALL OK')
 sys.exit(1 if failures else 0)

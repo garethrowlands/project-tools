@@ -1,6 +1,6 @@
 ---
 name: install-scripts
-description: Install this repo's zsh scripts (ide, close-project, switch-project, window, tidy-windows, project-web, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh) and the custom shader pipeline in kitty/shaders/. Use when setting up a new machine or adding a symlink for a newly added bin script.
+description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, tidy-windows, project-web, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh) and the custom shader pipeline in kitty/shaders/. Use when setting up a new machine or adding a symlink for a newly added bin script.
 ---
 
 ## Installation
@@ -12,6 +12,8 @@ ln -s $PWD/zsh/bin/ide ~/.local/bin/ide
 ln -s $PWD/zsh/bin/close-project ~/.local/bin/close-project
 ln -s $PWD/zsh/bin/switch-project ~/.local/bin/switch-project
 ln -s $PWD/zsh/bin/window ~/.local/bin/window
+ln -s $PWD/zsh/bin/window-list ~/.local/bin/window-list
+ln -s $PWD/zsh/bin/next-agent ~/.local/bin/next-agent
 ln -s $PWD/zsh/bin/tidy-windows ~/.local/bin/tidy-windows
 ln -s $PWD/zsh/bin/project-web ~/.local/bin/project-web
 ln -s $PWD/zsh/bin/web ~/.local/bin/web
@@ -42,6 +44,15 @@ map kitty_mod+shift+w launch --type=overlay --cwd=current tidy-windows
 map kitty_mod+i       launch --type=overlay --cwd=current ide
 map kitty_mod+n       launch --type=overlay --cwd=current note
 map kitty_mod+b       launch --type=overlay --cwd=current project-web
+map kitty_mod+j       launch --type=overlay --cwd=current next-agent
+map kitty_mod+shift+j launch --type=overlay --cwd=current next-agent --prev
+```
+
+`window`'s "done, unseen" marker and `next-agent`'s jump to a finished agent need to know when you last looked at each window. Symlink the watcher that records it and enable it (kitty only attaches it to windows created after the config is loaded):
+
+```zsh
+ln -s $PWD/kitty/focus_watcher.py ~/.config/kitty/focus_watcher.py
+echo 'watcher focus_watcher.py' >> ~/.config/kitty/kitty.conf
 ```
 
 ## kitty link handling (`kitty/`)

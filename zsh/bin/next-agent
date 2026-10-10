@@ -1,0 +1,75 @@
+#!/usr/bin/env zsh
+# Focuses the next kitty window running a Claude Code agent — one that needs
+# you, if any does: blocked on a prompt or question, else finished since you
+# last looked at it. Pressing it again moves on to the next of those, so
+# repeated presses cycle through them all. When none needs you (or only the
+# window you're in does) it simply steps to the next agent window in kitty's
+# order. `--prev` goes the other way round. Bound in kitty.conf as
+#
+#   map kitty_mod+j       launch --type=overlay --cwd=current next-agent
+#   map kitty_mod+shift+j launch --type=overlay --cwd=current next-agent --prev
+#
+# like the pickers: as an overlay it has kitty's socket (KITTY_LISTEN_ON, which
+# a --type=background launch doesn't get). Needs kitty/focus_watcher.py for the
+# "finished" half — see zsh/functions/claude-session.zsh for how the states are
+# worked out.
+
+source "${0:A:h}/../functions/claude-session.zsh"
+
+local step=1
+[[ $1 == --prev ]] && step=-1
+
+local kitty_ls
+kitty_ls=$(kitty @ ls 2>/dev/null) || { echo "kitty not available" >&2; exit 1 }
+
+# The window you are in: the one this overlay covers, as in zsh/bin/window.
+# Run from a shell instead there is no overlay, and it's the active window of
+# the active tab of the focused OS window (`is_focused` alone is true for the
+# active window of every tab).
+local current_id
+current_id=$(kitty @ ls --match 'state:overlay_parent' 2>/dev/null | jq -r '.[].tabs[].windows[].id' | head -1)
+[[ -z "$current_id" ]] && current_id=$(printf '%s' "$kitty_ls" | jq -r '
+  .[] | select(.is_focused) | .tabs[] | select(.is_active) | .windows[] | select(.is_active) | .id
+' | head -1)
+
+# One `RANK SINCE ID` line per agent window, in kitty's order: blocked (0),
+# done (1), anything else (2)
+local agents
+agents=$(printf '%s' "$kitty_ls" | jq -r '
+  .[].tabs[].windows[] | select(.is_self | not) |
+  select((.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last) == "claude") |
+  [.id, .foreground_processes[-1].pid, (.user_vars.seen_at // "-")] | join(" ")
+' | while read -r id pid seen_at; do
+  IFS=$'\t' read -r state since <<< "$(_claude_session_state "$pid" "$seen_at" $(( id == ${current_id:-0} )))"
+  case $state in
+    blocked) print -r -- "0 $since $id" ;;
+    'done')  print -r -- "1 $since $id" ;;
+    *)       print -r -- "2 0 $id" ;;
+  esac
+done)
+
+# The ones needing you — blocked before done, longest-standing first within
+# each — and all of them
+local -a waiting all
+waiting=(${(f)"$(printf '%s\n' "$agents" | awk '$1 < 2' | sort -n -k1,1 -k2,2 -k3,3 | awk '{print $3}')"})
+all=(${(f)"$(printf '%s\n' "$agents" | awk 'NF {print $3}')"})
+
+# Prints the window one step on from the current one in the given list,
+# wrapping round; from outside the list, its first (or, backwards, its last)
+_next_agent_pick() {
+  local -a ids=("$@")
+  (( $#ids )) || return
+  local i=${ids[(Ie)$current_id]}
+  if (( i == 0 )); then
+    (( step > 0 )) && print -r -- $ids[1] || print -r -- $ids[-1]
+  else
+    print -r -- $ids[$(( (i - 1 + step + $#ids) % $#ids + 1 ))]
+  fi
+}
+
+local target
+target=$(_next_agent_pick $waiting)
+[[ -z "$target" || "$target" == "$current_id" ]] && target=$(_next_agent_pick $all)
+# no other agent window to go to
+[[ -z "$target" || "$target" == "$current_id" ]] && exit 0
+kitty @ focus-window --match "id:${target}" 2>/dev/null
