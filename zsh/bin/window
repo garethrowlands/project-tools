@@ -41,7 +41,7 @@ local start_bind=()
 
 selection=$(printf '%s\n' "$window_list" | fzf --ansi --with-nth=2.. --no-sort \
      "${start_bind[@]}" \
-     --header $'ctrl-t: move to new tab  ctrl-w: close window\nclaude: \033[1;31m!\033[0m needs you  \033[1;32m✓\033[0m done, unseen  \033[33m…\033[0m working  \033[2m·\033[0m idle' \
+     --header $'ctrl-t: move to new tab  ctrl-w: close window\nclaude: \033[1;31m!\033[0m needs you  \033[1;32m✓\033[0m done, unseen  \033[33m…\033[0m working  \033[38;5;208m…\033[0m shell  \033[2m·\033[0m idle' \
      --preview 'kitty @ get-text --match id:{1} --extent=screen --ansi 2>/dev/null | perl -pe "s/(\e\[[0-9;]*m|[ \t])*$//"' \
      --preview-window 'right:50%' \
      --bind 'return:transform([[ {1} != closed:* ]] && echo accept)' \

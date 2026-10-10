@@ -102,13 +102,15 @@ _claude_session_title_from_file() {
 
 # Agent state.
 #
-# The session file carries "status" (busy | idle | waiting) and
+# The session file carries "status" (busy | shell | idle | waiting) and
 # "statusUpdatedAt" (ms epoch, written only when the status changes — an idle
 # session's stays put for hours). Prints `STATE<TAB>SINCE`, SINCE being that
 # change in epoch seconds, where STATE is:
 #
 #   blocked  waiting on you (a permission prompt or a question)
 #   working  busy
+#   shell    "shell": not seen documented; taken to be running a shell command,
+#            so working by another name
 #   done     idle, and it went idle after you last looked at its window
 #   idle     idle, and you've seen it
 #
@@ -128,6 +130,7 @@ _claude_session_state() {
   case $session_status in
     waiting) state=blocked ;;
     busy)    state=working ;;
+    shell)   state=shell ;;
     idle)
       state=idle
       [[ "$seen_at" == <-> && "$is_current" != 1 ]] && (( since > seen_at )) && state='done'
