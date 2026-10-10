@@ -15,13 +15,13 @@ kitty +launch kitty/demo/tests/test_demo_geometry.py
 (cd ../python/tidy-windows-advise && uv run pytest)
 ```
 
-Each zsh suite exits with code 1 if any test fails. `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `sw-tests.zsh` tests `sw` against a temp repo with worktrees. `tidy-windows-tests.zsh` runs `bin/tidy-windows`' apply step against a fake `advise`, `kitty` and `fzf`. `window-tests.zsh` runs `bin/window-list` and `bin/next-agent` against a fake `kitty` and a temp `$HOME` of Claude session files. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic. `kitty/demo`'s suites test the shader demo's geometry, verbs (kitty and Hammerspoon stubbed), card and play; see `kitty/demo/README.md`.
+Each zsh suite exits with code 1 if any test fails. `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `sw-tests.zsh` tests `sw` and its preview (`bin/sw-preview`, against a fake `kitty`) on a temp repo with worktrees. `tidy-windows-tests.zsh` runs `bin/tidy-windows`' apply step against a fake `advise`, `kitty` and `fzf`. `window-tests.zsh` runs `bin/window-list` and `bin/next-agent` against a fake `kitty` and a temp `$HOME` of Claude session files. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic. `kitty/demo`'s suites test the shader demo's geometry, verbs (kitty and Hammerspoon stubbed), card and play; see `kitty/demo/README.md`.
 
 ## Architecture
 
 Zsh shell tools for navigating projects and notes. Details are split out by area:
 
-- **[docs/project-picker.md](docs/project-picker.md)** — `functions/project.zsh`, `functions/sw.zsh`, `bin/switch-project`, `bin/window`(-list), `bin/next-agent`, `bin/tidy-windows` and `python/tidy-windows-advise/advise`, and how Claude Code session names/titles and agent state (blocked/working/done/idle) are looked up for the window switcher.
+- **[docs/project-picker.md](docs/project-picker.md)** — `functions/project.zsh`, `functions/sw.zsh`, `bin/sw-preview`, `bin/switch-project`, `bin/window`(-list), `bin/next-agent`, `bin/tidy-windows` and `python/tidy-windows-advise/advise`, and how Claude Code session names/titles and agent state (blocked/working/done/idle) are looked up for the window switcher.
 - **[docs/notes.md](docs/notes.md)** — `functions/notes-lib.zsh`, `functions/web.zsh`, `bin/web`, `bin/note`: the notes vault (`$HOME/notes`) tooling.
 - **[docs/ide-tools.md](docs/ide-tools.md)** — `bin/ide`, `bin/close-project`, `bin/project-web`.
 - **[kitty/demo/README.md](kitty/demo/README.md)** — `kitty/demo/play`: self-running, screen-recordable chapters showing off the kitty setup (1 shaders, 2 windows, panes and tabs, 3 getting around projects) (presenterm deck + director driving kitty via `kitten @` and the mouse via Hammerspoon).

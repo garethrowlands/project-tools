@@ -1,6 +1,10 @@
 # sw — pick a worktree or branch of the current repo; cd to worktrees, git switch to plain branches
 # (or, with ctrl-o, check a plain branch out in a new sibling worktree and cd there).
 
+# fzf's preview runs in a fresh shell, so it is a script: bin/sw-preview, found
+# relative to this file.
+_sw_preview=${${(%):-%x}:A:h:h}/bin/sw-preview
+
 # Path of the main worktree, or empty outside a repo.
 _sw_root() {
   git worktree list --porcelain 2>/dev/null | awk 'NR == 1 { print substr($0, 10); exit }'
@@ -51,7 +55,8 @@ _sw_list() {
 sw() {
   local out key line dir branch
   out=$(_sw_list | fzf --ansi --height 40% --reverse --delimiter=$'\t' --with-nth=3 \
-    --expect=ctrl-o --header='enter: switch here · ctrl-o: new worktree') || return
+    --expect=ctrl-o --header='enter: switch here · ctrl-o: new worktree' \
+    --preview="${(q)_sw_preview} {1} {2}" --preview-window=right,55%) || return
   # --expect puts the key pressed (empty for enter) on the first line.
   key=${out%%$'\n'*}
   line=${out#*$'\n'}

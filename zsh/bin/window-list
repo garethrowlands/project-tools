@@ -11,19 +11,6 @@ order_file=$2
 # Title and agent-state lookups for windows running `claude`
 source "${0:A:h}/../functions/claude-session.zsh"
 
-# The one-character state column at the start of each row: a coloured marker
-# for a `claude` window's agent state (see _claude_session_state), a blank for
-# every other window so labels stay aligned.
-_window_list_marker() {
-  case $1 in
-    blocked) print -rn -- $'\033[1;31m!\033[0m' ;;
-    working) print -rn -- $'\033[33m…\033[0m' ;;
-    'done')  print -rn -- $'\033[1;32m✓\033[0m' ;;
-    idle)    print -rn -- $'\033[2m·\033[0m' ;;
-    *)       print -rn -- ' ' ;;
-  esac
-}
-
 # Builds one fzf row label from a window's tab title, cwd, foreground-process
 # basename, and pid — shared by the "close" case and the live-list case below.
 # The live list also passes the window's seen_at user var and whether it is
@@ -34,7 +21,7 @@ _window_list_label() {
   local base=${cwd:t}
   local state=""
   [[ "$proc" == "claude" && -n "$seen_at" ]] && state=${"$(_claude_session_state "$pid" "$seen_at" "$is_current")"%%$'\t'*}
-  local label="$(_window_list_marker "$state") "
+  local label="$(_claude_session_marker "$state") "
   label+=$([[ -n "$base" ]] && print -r -- "$tab > $base" || print -r -- "$tab")
   local title=""
   [[ "$proc" == "claude" ]] && title=$(_claude_session_title "$pid")

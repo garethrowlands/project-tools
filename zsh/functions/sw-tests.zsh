@@ -55,6 +55,71 @@ _assert_eq "$(_sw_worktree_path /a/context feat/x/y)" "/a/context-x-y" \
 _assert_eq "$(_sw_worktree_path /a/context old-branch)" "/a/context-old-branch" \
   "_sw_worktree_path: branch without prefix used as is"
 
+# ── sw-preview (fake kitty on PATH, temp $HOME of Claude session files) ───────
+
+mkdir -p "$_zt/bin" "$_zt/home/.claude/sessions"
+print -r -- '#!/bin/zsh
+[[ -s '$_zt'/ls.json ]] && cat '$_zt'/ls.json' > "$_zt/bin/kitty"
+chmod +x "$_zt/bin/kitty"
+# zsh -f: the user's ~/.zshenv would put the real kitty back first on PATH
+_preview() {
+  HOME=$_zt/home PATH=$_zt/bin:$PATH KITTY_WINDOW_ID=${_win:-0} FZF_PREVIEW_COLUMNS=60 \
+    zsh -f "$_sw_preview" "$@" | sed $'s/\e\\[[0-9;]*m//g'
+}
+_fix=$_zt/repo/.claude/worktrees/fix-foo
+
+out=$(_preview "$_fix" fix-foo)
+_assert_eq "${out%% ·*}" "fix-foo  1 ahead, 0 behind main " "sw-preview: header places the branch against main"
+_assert_eq "$(print -r -- "$out" | sed -n '/^Uncommitted/,/^$/p')" "Uncommitted
+  clean" "sw-preview: a clean worktree says so"
+_assert_eq "$(print -r -- "$out" | sed -n '/^Not on main/,/^$/p' | sed 's/^  [0-9a-f]* /  /')" "Not on main
+  c" "sw-preview: lists the commits not on main"
+[[ $out == *Windows* ]] && _fail "sw-preview: no Windows section without kitty" || _pass "sw-preview: no Windows section without kitty"
+
+print x > "$_fix/new.txt"
+out=$(_preview "$_fix" fix-foo | sed -n '/^Uncommitted/,/^$/p')
+_assert_eq "$out" "Uncommitted
+  ?? new.txt" "sw-preview: shows uncommitted changes"
+rm "$_fix/new.txt"
+
+out=$(_preview "" old-branch)
+_assert_eq "${out%% ·*}" "old-branch  0 ahead, 1 behind main " "sw-preview: plain branch header"
+_assert_eq "$(print -r -- "$out" | tail -1)" "No commits beyond main" "sw-preview: a branch with nothing beyond main says so"
+[[ $out == *Uncommitted* ]] && _fail "sw-preview: no worktree sections for a plain branch" || _pass "sw-preview: no worktree sections for a plain branch"
+
+out=$(_preview "$_zt/repo" main)
+_assert_eq "$(print -r -- "$out" | sed -n '/^Recent commits/,$p' | sed 's/^  [0-9a-f]* /  /')" "Recent commits
+  b
+  a" "sw-preview: the default branch shows its recent commits"
+
+out=$(_preview "$_zt/elsewhere" '(detached)')
+_assert_eq "${out%% ·*}" "(detached) $(git -C "$_zt/elsewhere" rev-parse --short HEAD)  0 ahead, 0 behind main " \
+  "sw-preview: detached worktree is placed by its commit"
+
+# windows: 1 a shell in the main worktree, 2 a blocked claude in fix-foo, 3 a
+# shell in a subdirectory of fix-foo, 4 somewhere else entirely
+mkdir "$_fix/sub"
+jq -n --arg root "$_zt/repo" --arg fix "$_fix" '
+  def w($id; $proc; $cwd): {id: $id, cwd: $cwd, user_vars: {seen_at: "100"},
+    foreground_processes: [{pid: (100 + $id), cwd: $cwd, cmdline: [$proc]}]};
+  [{tabs: [{title: "proj", windows: [w(1; "/bin/zsh"; $root), w(2; "/usr/local/bin/claude"; $fix)]},
+           {title: "other", windows: [w(3; "-zsh"; "\($fix)/sub"), w(4; "/bin/zsh"; "/")]}]}]' > "$_zt/ls.json"
+print -r -- '{"pid":102,"name":"slug-102","status":"waiting","statusUpdatedAt":200000}' > "$_zt/home/.claude/sessions/102.json"
+
+out=$(_win=3 _preview "$_fix" fix-foo | sed -n '/^Windows/,/^$/p')
+_assert_eq "$out" "Windows
+  ! proj [slug-102]
+    other (zsh) this window" "sw-preview: lists the worktree's windows with agent state, marking the current one"
+
+out=$(_preview "$_zt/repo" main | sed -n '/^Windows/,/^$/p')
+_assert_eq "$out" "Windows
+    proj (zsh)" "sw-preview: a window in a nested worktree doesn't count for the main one"
+
+out=$(_preview "$_zt/elsewhere" '(detached)' | sed -n '/^Windows/,/^$/p')
+_assert_eq "$out" "Windows
+  none open here" "sw-preview: says when a worktree has no windows"
+rmdir "$_fix/sub"
+
 # ── sw (fzf stubbed: prints key $_key, then the first match for $_q) ──────────
 
 fzf() { print -r -- "$_key"; command fzf --filter "$_q" | head -1 }

@@ -1,6 +1,6 @@
 # Claude Code session lookups for a kitty window whose foreground process is a
 # running `claude`: its conversation title and its agent state. Sourced by
-# zsh/bin/window-list and zsh/bin/next-agent.
+# zsh/bin/window-list, zsh/bin/next-agent and zsh/bin/sw-preview.
 #
 # Everything here reads ~/.claude*/sessions/<pid>.json — undocumented internal
 # state that could change between Claude Code versions — so a missing or
@@ -138,4 +138,17 @@ _claude_session_state() {
     *) return ;;
   esac
   print -r -- "$state"$'\t'"$since"
+}
+
+# The one-character state column the pickers start a window's row with: a
+# coloured marker for a `claude` window's agent state, a blank for every other
+# window so labels stay aligned.
+_claude_session_marker() {
+  case $1 in
+    blocked) print -rn -- $'\033[1;31m!\033[0m' ;;
+    working) print -rn -- $'\033[33m…\033[0m' ;;
+    'done')  print -rn -- $'\033[1;32m✓\033[0m' ;;
+    idle)    print -rn -- $'\033[2m·\033[0m' ;;
+    *)       print -rn -- ' ' ;;
+  esac
 }

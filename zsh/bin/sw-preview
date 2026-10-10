@@ -1,0 +1,123 @@
+#!/usr/bin/env zsh
+# Usage: sw-preview <worktree_path> <branch>
+#
+# fzf preview for `sw` (zsh/functions/sw.zsh), run from inside the repo with
+# the first two fields of the highlighted row: the worktree's path (empty for
+# a branch without one) and the branch (`(detached)` for a detached worktree).
+# Shows what state the branch is in and whether anything is going on there:
+#
+#   - where it stands against the default branch, and its last commit's age
+#   - worktrees only: the kitty windows open in it, a `claude` one with its
+#     agent-state marker and conversation title, as in the `window` picker
+#   - worktrees only: uncommitted changes
+#   - its commits that aren't on the default branch, and their diffstat
+
+# Title and agent-state lookups for windows running `claude`
+source "${0:A:h}/../functions/claude-session.zsh"
+
+worktree=$1 branch=$2
+bold=$'\033[1m' dim=$'\033[2m' reset=$'\033[0m'
+
+# The local default branch to compare against, if there is one.
+_sw_preview_base() {
+  local candidate
+  for candidate in ${$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)#origin/} main master; do
+    git show-ref --verify -q "refs/heads/$candidate" && { print -r -- "$candidate"; return }
+  done
+}
+
+# One row per kitty window whose cwd is in the worktree. Worktrees nest (one
+# under .claude/worktrees is inside the main one), so a window belongs to the
+# deepest worktree containing its cwd. Prints nothing if kitty can't be
+# reached (not in kitty, or no `listen_on` for fzf's preview subprocess).
+_sw_preview_windows() {
+  local ls
+  ls=$(kitty @ ls 2>/dev/null) && [[ -n "$ls" ]] || return
+  local -a worktrees
+  worktrees=(${(f)"$(git worktree list --porcelain | awk '/^worktree / { print substr($0, 10) }')"})
+  local id tab cwd proc pid seen_at w best state title row
+  local -i found=0
+  print -r -- "${bold}Windows${reset}"
+  # "-" for a missing field: an empty one would be swallowed by read, tab
+  # being IFS whitespace.
+  jq -r '
+    .[].tabs[] | . as $tab | .windows[] | . as $w |
+    [($w.id | tostring), ($tab.title // "-"),
+     ($w.foreground_processes[0].cwd // $w.cwd // "-"),
+     ($w.foreground_processes[-1].cmdline[0] // "-" | ltrimstr("-") | split("/") | last // "-"),
+     ($w.foreground_processes[-1].pid // "-" | tostring),
+     ($w.user_vars.seen_at // "-")
+    ] | join("\t")
+  ' <<< "$ls" 2>/dev/null | while IFS=$'\t' read -r id tab cwd proc pid seen_at; do
+    best=""
+    for w in $worktrees; do
+      [[ "$cwd" == "$w" || "$cwd" == "$w"/* ]] && (( $#w > $#best )) && best=$w
+    done
+    [[ "$best" == "$worktree" ]] || continue
+    found+=1
+    state="" title=""
+    if [[ "$proc" == claude ]]; then
+      state=${"$(_claude_session_state "$pid" "$seen_at" $(( id == ${KITTY_WINDOW_ID:-0} )))"%%$'\t'*}
+      title=$(_claude_session_title "$pid")
+    fi
+    row="  $(_claude_session_marker "$state") $tab"
+    if [[ -n "$title" ]]; then
+      row+=" "$'\033[1;36m'"[$title]"$reset
+    elif [[ "$proc" != - ]]; then
+      row+=" ($proc)"
+    fi
+    (( id == ${KITTY_WINDOW_ID:-0} )) && row+=" ${dim}this window${reset}"
+    print -r -- "$row"
+  done
+  (( found )) || print -r -- "  ${dim}none open here${reset}"
+  print
+}
+
+_sw_preview_changes() {
+  local -a changes
+  changes=(${(f)"$(git -C "$worktree" status --short 2>/dev/null)"})
+  print -r -- "${bold}Uncommitted${reset}"
+  if (( $#changes == 0 )); then
+    print -r -- "  ${dim}clean${reset}"
+  else
+    print -rl -- "  "${^changes[1,12]}
+    (( $#changes > 12 )) && print -r -- "  ${dim}… and $(( $#changes - 12 )) more${reset}"
+  fi
+  print
+}
+
+ref=$branch
+[[ "$branch" == '(detached)' ]] && ref=$(git -C "$worktree" rev-parse --short HEAD 2>/dev/null)
+[[ -n "$ref" ]] || exit 0
+
+base=$(_sw_preview_base)
+[[ "$ref" == "$base" ]] && base=""
+integer ahead=0 behind=0
+header="${bold}${branch}${reset}"
+[[ "$branch" == '(detached)' ]] && header+=" $ref"
+if [[ -n "$base" ]]; then
+  read -r behind ahead <<< "$(git rev-list --left-right --count "$base...$ref" 2>/dev/null)"
+  header+="  $ahead ahead, $behind behind $base"
+fi
+when=$(git log -1 --format=%cr "$ref" 2>/dev/null)
+[[ -n "$when" ]] && header+="  ${dim}· last commit $when${reset}"
+print -r -- "$header"
+print
+
+if [[ -n "$worktree" ]]; then
+  _sw_preview_windows
+  _sw_preview_changes
+fi
+
+if [[ -z "$base" ]]; then
+  print -r -- "${bold}Recent commits${reset}"
+  git log --color=always --oneline -n 10 "$ref" 2>/dev/null | sed 's/^/  /'
+elif (( ahead == 0 )); then
+  print -r -- "${dim}No commits beyond $base${reset}"
+else
+  print -r -- "${bold}Not on $base${reset}"
+  git log --color=always --oneline -n 10 "$base..$ref" 2>/dev/null | sed 's/^/  /'
+  (( ahead > 10 )) && print -r -- "  ${dim}… and $(( ahead - 10 )) more${reset}"
+  print
+  git diff --color=always --stat=${FZF_PREVIEW_COLUMNS:-80} "$base...$ref" 2>/dev/null
+fi
