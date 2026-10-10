@@ -471,7 +471,7 @@ fmt = type('Fmt', (), {'fg': type('Fg', (), {'red': real_fg.red, 'green': real_f
 def tab_marker(*states):
     windows = [type('W', (), {'user_vars': {'agent_state': s} if s else {}})() for s in states]
     tb.get_boss = lambda: type('Boss', (), {'tab_for_id': lambda self, tab_id: windows if tab_id == 7 else None})()
-    return tb.draw_title({'tab_id': 7, 'fmt': fmt})
+    return tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': ''})
 
 
 red, green, yellow, back = fmt.fg.red, fmt.fg.green, fmt.fg.yellow, fmt.fg.tab
@@ -482,6 +482,25 @@ check('tab marker: nothing for idle agents or none', tab_marker('idle', '') == '
 check('tab marker: colours differ and are set', len({red, green, yellow, back}) == 4 and all((red, green, yellow, back)), (red, green, yellow, back))
 tb.get_boss = lambda: None
 check('tab marker: an error draws nothing', tb.draw_title({'tab_id': 7, 'fmt': fmt}) == '')
+check('tab marker: an error still draws the title', tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 'a/b'}) == 'a/b')
+
+# tab_bar.py: the title follows the marker, a path cut down to its last directory
+for title, want in (
+    ('project-tools', 'project-tools'),
+    ('github.com/garethrowlands/project-tools', 'g/g/project-tools'),
+    ('work/project-tools', 'w/project-tools'),
+    ('gitlab.com/group/subgroup/team/api', '…/s/t/api'),
+    ('/Users/gareth/worktrees/project-tools/fix-tabs', '…/w/p/fix-tabs'),
+    ('/tmp/scratch', '/t/scratch'),
+    ('~/.config/kitty', '~/.c/kitty'),
+    ('/opt/thing/', '/o/thing'),
+    ('/', '/'),
+    ('', ''),
+    ('My Work/Client Projects/big site', 'M/C/big site'),
+):
+    check(f'tab title: {title!r}', tb.short_title(title) == want, repr(tb.short_title(title)))
+tb.get_boss = lambda: type('Boss', (), {'tab_for_id': lambda self, tab_id: [type('W', (), {'user_vars': {'agent_state': 'blocked'}})()]})()
+check('tab title: follows the marker', tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 'github.com/me/proj'}) == f'{red}! {back}g/m/proj')
 
 print(f'\n{failures} failure(s)' if failures else '\nALL OK')
 sys.exit(1 if failures else 0)
