@@ -1,0 +1,80 @@
+#!/usr/bin/env zsh
+# Saves every open kitty window as a session file, so that a restart of kitty
+# (or of the machine) can bring them all back: tabs, layouts, working
+# directories, and each Claude Code agent resumed in its own window.
+#
+#   save-session [FILE]     default ~/.config/kitty/sessions/restore.kitty-session
+#
+# To restore, point kitty.conf at the file:
+#
+#   startup_session ~/.config/kitty/sessions/restore.kitty-session
+#
+# kitty writes the file itself (its `save_as_session` action), which knows
+# nothing of Claude: a window running `claude` would come back as a bare shell.
+# kitty does record each window's id in its `launch` line, though, as
+#
+#   launch 'kitty-unserialize-data={"id": 12}' --cwd=...
+#
+# and that same JSON may carry "cmd_at_shell_startup", a command the restored
+# window's shell runs on starting (through kitty's shell integration) — it is
+# how kitty's own --use-foreground-process restores a running program. So for
+# each window whose foreground process is `claude`, this adds
+# `claude --resume <session id>` there; the id comes from the process's
+# sessions/<pid>.json — see zsh/functions/claude-session.zsh. That option isn't
+# used itself: it would re-run whatever any window happened to be running.
+#
+# Needs kitty's socket (KITTY_LISTEN_ON), so run it from a shell in kitty or as
+# an overlay.
+
+source "${0:A:h}/../functions/claude-session.zsh"
+
+local out=${1:-$HOME/.config/kitty/sessions/restore.kitty-session}
+local tmp
+tmp=$(mktemp -d)
+trap 'rm -rf $tmp' EXIT
+
+local kitty_ls
+kitty_ls=$(kitty @ ls 2>/dev/null) || { echo "kitty not available" >&2; exit 1 }
+kitty @ action save_as_session --save-only $tmp/saved
+[[ -s $tmp/saved ]] || { echo "kitty saved no session" >&2; exit 1 }
+
+# One `ID<TAB>JSON` line per window running claude: the JSON that replaces its
+# `{"id": ID}`. A session under another config dir (CLAUDE_CONFIG_DIR, e.g.
+# ~/.claude-k) is only found again under that dir.
+printf '%s' "$kitty_ls" | jq -r '
+  .[].tabs[].windows[] |
+  select((.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last) == "claude") |
+  "\(.id) \(.foreground_processes[-1].pid)"
+' | while read -r id pid; do
+  local session_file session_id cmd
+  session_file=$(_claude_session_file "$pid")
+  [[ -z "$session_file" ]] && continue
+  session_id=$(jq -r '.sessionId // empty' "$session_file" 2>/dev/null)
+  # the command is run by a shell, and sits inside a single-quoted word
+  [[ "$session_id" =~ '^[A-Za-z0-9-]+$' ]] || continue
+  cmd="claude --resume $session_id"
+  [[ ${session_file:h:h} != $HOME/.claude ]] && cmd="CLAUDE_CONFIG_DIR=${(q)session_file:h:h} $cmd"
+  [[ "$cmd" == *\'* ]] && continue
+  jq -rn --argjson id "$id" --arg cmd "$cmd" '"\($id)\t" + ({id: $id, cmd_at_shell_startup: $cmd} | tojson)'
+done >| $tmp/resume
+
+# Dropped on the way: the overlay this runs in when launched from a key
+# binding (it would run save-session again on every start), and the user vars
+# kitty/focus_watcher.py keeps — they describe the windows as they were.
+awk -v map=$tmp/resume -v self="${KITTY_WINDOW_ID:-0}" '
+  BEGIN {
+    while ((getline line < map) > 0) { tab = index(line, "\t"); resume[substr(line, 1, tab - 1)] = substr(line, tab + 1) }
+  }
+  /^launch / && match($0, /kitty-unserialize-data=\{"id": [0-9]+\}/) {
+    id = substr($0, RSTART, RLENGTH); gsub(/[^0-9]/, "", id)
+    if (id == self && index($0, " --type=overlay")) next
+    if (id in resume) { $0 = substr($0, 1, RSTART - 1) "kitty-unserialize-data=" resume[id] substr($0, RSTART + RLENGTH); resumed++ }
+    gsub(/ --var=(agent_state|seen_at)=[^ ]*/, "")
+    windows++
+  }
+  { print }
+  END { printf "%d windows, %d Claude sessions\n", windows, resumed > "/dev/stderr" }
+' $tmp/saved >| $tmp/out 2>| $tmp/summary
+
+mkdir -p ${out:h} && mv $tmp/out $out || exit 1
+print -r -- "saved $(<$tmp/summary) to $out"

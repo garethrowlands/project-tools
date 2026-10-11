@@ -1,6 +1,7 @@
 #!/usr/bin/env zsh
-# Tests for the Claude agent-state side of the window switcher: the real
-# zsh/bin/window-list and zsh/bin/next-agent, run against a fake kitty (canned
+# Tests for the Claude agent-state side of the window switcher, and for
+# saving the windows as a session: the real zsh/bin/window-list,
+# zsh/bin/next-agent and zsh/bin/save-session, run against a fake kitty (canned
 # `@ ls`, records every call) on PATH, and a temp $HOME holding Claude session
 # files. Needs neither kitty nor Claude Code.
 #
@@ -24,6 +25,8 @@ if [[ "$*" == "@ ls --match state:overlay_parent" ]]; then
   [[ -s '$T'/parent.json ]] && cat '$T'/parent.json
 elif [[ $1 == @ && $2 == ls ]]; then
   cat '$T'/ls.json
+elif [[ "$1 $2 $3 $4" == "@ action save_as_session --save-only" ]]; then
+  cp '$T'/saved.session $5
 fi
 return 0' >| $T/bin/kitty
 chmod +x $T/bin/kitty
@@ -221,5 +224,35 @@ windows 9 $ALL
 jq '.[0].tabs[0].windows |= map(select(.id != 99) | .is_active = (.id == 9))' $T/ls.json >| $T/tmp.json && mv $T/tmp.json $T/ls.json
 : >| $T/parent.json
 is 'no overlay: current is the active window'    "$(next_agent)" '@ focus-window --match id:1'
+
+# save-session: kitty's own session file, with each claude window resuming its
+# session. Window 3 is a shell, 5 the overlay save-session runs in, and 6 a
+# claude under another config dir.
+save_session() { HOME=$T/home PATH=$T/bin:$PATH KITTY_WINDOW_ID=${2:-5} zsh -f $ROOT/zsh/bin/save-session $1 }
+windows 2 2:claude:b:1000 3:zsh:c:1000 6:claude:f:1000
+rm $T/home/.claude/sessions/106.json
+session 106 idle 2000 .claude-k
+print -r -- "new_tab proj
+layout tall
+cd /p/b
+launch 'kitty-unserialize-data={\"id\": 2}' --var=seen_at=1000 --var=agent_state=done --title=keep
+launch 'kitty-unserialize-data={\"id\": 5}' --type=overlay save-session
+focus
+launch 'kitty-unserialize-data={\"id\": 3}' --cwd=/p/c
+launch 'kitty-unserialize-data={\"id\": 6}' --cwd=/p/f" >| $T/saved.session
+is 'save-session: reports what it saved'         "$(save_session $T/s/out.session)" "saved 3 windows, 2 Claude sessions to $T/s/out.session"
+is 'save-session: claude windows resume'         "$(<$T/s/out.session)" "new_tab proj
+layout tall
+cd /p/b
+launch 'kitty-unserialize-data={\"id\":2,\"cmd_at_shell_startup\":\"claude --resume sid-102\"}' --title=keep
+focus
+launch 'kitty-unserialize-data={\"id\": 3}' --cwd=/p/c
+launch 'kitty-unserialize-data={\"id\":6,\"cmd_at_shell_startup\":\"CLAUDE_CONFIG_DIR=$T/home/.claude-k claude --resume sid-106\"}' --cwd=/p/f"
+is 'save-session: default file'                  "$(save_session)" "saved 3 windows, 2 Claude sessions to $T/home/.config/kitty/sessions/restore.kitty-session"
+save_session $T/s/shell.session 3 >/dev/null
+is 'save-session: run from a shell, it is kept'  "$(grep -c '"id": 3' $T/s/shell.session)" 1
+: >| $T/saved.session
+is 'save-session: nothing saved, old file kept'  "$(save_session $T/s/out.session 2>&1; grep -c resume $T/s/out.session)" "kitty saved no session
+2"
 
 exit $fail
