@@ -109,6 +109,15 @@ is 'rows stay in kitty order, then their tab'    "$(ids)" '1 2 3 4 5 6 7 8 9 10 
 is 'the tab is a header row'                     "$(row tab:1)" '── proj'
 is 'projects line up after the longest name'     "$(print -r -- "$LIST" | awk -F'\t' '$1 == 6 {print $2}')" '  zsh             f'
 
+# --- window-list: a window that has rung the bell ---
+
+jq '(.[0].tabs[0].windows[] | select(.id == 2 or .id == 6)) |= . + {needs_attention: true}' $T/ls.json >| $T/tmp.json && mv $T/tmp.json $T/ls.json
+LIST=$(list 7)
+is 'a window with an unseen bell ends in one'    "$(row 6)" '  zsh f 🔔'
+is 'the bell follows an agent row too'           "$(row 2)" '… slug-102 b 🔔'
+is 'no bell on a window that has not rung'       "$(row 1)" '! slug-101 a'
+windows 7 $ALL
+
 # --- window-list: one header per tab, after its windows (fzf lists bottom-up,
 # so that shows it above them) ---
 

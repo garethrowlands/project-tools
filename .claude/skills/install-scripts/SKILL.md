@@ -55,14 +55,14 @@ ln -s $PWD/kitty/focus_watcher.py ~/.config/kitty/focus_watcher.py
 echo 'watcher focus_watcher.py' >> ~/.config/kitty/kitty.conf
 ```
 
-The same watcher drives the tab markers (`!` an agent in the tab is blocked, `✓` one has finished unseen, `…` one is working) and the "Claude needs you" / "Claude finished" desktop notifications. The markers also need `tab_bar.py`, and `{custom}` in place of `{title}` in the tab title template in `kitty.conf` (`tab_bar.py` draws the title after the marker, shortening a path to `g/g/project-tools`):
+The same watcher drives the tab markers (`!` an agent in the tab is blocked, `✓` one has finished unseen, `…` one is working) and the "Claude needs you" / "Claude finished" desktop notifications. The markers also need `tab_bar.py`, and `{custom}` in place of `{activity_symbol}` and `{title}` in the tab title template in `kitty.conf` (`tab_bar.py` draws the activity symbol, leaving out agents' windows, then the marker and the title, shortening a path to `g/g/project-tools`):
 
 ```zsh
 ln -s $PWD/kitty/tab_bar.py ~/.config/kitty/tab_bar.py
 ```
 
 ```
-tab_title_template "{fmt.fg.red}{bell_symbol}{activity_symbol}{fmt.fg.tab}{custom}"
+tab_title_template "{fmt.fg.red}{bell_symbol}{fmt.fg.tab}{custom}"
 ```
 
 kitty loads a watcher file once and caches it by path, so after changing `focus_watcher.py` a config reload isn't enough. Either restart kitty, or — to keep your windows — symlink it under a fresh name, point the `watcher` line at that, and reload the config (Cmd+Ctrl+,):

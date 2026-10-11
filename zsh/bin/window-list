@@ -13,7 +13,9 @@ source "${0:A:h}/../functions/claude-session.zsh"
 
 # A window's row leads with what it is running — a `claude` window's
 # conversation title, any other window's foreground process — since that is
-# what tells windows apart; its project (cwd basename) follows, dimmed. The tab
+# what tells windows apart; its project (cwd basename) follows, dimmed, and a
+# bell if the window has rung one that you haven't seen (the tab bar's bell
+# says only which tab). The tab
 # is not on the row: each tab gets a header row over its windows (see the end
 # of this file).
 
@@ -39,16 +41,17 @@ _window_list_name() {
   fi
 }
 
-# _window_list_label MARKER NAME SGR CWD [WIDTH] — one fzf row label, the name
-# padded to WIDTH so that the projects line up
+# _window_list_label MARKER NAME SGR CWD [WIDTH] [BELL] — one fzf row label,
+# the name padded to WIDTH so that the projects line up; BELL 1 ends it in a bell
 _window_list_label() {
-  local marker=$1 name=$2 sgr=$3 base=${4:t} width=${5:-0}
+  local marker=$1 name=$2 sgr=$3 base=${4:t} width=${5:-0} bell=$6
   local label="$marker "$'\033['"${sgr}m${name}"$'\033[0m'
   if [[ -n "$base" ]]; then
     local pad=$(( width - ${#name} ))
     (( pad > 0 )) && label+=${(l:pad:):-}
     label+="  "$'\033[2m'"$base"$'\033[0m'
   fi
+  [[ $bell == 1 ]] && label+="  🔔"
   print -r -- "$label"
 }
 
@@ -88,20 +91,21 @@ fi
 # seen_at is "-" when the window has none: an empty field would be swallowed
 # by read, tab being IFS whitespace.
 live_list=$(
-  local -a ids tab_ids tabs cwds markers names sgrs
-  local id tab_id tab cwd proc pid seen_at
+  local -a ids tab_ids tabs cwds markers names sgrs bells
+  local id tab_id tab cwd proc pid seen_at bell
   kitty @ ls 2>/dev/null | jq -r '
     .[].tabs[] | . as $tab | .windows[] | select(.is_self | not) | . as $w |
     [($w.id | tostring), ($tab.id | tostring), ($tab.title),
      ($w.foreground_processes[0].cwd // $w.title // ""),
      ($w.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last),
      ($w.foreground_processes[-1].pid // "" | tostring),
-     ($w.user_vars.seen_at // "-")
+     ($w.user_vars.seen_at // "-"),
+     (if $w.needs_attention then "1" else "-" end)
     ] | join("\t")
-  ' | while IFS=$'\t' read -r id tab_id tab cwd proc pid seen_at; do
+  ' | while IFS=$'\t' read -r id tab_id tab cwd proc pid seen_at bell; do
     _window_list_name "$proc" "$pid" "$seen_at" $(( id == ${WINDOW_CURRENT_ID:-0} ))
     ids+=("$id") tab_ids+=("$tab_id") tabs+=("$(_window_list_tab_name "$tab")") cwds+=("$cwd")
-    markers+=("$reply[1]") names+=("$reply[2]") sgrs+=("$reply[3]")
+    markers+=("$reply[1]") names+=("$reply[2]") sgrs+=("$reply[3]") bells+=("$bell")
   done
   local i width=0
   for i in {1..$#ids}; do
@@ -111,7 +115,7 @@ live_list=$(
   for i in {1..$#ids}; do
     (( $#ids )) || break
     printf '%s\t%s\t%s\t%s\n' "$ids[i]" \
-      "$(_window_list_label "$markers[i]" "$names[i]" "$sgrs[i]" "$cwds[i]" $width)" "$tab_ids[i]" "$tabs[i]"
+      "$(_window_list_label "$markers[i]" "$names[i]" "$sgrs[i]" "$cwds[i]" $width "$bells[i]")" "$tab_ids[i]" "$tabs[i]"
   done
 )
 

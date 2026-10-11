@@ -465,7 +465,8 @@ import kitty.tab_bar as ktb  # noqa: E402
 tb = load('tab_bar')
 # real colour codes; `tab` (back to the tab's own colour) needs a tab being drawn
 real_fg = ktb.ColorFormatter('fg')
-fmt = type('Fmt', (), {'fg': type('Fg', (), {'red': real_fg.red, 'green': real_fg.green, 'yellow': real_fg.yellow, 'tab': '<tab>'})()})()
+fmt = type('Fmt', (), {'bold': '<b>', 'nobold': '</b>',
+                       'fg': type('Fg', (), {'red': real_fg.red, 'green': real_fg.green, 'yellow': real_fg.yellow, 'tab': '<tab>'})()})()
 
 
 def tab_marker(*states):
@@ -474,7 +475,7 @@ def tab_marker(*states):
     return tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': ''})
 
 
-red, green, yellow, back = fmt.fg.red, fmt.fg.green, fmt.fg.yellow, fmt.fg.tab
+red, green, yellow, back = '<b>' + fmt.fg.red, '<b>' + fmt.fg.green, '<b>' + fmt.fg.yellow, '</b>' + fmt.fg.tab
 check('tab marker: blocked beats everything', tab_marker('working', 'done', 'blocked', '') == f'{red}! {back}', repr(tab_marker('working', 'done', 'blocked', '')))
 check('tab marker: done beats working', tab_marker('idle', 'working', 'done') == f'{green}✓ {back}')
 check('tab marker: working', tab_marker('idle', 'working') == f'{yellow}… {back}')
@@ -500,7 +501,42 @@ for title, want in (
 ):
     check(f'tab title: {title!r}', tb.short_title(title) == want, repr(tb.short_title(title)))
 tb.get_boss = lambda: type('Boss', (), {'tab_for_id': lambda self, tab_id: [type('W', (), {'user_vars': {'agent_state': 'blocked'}})()]})()
+check('tab title: no colour for the dropped directories without the tab\'s colours', tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': '/a/b/c/d'}) == f'{red}! {back}…/b/c/d')
+# a real formatter, mid-draw: white text on a #204060 tab
+tab_fg = ktb.ColorFormatter('fg')
+tab_fg.tab_data = object()
+tab_fg.draw_data = type('DrawData', (), {'tab_fg': lambda self, tab: 0xffffff, 'tab_bg': lambda self, tab: 0x204060})()
+real_fmt = type('Fmt', (), {'fg': tab_fg})()
+tb.get_boss = lambda: None
+check('tab title: the dropped directories are halfway to the background',
+      tb.draw_title({'tab_id': 7, 'fmt': real_fmt, 'title': '/a/b/c/d'}) == f'{tab_fg._8f9faf}…/{tab_fg._ffffff}b/c/d',
+      repr(tb.draw_title({'tab_id': 7, 'fmt': real_fmt, 'title': '/a/b/c/d'})))
+check('tab title: no colour codes when nothing is dropped', tb.draw_title({'tab_id': 7, 'fmt': real_fmt, 'title': 'a/b/c'}) == 'a/b/c')
+tb.get_boss = lambda: type('Boss', (), {'tab_for_id': lambda self, tab_id: [type('W', (), {'user_vars': {'agent_state': 'blocked'}})()]})()
+for is_active, style, want in ((True, 'active_tab_font_style', ''), (False, 'inactive_tab_font_style', '</b>')):
+    fmt.fg.tab_data = type('TabData', (), {'is_active': is_active})()
+    tb.get_options = lambda: type('Opts', (), {'active_tab_font_style': (True, True), 'inactive_tab_font_style': (False, False)})()
+    check(f'tab marker: bold ends after it unless the tab is bold ({style})',
+          tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 't'}) == f'<b>{fmt.fg.red}! {want}<tab>t', repr(tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 't'})))
+del fmt.fg.tab_data
 check('tab title: follows the marker', tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 'github.com/me/proj'}) == f'{red}! {back}g/m/proj')
+
+
+# tab_bar.py: the activity symbol, for windows without an agent only
+def tab_activity(symbol, *windows):
+    # each window is (agent state or '', has activity)
+    tab = [type('W', (), {'user_vars': {'agent_state': s} if s else {}, 'has_activity_since_last_focus': a})() for s, a in windows]
+    tb.get_boss = lambda: type('Boss', (), {'tab_for_id': lambda self, tab_id: tab})()
+    tb.get_options = lambda: type('Opts', (), {'tab_activity_symbol': symbol, 'active_tab_font_style': (False, False), 'inactive_tab_font_style': (False, False)})()
+    return tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 't'})
+
+
+plain_red = fmt.fg.red
+check('activity: a window without an agent shows the symbol', tab_activity('>', ('', True), ('', False)) == f'{plain_red}><tab>t', repr(tab_activity('>', ('', True), ('', False))))
+check('activity: an agent\'s activity does not count', tab_activity('>', ('idle', True), ('working', True), ('', False)) == f'{yellow}… {back}t')
+check('activity: it comes before the marker', tab_activity('>', ('working', True), ('', True)) == f'{plain_red}><tab>{yellow}… {back}t')
+check('activity: nothing without activity', tab_activity('>', ('', False)) == 't')
+check('activity: nothing when the symbol is off', tab_activity(None, ('', True)) == 't' and tab_activity('', ('', True)) == 't')
 
 print(f'\n{failures} failure(s)' if failures else '\nALL OK')
 sys.exit(1 if failures else 0)
