@@ -30,6 +30,10 @@ elif [[ "$1 $2 $3 $4" == "@ action save_as_session --save-only" ]]; then
 fi
 return 0' >| $T/bin/kitty
 chmod +x $T/bin/kitty
+print -r -- '#!/bin/zsh
+[[ -s '$T'/ps.out ]] && cat '$T'/ps.out
+return 0' >| $T/bin/ps
+chmod +x $T/bin/ps
 
 # session PID STATUS SINCE_SECONDS [CONFIG_DIR] [EXTRA_JSON]
 session() {
@@ -232,27 +236,39 @@ save_session() { HOME=$T/home PATH=$T/bin:$PATH KITTY_WINDOW_ID=${2:-5} zsh -f $
 windows 2 2:claude:b:1000 3:zsh:c:1000 6:claude:f:1000
 rm $T/home/.claude/sessions/106.json
 session 106 idle 2000 .claude-k
-print -r -- "new_tab proj
+SAVED="new_tab proj
 layout tall
 cd /p/b
 launch 'kitty-unserialize-data={\"id\": 2}' --var=seen_at=1000 --var=agent_state=done --title=keep
 launch 'kitty-unserialize-data={\"id\": 5}' --type=overlay save-session
 focus
 launch 'kitty-unserialize-data={\"id\": 3}' --cwd=/p/c
-launch 'kitty-unserialize-data={\"id\": 6}' --cwd=/p/f" >| $T/saved.session
+launch 'kitty-unserialize-data={\"id\": 6}' --cwd=/p/f"
+print -r -- "$SAVED" >| $T/saved.session
 is 'save-session: reports what it saved'         "$(save_session $T/s/out.session)" "saved 3 windows, 2 Claude sessions to $T/s/out.session"
 is 'save-session: claude windows resume'         "$(<$T/s/out.session)" "new_tab proj
 layout tall
 cd /p/b
-launch 'kitty-unserialize-data={\"id\":2,\"cmd_at_shell_startup\":\"claude --resume sid-102\"}' --title=keep
+launch 'kitty-unserialize-data={\"id\":2,\"cmd_at_shell_startup\":\"setopt aliases; eval \\\"claude --resume sid-102\\\"\"}' --title=keep
 focus
 launch 'kitty-unserialize-data={\"id\": 3}' --cwd=/p/c
-launch 'kitty-unserialize-data={\"id\":6,\"cmd_at_shell_startup\":\"CLAUDE_CONFIG_DIR=$T/home/.claude-k claude --resume sid-106\"}' --cwd=/p/f"
+launch 'kitty-unserialize-data={\"id\":6,\"cmd_at_shell_startup\":\"setopt aliases; eval \\\"claudek --resume sid-106\\\"\"}' --cwd=/p/f"
 is 'save-session: default file'                  "$(save_session)" "saved 3 windows, 2 Claude sessions to $T/home/.config/kitty/sessions/restore.kitty-session"
 save_session $T/s/shell.session 3 >/dev/null
 is 'save-session: run from a shell, it is kept'  "$(grep -c '"id": 3' $T/s/shell.session)" 1
 : >| $T/saved.session
 is 'save-session: nothing saved, old file kept'  "$(save_session $T/s/out.session 2>&1; grep -c resume $T/s/out.session)" "kitty saved no session
 2"
+
+# a claude suspended with Ctrl+Z: the window's foreground is its shell (pid
+# 500), and claude (pid 104) a stopped child of it
+print -r -- "$SAVED" >| $T/saved.session
+jq '.[0].tabs[0].windows |= map(if .id == 3 then .pid = 500 else . end)' $T/ls.json >| $T/tmp.json && mv $T/tmp.json $T/ls.json
+print -r -- '  500   104 /usr/local/bin/claude --resume x
+  500   777 vim claude
+    1   105 claude' >| $T/ps.out
+save_session $T/s/out.session >/dev/null
+is 'save-session: a suspended claude resumes'    "$(grep '"id":3' $T/s/out.session)" "launch 'kitty-unserialize-data={\"id\":3,\"cmd_at_shell_startup\":\"setopt aliases; eval \\\"claude --resume sid-104\\\"\"}' --cwd=/p/c"
+: >| $T/ps.out
 
 exit $fail

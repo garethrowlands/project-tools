@@ -18,9 +18,9 @@
 # and that same JSON may carry "cmd_at_shell_startup", a command the restored
 # window's shell runs on starting (through kitty's shell integration) — it is
 # how kitty's own --use-foreground-process restores a running program. So for
-# each window whose foreground process is `claude`, this adds
-# `claude --resume <session id>` there; the id comes from the process's
-# sessions/<pid>.json — see zsh/functions/claude-session.zsh. That option isn't
+# each window running `claude` (in the foreground, or suspended), this adds
+# `claude --resume <session id>` there (`claudek` for a ~/.claude-k session);
+# the id comes from the process's sessions/<pid>.json — see zsh/functions/claude-session.zsh. That option isn't
 # used itself: it would re-run whatever any window happened to be running.
 #
 # Needs kitty's socket (KITTY_LISTEN_ON), so run it from a shell in kitty or as
@@ -38,23 +38,35 @@ kitty_ls=$(kitty @ ls 2>/dev/null) || { echo "kitty not available" >&2; exit 1 }
 kitty @ action save_as_session --save-only $tmp/saved
 [[ -s $tmp/saved ]] || { echo "kitty saved no session" >&2; exit 1 }
 
+# `PPID PID` of every running claude, to find one that isn't in the foreground:
+# suspended with Ctrl+Z it is a stopped job of the window's shell, and kitty
+# lists only the shell.
+local claude_children
+claude_children=$(ps -axo ppid=,pid=,args= 2>/dev/null | awk '{ n = split($3, p, "/"); sub(/^-/, "", p[n]); if (p[n] == "claude") print $1, $2 }')
+
 # One `ID<TAB>JSON` line per window running claude: the JSON that replaces its
-# `{"id": ID}`. A session under another config dir (CLAUDE_CONFIG_DIR, e.g.
-# ~/.claude-k) is only found again under that dir.
+# `{"id": ID}`. A session is only found again under its own config dir, and a
+# second profile needs more than CLAUDE_CONFIG_DIR (its own endpoint and
+# token), so the command is the one named after the config dir: `claude` for
+# ~/.claude, `claudek` for ~/.claude-k — an alias the restored shell expands.
 printf '%s' "$kitty_ls" | jq -r '
   .[].tabs[].windows[] |
-  select((.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last) == "claude") |
-  "\(.id) \(.foreground_processes[-1].pid)"
-' | while read -r id pid; do
+  ((.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last) == "claude") as $fg |
+  "\(.id) \(if $fg then .foreground_processes[-1].pid else "-" end) \(.pid // 0)"
+' | while read -r id pid shell_pid; do
   local session_file session_id cmd
+  [[ $pid == - ]] && pid=$(print -r -- "$claude_children" | awk -v p=$shell_pid '$1 == p { print $2; exit }')
   session_file=$(_claude_session_file "$pid")
   [[ -z "$session_file" ]] && continue
   session_id=$(jq -r '.sessionId // empty' "$session_file" 2>/dev/null)
   # the command is run by a shell, and sits inside a single-quoted word
   [[ "$session_id" =~ '^[A-Za-z0-9-]+$' ]] || continue
-  cmd="claude --resume $session_id"
-  [[ ${session_file:h:h} != $HOME/.claude ]] && cmd="CLAUDE_CONFIG_DIR=${(q)session_file:h:h} $cmd"
-  [[ "$cmd" == *\'* ]] && continue
+  cmd=${${session_file:h:h:t}#.}
+  cmd=${cmd//-/}
+  [[ "$cmd" =~ '^[A-Za-z0-9_]+$' ]] || continue
+  # kitty's shell integration evals this with aliases off; the inner eval is
+  # parsed once they are back on
+  cmd="setopt aliases; eval \"$cmd --resume $session_id\""
   jq -rn --argjson id "$id" --arg cmd "$cmd" '"\($id)\t" + ({id: $id, cmd_at_shell_startup: $cmd} | tojson)'
 done >| $tmp/resume
 
