@@ -1,6 +1,6 @@
 ---
 name: install-scripts
-description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, tidy-windows, project-web, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh) and the custom shader pipeline in kitty/shaders/. Use when setting up a new machine or adding a symlink for a newly added bin script.
+description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, save-session, tidy-windows, project-web, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh) and the custom shader pipeline in kitty/shaders/. Use when setting up a new machine or adding a symlink for a newly added bin script.
 ---
 
 ## Installation
@@ -14,6 +14,7 @@ ln -s $PWD/zsh/bin/switch-project ~/.local/bin/switch-project
 ln -s $PWD/zsh/bin/window ~/.local/bin/window
 ln -s $PWD/zsh/bin/window-list ~/.local/bin/window-list
 ln -s $PWD/zsh/bin/next-agent ~/.local/bin/next-agent
+ln -s $PWD/zsh/bin/save-session ~/.local/bin/save-session
 ln -s $PWD/zsh/bin/tidy-windows ~/.local/bin/tidy-windows
 ln -s $PWD/zsh/bin/project-web ~/.local/bin/project-web
 ln -s $PWD/zsh/bin/web ~/.local/bin/web
@@ -21,6 +22,12 @@ ln -s $PWD/zsh/bin/note ~/.local/bin/note
 ```
 
 `tidy-windows` shells out to `python/tidy-windows-advise/advise` (resolved relative to the repo, no separate symlink needed) which requires `uv` to be installed, and `ANTHROPIC_API_KEY` set in the environment for AI-judged close/keep recommendations (it still works without a key, falling back to move-only/keep-only recommendations).
+
+`save-session` is run by hand before quitting kitty; it writes `~/.config/kitty/sessions/restore.kitty-session`. To have kitty open that on starting, set in `kitty.conf` (needs kitty's shell integration, which is what resumes each Claude agent):
+
+```
+startup_session ~/.config/kitty/sessions/restore.kitty-session
+```
 
 For `bin/window` live preview, enable socket-based remote control in `kitty.conf`:
 
