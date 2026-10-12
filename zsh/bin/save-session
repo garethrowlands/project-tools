@@ -23,6 +23,13 @@
 # the id comes from the process's sessions/<pid>.json — see zsh/functions/claude-session.zsh. That option isn't
 # used itself: it would re-run whatever any window happened to be running.
 #
+# Any other window that was in the middle of a command (`pnpm dev`, say) comes
+# back with that command typed at its prompt, not run: the same mechanism, with
+# `print -z`, which puts text in the shell's editing buffer. A pager (`less
+# FILE`, `man zsh`) is run, since that is safe. Either way it is the command
+# line as it was typed, which kitty's shell integration reports
+# (`last_reported_cmdline`), so aliases and arguments are as they were.
+#
 # Needs kitty's socket (KITTY_LISTEN_ON), so run it from a shell in kitty or as
 # an overlay.
 
@@ -65,27 +72,54 @@ printf '%s' "$kitty_ls" | jq -r '
   cmd=${cmd//-/}
   [[ "$cmd" =~ '^[A-Za-z0-9_]+$' ]] || continue
   # kitty's shell integration evals this with aliases off; the inner eval is
-  # parsed once they are back on
-  cmd="setopt aliases; eval \"$cmd --resume $session_id\""
+  # parsed once they are back on. It runs in the shell's first precmd, when a
+  # prompt with an instant mode (Powerlevel10k's) still has the shell's output
+  # going to a file: claude would take itself for a script and refuse to
+  # resume without a prompt, so it is given the terminal by name: the shell's
+  # $TTY, not /dev/tty, which macOS's kqueue refuses and claude dies of
+  # ("EINVAL: invalid argument, kqueue"). kitty leaves the $ alone: this JSON
+  # is taken off the launch line before variables in it are expanded.
+  cmd="setopt aliases; eval \"$cmd --resume $session_id <\$TTY >\$TTY 2>&1\""
   jq -rn --argjson id "$id" --arg cmd "$cmd" '"\($id)\t" + ({id: $id, cmd_at_shell_startup: $cmd} | tojson)'
 done >| $tmp/resume
+
+# The same for every other window that was running a command when saved (not
+# at a prompt), bar the one this was run from: its command line, typed — or
+# run, when it is a pager and nothing but (no pipe, substitution or second
+# command). $q is a single quote, which this jq program cannot hold: the
+# command line is quoted for the shell with them, and those are then written
+# as JSON escapes, since the JSON sits in a single-quoted word of the session.
+printf '%s' "$kitty_ls" | jq -r --arg self "${KITTY_WINDOW_ID:-0}" --arg q "'" --rawfile resumed $tmp/resume '
+  def sq: $q + gsub($q; $q + "\\" + $q + $q) + $q;
+  ($resumed | split("\n") | map(split("\t")[0])) as $done |
+  .[].tabs[].windows[] |
+  (.last_reported_cmdline // "") as $typed |
+  select(.at_prompt == false and $typed != "") |
+  select((.id | tostring) as $id | $id != $self and ($done | index($id) | not)) |
+  (if ($typed | test("^(less|more|most|bat|man)( |$)")) and ($typed | test("[|;&<>`$()\n]") | not)
+   then "setopt aliases; eval " + ($typed | sq) + " " + ("<$TTY >$TTY 2>&1" | sq)
+   else "print -z -- " + ($typed | sq) end) as $cmd |
+  "\(.id)\t" + ({id, cmd_at_shell_startup: $cmd} | tojson | gsub($q; "\\u0027"))
+' >| $tmp/typed
 
 # Dropped on the way: the overlay this runs in when launched from a key
 # binding (it would run save-session again on every start), and the user vars
 # kitty/focus_watcher.py keeps — they describe the windows as they were.
-awk -v map=$tmp/resume -v self="${KITTY_WINDOW_ID:-0}" '
+awk -v map=$tmp/resume -v typed_map=$tmp/typed -v self="${KITTY_WINDOW_ID:-0}" '
   BEGIN {
     while ((getline line < map) > 0) { tab = index(line, "\t"); resume[substr(line, 1, tab - 1)] = substr(line, tab + 1) }
+    while ((getline line < typed_map) > 0) { tab = index(line, "\t"); typed[substr(line, 1, tab - 1)] = substr(line, tab + 1) }
   }
   /^launch / && match($0, /kitty-unserialize-data=\{"id": [0-9]+\}/) {
     id = substr($0, RSTART, RLENGTH); gsub(/[^0-9]/, "", id)
     if (id == self && index($0, " --type=overlay")) next
     if (id in resume) { $0 = substr($0, 1, RSTART - 1) "kitty-unserialize-data=" resume[id] substr($0, RSTART + RLENGTH); resumed++ }
+    else if (id in typed) { $0 = substr($0, 1, RSTART - 1) "kitty-unserialize-data=" typed[id] substr($0, RSTART + RLENGTH); commands++ }
     gsub(/ --var=(agent_state|seen_at)=[^ ]*/, "")
     windows++
   }
   { print }
-  END { printf "%d windows, %d Claude sessions\n", windows, resumed > "/dev/stderr" }
+  END { printf "%d windows, %d Claude sessions, %d other commands\n", windows, resumed, commands > "/dev/stderr" }
 ' $tmp/saved >| $tmp/out 2>| $tmp/summary
 
 mkdir -p ${out:h} && mv $tmp/out $out || exit 1

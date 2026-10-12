@@ -245,15 +245,15 @@ focus
 launch 'kitty-unserialize-data={\"id\": 3}' --cwd=/p/c
 launch 'kitty-unserialize-data={\"id\": 6}' --cwd=/p/f"
 print -r -- "$SAVED" >| $T/saved.session
-is 'save-session: reports what it saved'         "$(save_session $T/s/out.session)" "saved 3 windows, 2 Claude sessions to $T/s/out.session"
+is 'save-session: reports what it saved'         "$(save_session $T/s/out.session)" "saved 3 windows, 2 Claude sessions, 0 other commands to $T/s/out.session"
 is 'save-session: claude windows resume'         "$(<$T/s/out.session)" "new_tab proj
 layout tall
 cd /p/b
-launch 'kitty-unserialize-data={\"id\":2,\"cmd_at_shell_startup\":\"setopt aliases; eval \\\"claude --resume sid-102\\\"\"}' --title=keep
+launch 'kitty-unserialize-data={\"id\":2,\"cmd_at_shell_startup\":\"setopt aliases; eval \\\"claude --resume sid-102 <\$TTY >\$TTY 2>&1\\\"\"}' --title=keep
 focus
 launch 'kitty-unserialize-data={\"id\": 3}' --cwd=/p/c
-launch 'kitty-unserialize-data={\"id\":6,\"cmd_at_shell_startup\":\"setopt aliases; eval \\\"claudek --resume sid-106\\\"\"}' --cwd=/p/f"
-is 'save-session: default file'                  "$(save_session)" "saved 3 windows, 2 Claude sessions to $T/home/.config/kitty/sessions/restore.kitty-session"
+launch 'kitty-unserialize-data={\"id\":6,\"cmd_at_shell_startup\":\"setopt aliases; eval \\\"claudek --resume sid-106 <\$TTY >\$TTY 2>&1\\\"\"}' --cwd=/p/f"
+is 'save-session: default file'                  "$(save_session)" "saved 3 windows, 2 Claude sessions, 0 other commands to $T/home/.config/kitty/sessions/restore.kitty-session"
 save_session $T/s/shell.session 3 >/dev/null
 is 'save-session: run from a shell, it is kept'  "$(grep -c '"id": 3' $T/s/shell.session)" 1
 : >| $T/saved.session
@@ -268,7 +268,36 @@ print -r -- '  500   104 /usr/local/bin/claude --resume x
   500   777 vim claude
     1   105 claude' >| $T/ps.out
 save_session $T/s/out.session >/dev/null
-is 'save-session: a suspended claude resumes'    "$(grep '"id":3' $T/s/out.session)" "launch 'kitty-unserialize-data={\"id\":3,\"cmd_at_shell_startup\":\"setopt aliases; eval \\\"claude --resume sid-104\\\"\"}' --cwd=/p/c"
+is 'save-session: a suspended claude resumes'    "$(grep '"id":3' $T/s/out.session)" "launch 'kitty-unserialize-data={\"id\":3,\"cmd_at_shell_startup\":\"setopt aliases; eval \\\"claude --resume sid-104 <\$TTY >\$TTY 2>&1\\\"\"}' --cwd=/p/c"
 : >| $T/ps.out
+
+# a window in the middle of a command comes back with it typed, not run: 3 was
+# running a dev server; 2 is a claude, which resumes instead; 6 is at its
+# prompt; 9 (not in the session) is where save-session was typed
+startup() { print -r -- ${${"$(grep "\"id\":$1" $T/s/out.session)"#*data=}%%\' --*} | jq -r .cmd_at_shell_startup }
+print -r -- "$SAVED" >| $T/saved.session
+jq --arg cmd "FOO=1 pnpm dev | tee 'my log'" '.[0].tabs[0].windows |= map(
+      if .id == 3 then .pid = 3 | .at_prompt = false | .last_reported_cmdline = $cmd
+      elif .id == 2 then .at_prompt = false | .last_reported_cmdline = "claude"
+      else .at_prompt = true | .last_reported_cmdline = "ls" end)' $T/ls.json >| $T/tmp.json && mv $T/tmp.json $T/ls.json
+is 'save-session: counts the other commands'      "$(save_session $T/s/out.session 9)" "saved 4 windows, 2 Claude sessions, 1 other commands to $T/s/out.session"
+is 'save-session: a running command comes back typed' "$(startup 3)" "print -z -- 'FOO=1 pnpm dev | tee '\''my log'\'''"
+typed=$(grep '"id":3' $T/s/out.session)
+is 'save-session: its quotes do not end the word' "${#${typed//[^\']/}}" 2
+is 'save-session: a claude still resumes'         "$(startup 2)" 'setopt aliases; eval "claude --resume sid-102 <$TTY >$TTY 2>&1"'
+is 'save-session: a window at its prompt is left' "$(grep -c '"id": 6\|"id":6,"cmd_at_shell_startup":"print' $T/s/out.session)" 0
+save_session $T/s/self.session 3 >/dev/null
+is 'save-session: not the window it was run from' "$(grep -c 'print -z' $T/s/self.session)" 0
+
+# a pager is run, not typed; a pager fed by another command is only typed
+pager() {
+  jq --arg cmd "$1" '.[0].tabs[0].windows |= map(if .id == 3 then .last_reported_cmdline = $cmd else . end)' $T/ls.json >| $T/tmp.json && mv $T/tmp.json $T/ls.json
+  save_session $T/s/out.session 9 >/dev/null
+  startup 3
+}
+is 'save-session: a pager is run'                 "$(pager "less 'my file'")" "setopt aliases; eval 'less '\''my file'\''' '<\$TTY >\$TTY 2>&1'"
+is 'save-session: man is a pager'                 "$(pager 'man zsh')" "setopt aliases; eval 'man zsh' '<\$TTY >\$TTY 2>&1'"
+is 'save-session: a command piped to one is typed' "$(pager 'make deploy | less')" "print -z -- 'make deploy | less'"
+is 'save-session: lesspipe is not less'           "$(pager 'lessc site.less')" "print -z -- 'lessc site.less'"
 
 exit $fail
