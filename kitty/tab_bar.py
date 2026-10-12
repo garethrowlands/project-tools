@@ -4,7 +4,11 @@ kitty calls `draw_title` for `{custom}` in the tab title template; it draws the
 activity symbol and the title too, so it replaces `{activity_symbol}` and
 `{title}` in kitty.conf:
 
-    tab_title_template "{fmt.fg.red}{bell_symbol}{fmt.fg.tab}{custom}"
+    tab_title_template "{fmt.fg.red}{bell_symbol}{fmt.fg.tab}{activity_symbol * 0}{custom}"
+
+`{activity_symbol * 0}` draws nothing, and has to be there: kitty puts its own
+activity symbol in front of any template that doesn't name the field, which
+would show it for agents after all, and twice for other windows.
 
 A tab gets one marker for the agents in its windows — the most pressing of
 red `!` (one is blocked on you), green `✓` (one has finished since you last

@@ -69,7 +69,7 @@ ln -s $PWD/kitty/tab_bar.py ~/.config/kitty/tab_bar.py
 ```
 
 ```
-tab_title_template "{fmt.fg.red}{bell_symbol}{fmt.fg.tab}{custom}"
+tab_title_template "{fmt.fg.red}{bell_symbol}{fmt.fg.tab}{activity_symbol * 0}{custom}"
 ```
 
 kitty loads a watcher file once and caches it by path, so after changing `focus_watcher.py` a config reload isn't enough. Either restart kitty, or — to keep your windows — symlink it under a fresh name, point the `watcher` line at that, and reload the config (Cmd+Ctrl+,):
