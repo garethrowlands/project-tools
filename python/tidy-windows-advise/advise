@@ -390,23 +390,55 @@ def project_label(window: dict) -> str:
     return Path(project_key(window)).name
 
 
-def plan_moves(windows: list[dict]) -> dict[int, int]:
-    """Return {window_id: target_tab_id} for windows not on their project's home tab."""
-    by_project: dict[str, list[dict]] = {}
-    for w in windows:
-        by_project.setdefault(project_key(w), []).append(w)
+def tab_name(title: str) -> str:
+    """A tab's name for matching against projects: the last component of its title.
 
-    moves: dict[int, int] = {}
-    for members in by_project.values():
-        tab_ids = {w["tab_id"] for w in members}
-        if len(tab_ids) <= 1:
-            continue  # already on one tab, nothing to consolidate
-        counts = Counter(w["tab_id"] for w in members)
-        max_count = max(counts.values())
-        home_tab = min(tab for tab, count in counts.items() if count == max_count)
+    A tab made by switch-project is titled with the bare project name; one with no
+    explicit title shows its window's title, a path relative to the project roots.
+    """
+    return title.rstrip("/").rsplit("/", 1)[-1]
+
+
+def plan_moves(windows: list[dict]) -> dict[int, int | str]:
+    """Return {window_id: target} for windows not on their project's tab.
+
+    One tab per project. A project's home is a tab it owns: one titled with its name,
+    or else one where it has more windows than any other project. Of several, a titled
+    one, then the one with most of its windows (lowest id on a tie). A window elsewhere moves to the home,
+    as a tab id. A window sitting in a tab another project owns, when its own project
+    has no home, goes to `"new:<project>"`: one new tab per project, which the caller
+    creates and titles. A tab nobody owns is left alone.
+    """
+    labels = {project_label(w) for w in windows}
+    by_tab: dict[int, list[dict]] = {}
+    for w in windows:
+        by_tab.setdefault(w["tab_id"], []).append(w)
+
+    def owner(tab_id: int) -> str | None:
+        members = by_tab[tab_id]
+        title = tab_name(members[0].get("tab_title") or "")
+        if title in labels:
+            return title
+        counts = Counter(project_label(w) for w in members).most_common(2)
+        if len(counts) == 1 or counts[0][1] > counts[1][1]:
+            return counts[0][0]
+        return None
+
+    owners = {tab_id: owner(tab_id) for tab_id in by_tab}
+
+    moves: dict[int, int | str] = {}
+    for label in sorted(labels):
+        members = [w for w in windows if project_label(w) == label]
+        counts = Counter(w["tab_id"] for w in members if owners[w["tab_id"]] == label)
+        titled = lambda tab: tab_name(by_tab[tab][0].get("tab_title") or "") == label  # noqa: E731
+        home = min(counts, key=lambda tab: (not titled(tab), -counts[tab], tab)) if counts else None
         for w in members:
-            if w["tab_id"] != home_tab:
-                moves[w["id"]] = home_tab
+            tab_owner = owners[w["tab_id"]]
+            if home is not None:
+                if w["tab_id"] != home:
+                    moves[w["id"]] = home
+            elif tab_owner not in (None, label):
+                moves[w["id"]] = f"new:{label}"
     return moves
 
 
@@ -513,6 +545,23 @@ OVERLAY_REASON = "overlay left open — closing it reveals the window underneath
 AGENT_MARKERS = {"blocked": "!", "done": "✓", "working": "…"}
 
 
+def move_reason(window: dict, target) -> str:
+    if isinstance(target, str):
+        return f"move to a new {project_label(window)} tab"
+    return f"consolidate onto {project_label(window)} tab"
+
+
+def _decline_close(row: dict, reason: str) -> None:
+    """Turn a "close" into a "keep" for `reason` - or into the move the window was due,
+    since not closing it leaves it in the wrong tab."""
+    if row.get("planned_move"):
+        row["action"] = "move"
+        row["target_tab"], row["reason"] = row["planned_move"]
+    else:
+        row["action"] = "keep"
+        row["reason"] = reason
+
+
 def merge_actions(windows: list[dict], recommendations: dict, moves: dict[int, int]) -> list[dict]:
     by_id = {r["id"]: r for r in recommendations.get("recommendations", [])} if recommendations else {}
 
@@ -525,7 +574,7 @@ def merge_actions(windows: list[dict], recommendations: dict, moves: dict[int, i
             action, target_tab, reason = "close", None, rec.get("reason", "")
         elif w["id"] in moves:
             action, target_tab = "move", moves[w["id"]]
-            reason = f"consolidate onto {project_label(w)} tab"
+            reason = move_reason(w, target_tab)
         elif rec and rec.get("action") == "keep":
             action, target_tab, reason = "keep", None, rec.get("reason", "")
         else:
@@ -549,6 +598,9 @@ def merge_actions(windows: list[dict], recommendations: dict, moves: dict[int, i
                 "target_tab": target_tab,
                 "reason": reason,
                 "label": label,
+                # kept for the protections below, which turn a "close" into a "keep":
+                # the window still belongs on its project's tab
+                "planned_move": (moves[w["id"]], move_reason(w, moves[w["id"]])) if w["id"] in moves else None,
             }
         )
     return final
@@ -595,8 +647,7 @@ def protect_active_agents(final_rows: list[dict]) -> list[dict]:
     its new tab), so moves stand."""
     for r in final_rows:
         if r["action"] == "close" and r.get("claude_state") in ACTIVE_AGENT_REASONS:
-            r["action"] = "keep"
-            r["reason"] = ACTIVE_AGENT_REASONS[r["claude_state"]]
+            _decline_close(r, ACTIVE_AGENT_REASONS[r["claude_state"]])
     return final_rows
 
 
@@ -608,8 +659,7 @@ def protect_running_processes(final_rows: list[dict]) -> list[dict]:
     anyway. Moves stand: the process carries on in its new tab."""
     for r in final_rows:
         if r["action"] == "close" and r.get("running") and not r.get("is_overlay"):
-            r["action"] = "keep"
-            r["reason"] = f"running {', '.join(r['running'])} — never auto-closed (closing would kill it)"
+            _decline_close(r, f"running {', '.join(r['running'])} — never auto-closed (closing would kill it)")
     return final_rows
 
 
@@ -628,7 +678,12 @@ def to_fzf_tsv(final_rows: list[dict]) -> str:
     for r in _sorted_rows(final_rows):
         if r["action"] == "keep":
             continue
-        tag = "[CLOSE]" if r["action"] == "close" else f"[MOVE→tab {r['target_tab']}]"
+        if r["action"] == "close":
+            tag = "[CLOSE]"
+        elif isinstance(r["target_tab"], str):
+            tag = f"[MOVE→new {r['target_tab'].removeprefix('new:')} tab]"
+        else:
+            tag = f"[MOVE→tab {r['target_tab']}]"
         display = f"{tag} {r['label']} — {r['reason']}"
         lines.append(f"{r['id']}\t{r['action']}\t{r['target_tab'] or ''}\t{display}")
     return "\n".join(lines)

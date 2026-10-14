@@ -2,6 +2,19 @@
 # Source this file to get the `project` function.
 _PROJECT_ZSH_PATH="${0:A}"
 
+# The title of the kitty tab a project lives in: the main worktree's directory name, so
+# a linked worktree shares its repo's tab. python/tidy-windows-advise's project_label
+# gives the same name, which is how tidy-windows finds a project's tab.
+_project_tab_name() {
+  local dir="$1" common
+  common=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+  if [[ "${common:t}" == .git ]]; then
+    echo "${common:h:t}"
+  else
+    echo "${dir:t}"
+  fi
+}
+
 _project_cache_file() {
   if [[ -n "${PROJECT_CACHE:-}" ]]; then
     local p="$PROJECT_CACHE"

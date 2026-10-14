@@ -146,6 +146,18 @@ _assert_contains "$out" "$_zt/extra/d"$'\t' "_project_build_list: worktree's mai
 
 rm -rf "$_zt"
 
+# ── _project_tab_name ─────────────────────────────────────────────────────────
+
+_tt=$(mktemp -d "${TMPDIR:-/tmp}/tabname-XXXXXX")
+git init -q "$_tt/shop" && git -C "$_tt/shop" -c user.name=t -c user.email=t@t commit -q --allow-empty -m i
+git -C "$_tt/shop" worktree add -q "$_tt/shop/.claude/worktrees/fix" -b fix
+mkdir -p "$_tt/shop/src" "$_tt/plain"
+_assert_eq "$(_project_tab_name "$_tt/shop")" "shop" "_project_tab_name: repo root is the repo's name"
+_assert_eq "$(_project_tab_name "$_tt/shop/src")" "shop" "_project_tab_name: subdirectory is its repo's name"
+_assert_eq "$(_project_tab_name "$_tt/shop/.claude/worktrees/fix")" "shop" "_project_tab_name: a linked worktree is its main repo"
+_assert_eq "$(_project_tab_name "$_tt/plain")" "plain" "_project_tab_name: outside git is the directory's name"
+rm -rf "$_tt"
+
 # ── summary ───────────────────────────────────────────────────────────────────
 
 if (( _failures == 0 )); then

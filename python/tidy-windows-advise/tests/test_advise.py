@@ -494,8 +494,11 @@ def test_project_key_falls_back_to_cwd_without_git():
 # --- plan_moves ---
 
 
-def _w(id, tab_id, cwd, root=None):
-    return {"id": id, "tab_id": tab_id, "cwd": cwd, "git": {"root": root or cwd}}
+def _w(id, tab_id, cwd, root=None, tab_title="", project_root=None):
+    git = {"root": root or cwd}
+    if project_root:
+        git["project_root"] = project_root
+    return {"id": id, "tab_id": tab_id, "tab_title": tab_title, "cwd": cwd, "git": git}
 
 
 def test_plan_moves_single_tab_project_no_move():
@@ -522,6 +525,51 @@ def test_plan_moves_no_move_when_no_shared_tab():
     module = load_module()
     windows = [_w(1, 1, "/p/a"), _w(2, 2, "/p/b")]
     assert module.plan_moves(windows) == {}
+
+
+def test_plan_moves_tab_titled_for_project_is_home_even_with_fewer_windows():
+    module = load_module()
+    windows = [_w(1, 1, "/p/a", tab_title="a"), _w(2, 2, "/p/a"), _w(3, 2, "/p/a")]
+    assert module.plan_moves(windows) == {2: 1, 3: 1}
+
+
+def test_plan_moves_matches_tab_title_by_last_path_component():
+    module = load_module()
+    windows = [_w(1, 1, "/p/a", tab_title="github.com/me/a"), _w(2, 2, "/p/a"), _w(3, 2, "/p/a")]
+    assert module.plan_moves(windows) == {2: 1, 3: 1}
+
+
+def test_plan_moves_stray_window_in_other_projects_tab_goes_to_a_new_tab():
+    module = load_module()
+    windows = [_w(1, 1, "/p/bar", tab_title="bar"), _w(2, 1, "/p/bar"), _w(3, 1, "/p/foo")]
+    assert module.plan_moves(windows) == {3: "new:foo"}
+
+
+def test_plan_moves_all_of_a_projects_strays_share_one_new_tab():
+    module = load_module()
+    windows = [_w(1, 1, "/p/bar", tab_title="bar"), _w(2, 1, "/p/foo"), _w(3, 1, "/p/foo")]
+    assert module.plan_moves(windows) == {2: "new:foo", 3: "new:foo"}
+
+
+def test_plan_moves_leaves_a_mixed_untitled_tab_alone_when_nothing_owns_it():
+    module = load_module()
+    windows = [_w(1, 1, "/p/bar"), _w(2, 1, "/p/foo"), _w(3, 2, "/p/baz")]
+    assert module.plan_moves(windows) == {}
+
+
+def test_plan_moves_tab_titled_for_another_project_is_not_a_home():
+    module = load_module()
+    windows = [_w(1, 1, "/p/bar", tab_title="bar"), _w(2, 1, "/p/foo"), _w(3, 2, "/p/foo")]
+    assert module.plan_moves(windows) == {2: 2}
+
+
+def test_plan_moves_worktree_window_goes_to_main_projects_tab():
+    module = load_module()
+    windows = [
+        _w(1, 1, "/p/a", tab_title="a"),
+        _w(2, 2, "/p/a/.claude/worktrees/x", root="/p/a/.claude/worktrees/x", project_root="/p/a"),
+    ]
+    assert module.plan_moves(windows) == {2: 1}
 
 
 # --- advise / OUTPUT_SCHEMA ---
@@ -590,6 +638,30 @@ def test_merge_actions_close_wins_over_pending_move():
     result = module.merge_actions(windows, recs, moves)
     assert result[0]["action"] == "close"
     assert result[0]["reason"] == "stale"
+
+
+def test_a_move_survives_a_close_that_a_protection_overrides():
+    module = load_module()
+    windows = [{"id": 1, "cwd": "/p/a", "idle_label": "1h idle", "git": None, "running": ["node"]}]
+    recs = {"recommendations": [{"id": 1, "action": "close", "reason": "stale"}]}
+    rows = module.protect_running_processes(module.merge_actions(windows, recs, {1: 2}))
+    assert rows[0]["action"] == "move"
+    assert rows[0]["target_tab"] == 2
+
+
+def test_an_active_agent_that_is_not_to_be_closed_is_still_moved():
+    module = load_module()
+    windows = [{"id": 1, "cwd": "/p/a", "idle_label": "x", "git": None, "claude_state": "working"}]
+    recs = {"recommendations": [{"id": 1, "action": "close", "reason": "stale"}]}
+    rows = module.protect_active_agents(module.merge_actions(windows, recs, {1: "new:a"}))
+    assert (rows[0]["action"], rows[0]["target_tab"]) == ("move", "new:a")
+
+
+def test_to_fzf_tsv_names_a_new_tab():
+    module = load_module()
+    rows = [{"id": 1, "action": "move", "target_tab": "new:foo", "reason": "r", "label": "x"}]
+    assert module.to_fzf_tsv(rows).split("\t")[:3] == ["1", "move", "new:foo"]
+    assert "new foo tab" in module.to_fzf_tsv(rows)
 
 
 def test_merge_actions_move_applies_when_kept():

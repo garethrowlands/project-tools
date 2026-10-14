@@ -48,7 +48,7 @@ fi
 
 # New-tab mode
 local tab_name
-tab_name=$(basename "$project_path")
+tab_name=$(_project_tab_name "$project_path")
 
 _switch_project_find_tab_id() {
   local ls_json="$1" window_id="$2"

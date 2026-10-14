@@ -1,5 +1,7 @@
 #!/usr/bin/env zsh
 
+source "${0:A:h}/../functions/project.zsh"
+
 # Find the window this overlay covers (if launched via --type=overlay).
 # This also serves as the kitty availability check.
 local overlay_parent_ls prev_id prev_title
@@ -40,19 +42,29 @@ local start_bind=()
 [[ $prev_pos -gt 0 ]] && start_bind=(--bind "load:pos($prev_pos)")
 
 # Each tab's windows are followed by a header row (id "tab:<tab id>"), which
-# fzf's bottom-up list shows above them, and which nothing acts on
-selection=$(printf '%s\n' "$window_list" | fzf --ansi --with-nth=2.. --no-sort \
+# fzf's bottom-up list shows above them; enter on one goes to that tab (a row
+# leaves out a project that is only its tab's name, so typing that name finds
+# the header), and nothing else acts on it. The
+# delimiter is a tab, not fzf's default of any whitespace, which would take a
+# row's indent for part of the gap after its id and drop it
+selection=$(printf '%s\n' "$window_list" | fzf --ansi --delimiter '\t' --with-nth=2.. --no-sort \
      "${start_bind[@]}" \
      --header $'ctrl-t: move to new tab  ctrl-w: close window\nclaude: \033[1;31m!\033[0m needs you  \033[1;32m✓\033[0m done, unseen  \033[33m…\033[0m working  \033[2m·\033[0m idle' \
      --preview 'kitty @ get-text --match id:{1} --extent=screen --ansi 2>/dev/null | perl -pe "s/(\e\[[0-9;]*m|[ \t])*$//"' \
      --preview-window 'right:50%' \
-     --bind 'return:transform([[ {1} != *:* ]] && echo accept)' \
+     --bind 'return:transform([[ {1} != closed:* ]] && echo accept)' \
      --bind 'ctrl-t:transform([[ {1} != *:* ]] && [[ -n {1} ]] && echo "become(echo newtab:{1})")' \
      --bind "ctrl-w:execute(zsh $window_list_cmd $closed_entries $order_file close {1})+reload(zsh $window_list_cmd $closed_entries $order_file)")
 
 kitten @ last-used-layout 2>/dev/null || true
 
 [[ -z "$selection" ]] && exit 0
+
+if [[ "$selection" == tab:* ]]; then
+  local tab_id=${${selection%%$'\t'*}#tab:}
+  kitty @ focus-tab --match "id:${tab_id}" 2>/dev/null
+  exit 0
+fi
 
 local new_tab=0
 local window_id
@@ -78,7 +90,7 @@ cwd=$(printf '%s' "$kitty_ls" | jq -r --argjson wid "$window_id" '
   .[].tabs[].windows[] | select(.id == $wid) |
   .foreground_processes[0].cwd // ""
 ' 2>/dev/null | head -1)
-tab_name=$(basename "${cwd:-window}")
+tab_name=$(_project_tab_name "${cwd:-window}")
 
 local tab_id window_count
 tab_id=$(printf '%s' "$kitty_ls" | jq -r --argjson wid "$window_id" '

@@ -102,27 +102,27 @@ ALL=(1:claude:a:1000 2:claude:b:1000 3:claude:c:1000 4:claude:d:3000 5:claude:e:
 : >| $T/closed
 windows 7 $ALL
 LIST=$(list 7)
-is 'waiting is blocked'                          "$(row 1)" '! slug-101 a'
-is 'busy is working'                             "$(row 2)" '… slug-102 b'
-is 'idle since after seen_at is done'            "$(row 3)" '✓ slug-103 c'
-is 'idle since before seen_at is idle'           "$(row 4)" '· slug-104 d'
-is 'idle with no seen_at is never done'          "$(row 5)" '· slug-105 e'
-is 'a stale session file for a non-claude pid'   "$(row 6)" '  zsh f'
-is 'the current window is never done'            "$(row 7)" '· slug-107 g'
-is 'claude with no session file has no marker'   "$(row 8)" '  claude h'
-is 'other config dir: state and last ai-title'   "$(row 9)" '! Real title i'
-is 'parked session takes the job'"'"'s title'    "$(row 10)" '· the parked job j'
+is 'waiting is blocked'                          "$(row 1)" '  ! slug-101 a'
+is 'busy is working'                             "$(row 2)" '  … slug-102 b'
+is 'idle since after seen_at is done'            "$(row 3)" '  ✓ slug-103 c'
+is 'idle since before seen_at is idle'           "$(row 4)" '  · slug-104 d'
+is 'idle with no seen_at is never done'          "$(row 5)" '  · slug-105 e'
+is 'a stale session file for a non-claude pid'   "$(row 6)" '    zsh f'
+is 'the current window is never done'            "$(row 7)" '  · slug-107 g'
+is 'claude with no session file has no marker'   "$(row 8)" '    claude h'
+is 'other config dir: state and last ai-title'   "$(row 9)" '  ! Real title i'
+is 'parked session takes the job'"'"'s title'    "$(row 10)" '  · the parked job j'
 is 'rows stay in kitty order, then their tab'    "$(ids)" '1 2 3 4 5 6 7 8 9 10 tab:1 '
-is 'the tab is a header row'                     "$(row tab:1)" '── proj'
-is 'projects line up after the longest name'     "$(print -r -- "$LIST" | awk -F'\t' '$1 == 6 {print $2}')" '  zsh             f'
+is 'the tab is a header row'                     "$(row tab:1)" "proj ${(l:16::─:):-}"
+is 'projects line up after the longest name'     "$(print -r -- "$LIST" | awk -F'\t' '$1 == 6 {print $2}')" '    zsh             f'
 
 # --- window-list: a window that has rung the bell ---
 
 jq '(.[0].tabs[0].windows[] | select(.id == 2 or .id == 6)) |= . + {needs_attention: true}' $T/ls.json >| $T/tmp.json && mv $T/tmp.json $T/ls.json
 LIST=$(list 7)
-is 'a window with an unseen bell ends in one'    "$(row 6)" '  zsh f 🔔'
-is 'the bell follows an agent row too'           "$(row 2)" '… slug-102 b 🔔'
-is 'no bell on a window that has not rung'       "$(row 1)" '! slug-101 a'
+is 'a window with an unseen bell ends in one'    "$(row 6)" '    zsh f 🔔'
+is 'the bell follows an agent row too'           "$(row 2)" '  … slug-102 b 🔔'
+is 'no bell on a window that has not rung'       "$(row 1)" '  ! slug-101 a'
 windows 7 $ALL
 
 # --- window-list: one header per tab, after its windows (fzf lists bottom-up,
@@ -142,9 +142,10 @@ windows 1 1:claude:proj:1000 6:zsh:f:1000 2:claude:b:1000 3:zsh:other:1000
 two_tabs '~/src/some/other' 2 3
 LIST=$(list 1)
 is 'each tab follows its own windows'            "$(ids)" '1 6 tab:1 2 3 tab:2 '
-is 'a path for a tab title is cut to its tail'   "$(row tab:2)" '── other'
-is 'a window names its project'                  "$(row 2)" '… slug-102 b'
-is 'even when it is the tab'"'"'s own'           "$(row 3)" '  zsh other'
+is 'a path for a tab title is cut to its tail'   "$(row tab:2)" "other ${(l:9::─:):-}"
+is 'every rule ends where the widest row does'   "$(row tab:1)" "proj ${(l:10::─:):-}"
+is 'a window names its project'                  "$(row 2)" '  … slug-102 b'
+is 'but not when it is only the tab'"'"'s name'   "$(row 3)" '    zsh'
 
 # closing: the row stays put, dimmed, under its header; a header closes nothing
 print -r -- "$LIST" | cut -f1 | sed 's/^closed://' >| $T/order
@@ -157,7 +158,7 @@ is 'closing a window asks kitty to'              "$(grep -c close-window $T/kitt
 jq 'del(.[0].tabs[1])' $T/ls.json >| $T/tmp.json && mv $T/tmp.json $T/ls.json
 LIST=$(relist)
 is 'a closed tab keeps its header and rows'      "$(ids)" '1 6 tab:1 closed:2 closed:3 tab:2 '
-is 'a closed row keeps its label'                "$(row closed:2)" '[closed] slug-102 b'
+is 'a closed row keeps its label'                "$(row closed:2)" '  [closed] slug-102 b'
 : >| $T/closed
 
 # "shell" is idle by another name
@@ -165,8 +166,8 @@ session 113 shell 2000
 windows 1 13:claude:m:1000 14:claude:m:3000
 session 114 shell 2000
 LIST=$(list 1)
-is 'shell since after seen_at is done'           "$(row 13)" '✓ slug-113 m'
-is 'shell since before seen_at is idle'          "$(row 14)" '· slug-114 m'
+is 'shell since after seen_at is done'           "$(row 13)" '  ✓ slug-113 m'
+is 'shell since before seen_at is idle'          "$(row 14)" '  · slug-114 m'
 windows 2 2:claude:b:1000 13:claude:m:1000 4:claude:d:3000
 is 'next-agent seeks out a finished shell one'   "$(next_agent)" '@ focus-window --match id:13'
 
@@ -175,15 +176,15 @@ session 101 busy 100 .claude-k
 touch -t 202001010000 $T/home/.claude-k/sessions/101.json
 windows 7 1:claude:a:1000
 LIST=$(list 7)
-is 'two config dirs, one pid: the newer file'    "$(row 1)" '! slug-101 a'
+is 'two config dirs, one pid: the newer file'    "$(row 1)" '  ! slug-101 a'
 rm $T/home/.claude-k/sessions/101.json
 
 print -r -- '{"pid": 111, "status": "thinking", "statusUpdatedAt": 1}' >| $T/home/.claude/sessions/111.json
 print -r -- 'not json' >| $T/home/.claude/sessions/112.json
 windows 1 11:claude:k:1000 12:claude:l:1000
 LIST=$(list 1)
-is 'an unknown status has no marker'             "$(row 11)" '  claude k'
-is 'a malformed session file has no marker'      "$(row 12)" '  claude l'
+is 'an unknown status has no marker'             "$(row 11)" '    claude k'
+is 'a malformed session file has no marker'      "$(row 12)" '    claude l'
 
 # --- next-agent: agents needing you first (blocked before done, longest-standing
 # first, cycling); with none, the next agent window in kitty order ---

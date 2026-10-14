@@ -60,6 +60,7 @@ trap "rm -f $err_file" EXIT
 local id action target_tab display
 integer closed=0 moved=0 skipped=0 failed=0
 local -a failures
+local -A new_tabs
 while IFS=$'\t' read -r id action target_tab display; do
   if [[ -n "$current_window_id" && "$id" == "$current_window_id" ]]; then
     # Defense in depth - advise.py already forces this row to "keep", so this
@@ -80,10 +81,26 @@ while IFS=$'\t' read -r id action target_tab display; do
     move)
       # --target-tab takes a match expression (id:N), not a bare tab id;
       # --stay-in-tab, or kitty would follow the window to its new tab
-      local target=new
-      [[ -n "$target_tab" ]] && target="id:${target_tab}"
+      local target=new new_tab_name=""
+      if [[ "$target_tab" == new:* ]]; then
+        # a project with no tab of its own: the first of its windows makes one (titled
+        # with the project name, as switch-project does), the rest join it
+        new_tab_name=${target_tab#new:}
+        [[ -n "${new_tabs[$new_tab_name]-}" ]] && { target="id:${new_tabs[$new_tab_name]}"; new_tab_name="" }
+      elif [[ -n "$target_tab" ]]; then
+        target="id:${target_tab}"
+      fi
       if kitty @ detach-window --match "id:${id}" --target-tab "$target" --stay-in-tab 2>"$err_file"; then
         (( moved++ ))
+        if [[ -n "$new_tab_name" ]]; then
+          local new_tab_id
+          new_tab_id=$(kitty @ ls 2>/dev/null | jq -r --argjson wid "$id" '
+            .[].tabs[] | select(any(.windows[]; .id == $wid)) | .id' 2>/dev/null | head -1)
+          if [[ -n "$new_tab_id" ]]; then
+            kitty @ set-tab-title --match "id:${new_tab_id}" "$new_tab_name" 2>/dev/null || true
+            new_tabs[$new_tab_name]=$new_tab_id
+          fi
+        fi
       else
         (( failed++ )); failures+=("move window ${id}: $(<"$err_file")")
       fi

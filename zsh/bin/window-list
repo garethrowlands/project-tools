@@ -13,7 +13,8 @@ source "${0:A:h}/../functions/claude-session.zsh"
 
 # A window's row leads with what it is running — a `claude` window's
 # conversation title, any other window's foreground process — since that is
-# what tells windows apart; its project (cwd basename) follows, dimmed, and a
+# what tells windows apart; its project (cwd basename) follows, dimmed, unless
+# it is only the name of the tab it is in (the header says that), and a
 # bell if the window has rung one that you haven't seen (the tab bar's bell
 # says only which tab). The tab
 # is not on the row: each tab gets a header row over its windows (see the end
@@ -77,9 +78,11 @@ if [[ $3 == close ]]; then
   if [[ -n "$row" ]]; then
     IFS=$'\t' read -r tab_id tab cwd proc pid <<< "$row"
     _window_list_name "$proc" "$pid"
+    tab=$(_window_list_tab_name "$tab")
+    [[ ${cwd:t} == "$tab" ]] && cwd=""
     label=$(_window_list_label "$reply[@]" "$cwd")
     # the tab goes along, so the row keeps its header once the tab is gone
-    printf '%s\t%s\t%s\t%s\n' "$window_id" "$label" "$tab_id" "$(_window_list_tab_name "$tab")" >> "$closed_entries"
+    printf '%s\t%s\t%s\t%s\n' "$window_id" "$label" "$tab_id" "$tab" >> "$closed_entries"
   fi
   kitty @ close-window --match "id:$window_id" 2>/dev/null
   exit 0
@@ -104,7 +107,9 @@ live_list=$(
     ] | join("\t")
   ' | while IFS=$'\t' read -r id tab_id tab cwd proc pid seen_at bell; do
     _window_list_name "$proc" "$pid" "$seen_at" $(( id == ${WINDOW_CURRENT_ID:-0} ))
-    ids+=("$id") tab_ids+=("$tab_id") tabs+=("$(_window_list_tab_name "$tab")") cwds+=("$cwd")
+    tab=$(_window_list_tab_name "$tab")
+    [[ ${cwd:t} == "$tab" ]] && cwd=""
+    ids+=("$id") tab_ids+=("$tab_id") tabs+=("$tab") cwds+=("$cwd")
     markers+=("$reply[1]") names+=("$reply[2]") sgrs+=("$reply[3]") bells+=("$bell")
   done
   local i width=0
@@ -120,15 +125,33 @@ live_list=$(
 )
 
 # Rows in their final order, still carrying their tab, go through this last:
-# it puts a header row (id "tab:<tab id>") after each tab's windows — after,
-# because fzf lists bottom-up, so that is what shows the header above them.
+# it indents each row under its tab, and puts a header row (id "tab:<tab id>")
+# after each tab's windows — after, because fzf lists bottom-up, so that is
+# what shows the header above them. A header is the tab's name and a rule out
+# to where the widest row ends, so every row is read before any is printed.
 _window_list_headers() {
-  awk -F'\t' '
-  function header() { if (n) print "tab:" last "\t\033[2m──\033[0m \033[1m" name "\033[0m" }
-  $1 == "" { next }
-  n && $3 != last { header() }
-  { print $1 "\t" $2; last = $3; name = $4; n++ }
-  END { header() }'
+  setopt localoptions extendedglob
+  local -a ids labels tab_ids tab_names
+  local id label tab_id tab_name
+  while IFS=$'\t' read -r id label tab_id tab_name; do
+    [[ -n "$id" ]] || continue
+    ids+=("$id") labels+=("$label") tab_ids+=("$tab_id") tab_names+=("$tab_name")
+  done
+  local i plain rule width=0
+  for i in {1..$#ids}; do
+    (( $#ids )) || break
+    plain=${labels[i]//$'\033'\[[0-9;]#m/}
+    (( ${(m)#plain} + 2 > width )) && width=$(( ${(m)#plain} + 2 ))
+  done
+  for i in {1..$#ids}; do
+    (( $#ids )) || break
+    print -r -- "$ids[i]"$'\t'"  $labels[i]"
+    if (( i == $#ids )) || [[ "$tab_ids[i+1]" != "$tab_ids[i]" ]]; then
+      rule=$(( width - ${(m)#tab_names[i]} - 1 ))
+      (( rule < 2 )) && rule=2
+      print -r -- "tab:$tab_ids[i]"$'\t\033[1m'"$tab_names[i]"$'\033[0m \033[2m'"${(l:rule::─:):-}"$'\033[0m'
+    fi
+  done
 }
 
 if [[ -s "$order_file" ]]; then
