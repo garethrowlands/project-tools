@@ -471,13 +471,15 @@ You will be given a JSON array of open terminal windows, each tied to a project 
 For each window, decide whether it is safe to "close" (stale and safe to discard) or should be kept ("keep").
 Judge staleness from: idle time, whether the git working tree is dirty or clean, commits ahead/behind
 the upstream branch, how long ago the last commit was, and whether this window is a redundant duplicate
-of another window already open on the same project. A window's claude_session field, if present, names
+of another window already open on the same project - which only ever applies to shell windows. Two windows
+running claude in the same directory, on the same branch, are two different conversations, never duplicates,
+whatever their git state; the same goes for any two windows running different commands. A window's claude_session field, if present, names
 the Claude Code session running there - a distinctive name (not a generic default) suggests active,
 purposeful work and is a reason to lean toward "keep". A window whose processes are just fzf under a
 shell script is a picker someone left open; once it has been idle a while it is safe to close. Its claude_state field says what that session
 is doing: "working" (mid-task), "blocked" (waiting on the user for a permission or an answer), "done"
 (finished, and the user has not looked at the result yet) or "idle" (finished, and the user has seen
-it). Never recommend "close" for a working, blocked or done window; judge an idle one like any other.
+it). Never recommend "close" for a window running a Claude session, whatever its state.
 The is_focused field (reflected as "active in tab" in the idle field) means this window was the
 last-active window within its own tab - it does NOT mean the user is looking at it right now (kitty
 tracks that per tab, and several tabs can each show is_focused independently). Treat it as a weak
@@ -636,13 +638,14 @@ ACTIVE_AGENT_REASONS = {
     "working": "Claude is working here — never auto-closed",
     "blocked": "Claude is waiting on you here — never auto-closed",
     "done": "Claude finished here and you haven't looked yet — never auto-closed",
+    "idle": "a Claude session lives here — never auto-closed",
 }
 
 
 def protect_active_agents(final_rows: list[dict]) -> list[dict]:
-    """Hard-override "close" to "keep" for a window whose Claude agent is working, blocked
-    on you, or has finished without you having seen the result: closing it would kill the
-    task or throw away an answer you haven't read. Enforced in code, like the current
+    """Hard-override "close" to "keep" for any window running a Claude agent: working,
+    blocked on you or unread, closing it would kill the task or throw away an answer; even
+    an idle one is a conversation of its own, which nothing here can tell is finished with. Enforced in code, like the current
     window, rather than left to the model. A move is harmless (the session carries on in
     its new tab), so moves stand."""
     for r in final_rows:

@@ -727,13 +727,16 @@ def test_protect_active_agents_overrides_close():
         assert result[0]["reason"] == module.ACTIVE_AGENT_REASONS[state]
 
 
-def test_protect_active_agents_leaves_idle_and_non_claude_closes():
+def test_protect_active_agents_keeps_an_idle_claude_session_too():
     module = load_module()
-    rows = [
-        {"id": 1, "action": "close", "target_tab": None, "reason": "stale", "label": "x", "claude_state": "idle"},
-        {"id": 2, "action": "close", "target_tab": None, "reason": "stale", "label": "y", "claude_state": None},
-    ]
-    assert [r["action"] for r in module.protect_active_agents(rows)] == ["close", "close"]
+    rows = [{"id": 1, "action": "close", "target_tab": None, "reason": "stale", "label": "x", "claude_state": "idle"}]
+    assert module.protect_active_agents(rows)[0]["action"] == "keep"
+
+
+def test_protect_active_agents_leaves_non_claude_closes():
+    module = load_module()
+    rows = [{"id": 2, "action": "close", "target_tab": None, "reason": "stale", "label": "y", "claude_state": None}]
+    assert module.protect_active_agents(rows)[0]["action"] == "close"
 
 
 def test_protect_active_agents_leaves_moves_alone():
@@ -953,3 +956,8 @@ def test_cli_default_model_is_haiku():
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args([])
     assert args.model == "claude-haiku-4-5-20251001"
+
+
+def test_system_prompt_says_claude_windows_in_one_project_are_not_duplicates():
+    module = load_module()
+    assert "never duplicates" in module.SYSTEM_PROMPT
