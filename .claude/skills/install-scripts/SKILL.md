@@ -108,14 +108,17 @@ grep -q '^visual_bell_duration' ~/.config/kitty/kitty.conf || echo 'visual_bell_
 
 Then reload kitty's config (Cmd+Ctrl+,).
 
+## Hammerspoon (`hammerspoon/`)
+
+`hammerspoon/init.lua` holds the window positioning (Control+Option+arrow snaps to halves, crossing monitors; Return maximises; adding Command moves focus) and loads the shader demo's `demoStage`. Symlink it as Hammerspoon's config (move any existing `~/.hammerspoon/init.lua` aside first) and reload Hammerspoon:
+
+```zsh
+mkdir -p ~/.hammerspoon
+ln -s $PWD/hammerspoon/init.lua ~/.hammerspoon/init.lua
+```
+
+Machine-specific or private settings go in `hammerspoon/local.lua`, which `init.lua` loads if present and git ignores. Never put secrets in `init.lua` itself.
+
 ## Shader demo (optional)
 
-`kitty/demo/play` needs Hammerspoon's CLI and the `demoStage` module. Add to
-`~/.hammerspoon/init.lua`:
-
-    require("hs.ipc")
-    demoStage = dofile(os.getenv("HOME") .. "/github.com/garethrowlands/project-tools/kitty/demo/stage.lua")
-
-reload Hammerspoon, run `hs.ipc.cliInstall("/opt/homebrew")` once in its
-console, and check with `hs -c 'return demoStage.selftest()'` from a kitty
-pane. Nothing is symlinked; run `play` from the repo. See kitty/demo/README.md.
+`kitty/demo/play` needs Hammerspoon's CLI and the `demoStage` module, which the config above already loads. Run `hs.ipc.cliInstall("/opt/homebrew")` once in the Hammerspoon console, and check with `hs -c 'return demoStage.selftest()'` from a kitty pane. Nothing else is symlinked; run `play` from the repo. See kitty/demo/README.md.
