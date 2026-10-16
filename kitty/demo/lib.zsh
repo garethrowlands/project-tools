@@ -250,11 +250,13 @@ demo_pin() {
 # demo_record_start: with play --record, start recording the pinned kitty
 # window's display. Hammerspoon runs screencapture, so it can stop it with
 # SIGINT, which is how screencapture finishes its file (a background job of
-# this script would ignore SIGINT). Nothing to do without --record.
+# this script would ignore SIGINT). It records the display kitty is on;
+# DEMO_RECORD_DISPLAY=N picks screencapture's display N instead (1 = main).
+# Nothing to do without --record.
 demo_record_start() {
   [[ -n $DEMO_RECORD ]] || return 0
   local reply
-  reply=$(demo_hs "return demoStage.recordStart($(demo_lua_str $DEMO_RECORD))")
+  reply=$(demo_hs "return demoStage.recordStart($(demo_lua_str $DEMO_RECORD)${DEMO_RECORD_DISPLAY:+, $DEMO_RECORD_DISPLAY})")
   [[ $reply == ok ]] || { demo_err "cannot record: ${reply:-no reply}"; return 1 }
   demo_sleep 1
   demo_recording || { demo_err "screencapture stopped at once: give Hammerspoon Screen Recording permission (System Settings › Privacy & Security)"; return 1 }

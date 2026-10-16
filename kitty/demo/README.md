@@ -81,8 +81,10 @@ never touched.
 slide is up and stops before anything closes, so the video runs from the
 first slide to the last with nothing to trim. Hammerspoon runs
 `screencapture`, so it needs Screen Recording permission (System Settings ›
-Privacy & Security; the first take asks), and kitty must be on the main
-display. Without `--record`, start a screen recording (⇧⌘5) first, then
+Privacy & Security; the first take asks). It records the display kitty is on
+(`screencapture -D N`, with N worked out from kitty's window and checked
+against the size screencapture captures); set `DEMO_RECORD_DISPLAY=N` (1 is
+the main display) if it picks wrongly. Without `--record`, start a screen recording (⇧⌘5) first, then
 hands off. Abort with
 **Ctrl+Alt+Cmd+.** or by quitting presenterm (`q`); either way the demo closes
 everything it opened and restores the window frame and layout. The director's

@@ -398,6 +398,8 @@ is 'no --record, no recording' "$(grep -c record $T/hcalls)" 0
 DEMO_RECORD=$T/take.mov
 HSRUNNING=yes demo_record_start 2>/dev/null && ok 'recording starts' || bad 'recording did not start'
 grep -qF "demoStage.recordStart(\"$T/take.mov\")" $T/hcalls && ok 'Hammerspoon records to the file' || bad "start call: $(grep record $T/hcalls)"
+DEMO_RECORD_DISPLAY=2 HSRUNNING=yes demo_record_start 2>/dev/null
+grep -qF "demoStage.recordStart(\"$T/take.mov\", 2)" $T/hcalls && ok 'DEMO_RECORD_DISPLAY picks the display' || bad "display call: $(grep record $T/hcalls | tail -1)"
 HSRUNNING=no demo_record_start 2>$T/rec.err && bad 'a recorder that died at once passed' \
   || [[ $(<$T/rec.err) == *'Screen Recording'* ]] && ok 'a recorder that dies at once points at the permission' || bad "dead recorder: $(<$T/rec.err)"
 reset_stubs; HSRUNNING=no demo_record_stop 2>/dev/null && grep -q 'demoStage.recordStop()' $T/hcalls && ok 'recording stops' || bad 'recording did not stop'

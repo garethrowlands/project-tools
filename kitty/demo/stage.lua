@@ -257,17 +257,53 @@ function M.closeTiled()
   return "ok"
 end
 
--- Start recording the pinned window's display to `path`. Run from here, not
--- from play, so recordStop can interrupt() it: SIGINT is how screencapture
--- finishes its file, and a script's background job would ignore it.
--- screencapture -v records the main display only.
-function M.recordStart(path)
-  if not main then return "no pinned window" end
-  if main:screen():id() ~= hs.screen.primaryScreen():id() then
-    return "kitty is not on the main display (screencapture -v records only that one)"
+-- screencapture -D N records display N: 1 is the main display, then the
+-- others. Hammerspoon lists the primary screen first too; the rest are taken
+-- to follow in its order, which recordStart checks against the size
+-- screencapture actually captures. `display` (DEMO_RECORD_DISPLAY) overrides.
+local function displayNumber(screen)
+  local primary = hs.screen.primaryScreen():id()
+  if screen:id() == primary then return 1 end
+  local n = 1
+  for _, sc in ipairs(hs.screen.allScreens()) do
+    if sc:id() ~= primary then
+      n = n + 1
+      if sc:id() == screen:id() then return n end
+    end
   end
+end
+
+-- The pixel size screencapture gets for display n (nil if it can't tell).
+local function capturedSize(n)
+  local png = os.tmpname() .. ".png"
+  hs.execute(string.format("/usr/sbin/screencapture -x -D%d %q", n, png))
+  local out = hs.execute(string.format("/usr/bin/sips -g pixelWidth -g pixelHeight %q", png)) or ""
+  os.remove(png)
+  return tonumber(out:match("pixelWidth: (%d+)")), tonumber(out:match("pixelHeight: (%d+)"))
+end
+
+-- Start recording the display the pinned window is on to `path`. Run from
+-- here, not from play, so recordStop can interrupt() it: SIGINT is how
+-- screencapture finishes its file, and a script's background job would ignore
+-- it.
+function M.recordStart(path, display)
+  if not main then return "no pinned window" end
   if recordTask and recordTask:isRunning() then return "already recording" end
-  recordTask = hs.task.new("/usr/sbin/screencapture", nil, {"-v", "-C", "-D1", path})
+  local screen = main:screen()
+  local n = display or displayNumber(screen)
+  if not n then return "cannot tell which display kitty is on" end
+  -- A wrong guess would record another display: compare the size
+  local mode = screen:currentMode()
+  local w, h = capturedSize(n)
+  if mode and w and h then
+    local pw, ph = mode.w * mode.scale, mode.h * mode.scale
+    if not ((w == pw and h == ph) or (w == mode.w and h == mode.h)) then
+      return string.format("display %d is %dx%d but kitty's display is %dx%d: set DEMO_RECORD_DISPLAY to the right number",
+        n, w, h, pw, ph)
+    end
+  end
+  print(string.format("kitty demo: recording display %d of %d", n, #hs.screen.allScreens()))
+  recordTask = hs.task.new("/usr/sbin/screencapture", nil, {"-v", "-C", "-D" .. n, path})
   if not recordTask:start() then
     recordTask = nil
     return "screencapture would not start"
