@@ -212,28 +212,66 @@ startgroup
     shaders os-window-focus-border
 endgroup
 
-# 10. Bell: the edges of the pane that rang flash red-orange and die away
-#    (a bell in another tab flashes the whole tab area).
+# 10. Bell burst: the edges of the pane that rang flash red-orange and die
+#    away, and the pane's text shakes like a struck panel (side to side, with
+#    a lag down the pane so it wobbles) and settles. Group 11 then keeps the
+#    edges lit until the pane is focused. A bell in another tab rings the
+#    whole tab area the same way.
 #    Last, so a bell in an unfocused OS window isn't dimmed with it. Needs
 #    visual_bell_duration > 0 in kitty.conf for kitty to fire bell-in-window;
 #    0.01 keeps kitty's own full-pane flash too short to see. The number in
-#    animation_stop is the ring duration in ms; keep the curve linear, the
-#    shader shapes the decay itself.
+#    animation_stop is the burst duration in ms; keep the curve linear, the
+#    shader shapes the decay itself. Focusing a pane cuts it short.
 startgroup
     animation_start bell-in-window
-    animation_stop 400
+    animation_stop 500 | window-focus-in
     animation_curve linear
     animation_step 16
+    var int BELL_MODE = 0
     # glow colour in linear RGB; muted red-orange (sRGB #f0703c)
     var float3 BELL_COLOR = float3(0.8714, 0.162, 0.0452)
     # blend amount toward the colour at the pane edge at the first strike (0..1;
     # a blend, not added light, so it stays red over the white active border)
     var float BELL_INTENSITY = 0.5
     # how far in from the pane edge the glow fades out, in framebuffer pixels
-    var float BELL_WIDTH_PX = 40.0
+    var float BELL_WIDTH_PX = 28.0
     # full-strength reach outward past the pane, over kitty's window border
     var float BELL_OUTSET_PX = 4.0
-    # number of pulses; 0 = a single flash
+    # number of edge pulses; 0 = a single flash
     var float BELL_RINGS = 0.0
+    # corner radius of the glow, framebuffer pixels
+    var float BELL_RADIUS_PX = 20.0
+    # peak text displacement, framebuffer pixels (2 per point on Retina);
+    # up and down is a third of it
+    var float BELL_SHAKE_PX = 9.0
+    # oscillations over the burst: 7 in 500ms is 14 per second
+    var float BELL_SHAKE_CYCLES = 7.0
+    # how fast the shake dies away (higher = quicker)
+    var float BELL_SHAKE_DECAY = 3.0
+    # lag from the top of the pane to the bottom, radians (0 = rigid)
+    var float BELL_SHAKE_LAG = 1.6
+    shaders bell-ring
+endgroup
+
+# 11. Bell hold: after a bell in a pane you aren't in, its edges stay softly
+#    lit until a pane gains focus. Static (animation_step 0): drawn with
+#    kitty's normal redraws, no animation frames while it lingers, so it
+#    costs nothing. The shader draws nothing if the pane that rang is the
+#    focused one (a bell in the pane you're using), or if kitty gave the
+#    whole tab area (the bell was in another tab; the tab bar's bell marks
+#    that). kitty's own bell_border_color border marks every pane that has
+#    rung; this adds light to the latest one. Same colour and outset as 10.
+startgroup
+    animation_start bell-in-window
+    animation_stop window-focus-in
+    animation_step 0
+    var int BELL_MODE = 1
+    var float3 BELL_COLOR = float3(0.8714, 0.162, 0.0452)
+    var float BELL_OUTSET_PX = 4.0
+    var float BELL_RADIUS_PX = 20.0
+    # blend amount at the pane edge (0..1), and how far in it fades out, in
+    # framebuffer pixels
+    var float BELL_HOLD_INTENSITY = 0.3
+    var float BELL_HOLD_WIDTH_PX = 22.0
     shaders bell-ring
 endgroup
