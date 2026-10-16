@@ -2,7 +2,7 @@
 # real (Ctrl+Tab is kitty's next tab, which wraps from the last tab back to
 # the slides); then a map of the keys the rest of the chapter shows.
 slide goto 1 'Getting around projects'
-beat-pause 6
+beat-pause 3
 slide goto 2 'a tab per project'
 beat-pause 2
 reveal 'slides: this deck' 2.5
