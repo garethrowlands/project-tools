@@ -16,6 +16,7 @@ typeset -g  DEMO_STATE=${DEMO_STATE:-${TMPDIR:-/tmp}/kitty-demo}
 typeset -g  DEMO_TIMEOUT=${DEMO_TIMEOUT:-5}   # seconds a readiness poll may take
 typeset -g  DEMO_LAYOUT=''                    # the deck tab's layout before the run
 typeset -g  DEMO_RECORD=${DEMO_RECORD:-}     # play --record FILE: the video to write
+typeset -g  DEMO_QUIT_DECK=                   # set once a --record take has run clean: quit the deck after cleanup
 typeset -g  DEMO_INSIDE=${DEMO_INSIDE:-0}     # 1: running in a chapter's own kitty instance
 
 # The outside world, as functions the tests replace.
@@ -288,6 +289,11 @@ demo_cleanup() {
     demo_kitten goto-layout --match window_id:$deck $DEMO_LAYOUT >/dev/null 2>&1
   fi
   demo_hs 'return demoStage.finish()' >/dev/null 2>&1
+  # A take that ran clean quits its deck (presenterm) itself, so a chain of
+  # takes carries on without anyone pressing q. After the recording stopped
+  # and everything was put back; never on an abort or a failure, where the
+  # deck stays up to look at. (An instance's quit, below, takes the deck too.)
+  [[ -n $DEMO_QUIT_DECK ]] && demo_kitten send-key --match id:$deck q >/dev/null 2>&1
   # In a chapter's own kitty instance, quit that instance (it runs with
   # confirm_os_window_close=0, so kitty doesn't ask; kitten @ has no command
   # to close an OS window). It ends this process too, so it comes last.

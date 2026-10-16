@@ -142,6 +142,9 @@ is 'cleanup survives a window that has already gone' "$(grep '^close-window' $T/
 is 'cleanup restores the layout'    "$(grep '^goto-layout' $T/kcalls)" 'goto-layout --match window_id:7 tall'
 is 'cleanup forgets everything but the deck' "${(kv)DEMO_IDS} ${#DEMO_CREATED}" 'deck 7 0'
 grep -q 'demoStage.finish' $T/hcalls && ok 'cleanup restores the frame' || bad 'cleanup did not call finish'
+is 'cleanup leaves the deck up by default' "$(grep -c '^send-key' $T/kcalls)" 0
+: >| $T/kcalls; DEMO_QUIT_DECK=1 demo_cleanup; DEMO_QUIT_DECK=
+is 'a clean --record take quits the deck, after the recording stops' "$(grep '^send-key' $T/kcalls)" 'send-key --match id:7 q'
 
 # --- real keys ------------------------------------------------------------------
 is 'press args: cmd+shift+enter' "$(demo_press_args cmd+shift+enter)" '{"shift","cmd"}, "return", "⇧⌘↩"'

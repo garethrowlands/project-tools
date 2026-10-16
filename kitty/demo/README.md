@@ -79,7 +79,9 @@ never touched.
 
 `--record FILE` records the take to a new `.mov`: it starts once the first
 slide is up and stops before anything closes, so the video runs from the
-first slide to the last with nothing to trim. Hammerspoon runs
+first slide to the last with nothing to trim. A take that ran clean quits its own
+deck afterwards (so a chain of takes needs no one at the keyboard); a failed or
+aborted one leaves the deck up. Hammerspoon runs
 `screencapture`, so it needs Screen Recording permission (System Settings ›
 Privacy & Security; the first take asks). It records the display kitty is on
 (`screencapture -D N`, with N worked out from kitty's window and checked
