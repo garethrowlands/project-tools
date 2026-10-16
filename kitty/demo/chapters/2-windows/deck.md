@@ -55,7 +55,7 @@ Layouts
 =======
 
 ⌘F fat · ⌘G grid
-⌘S stack · ⌘T tall
+⌘S stack · ⌘L tall
 
 <!-- end_slide -->
 

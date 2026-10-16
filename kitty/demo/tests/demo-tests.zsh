@@ -608,7 +608,7 @@ zsh $DEMO_ROOT/play 2 --dry-run --only 3 2>&1 | grep -q '^focus ' && bad 'ch2 be
 is 'ch2 beat 3 narrates each move' \
   "$(zsh $DEMO_ROOT/play 2 --dry-run --only 3 2>&1 | grep -E '^(slide|press)' | awk '{print $1, $2, $3}' | sed 's/ *$//' | paste -sd, -)" \
   'slide goto 4,press-reorders cmd+shift+left,slide goto 5,press-reorders cmd+shift+right'
-is 'ch2 beat 4 tours the layouts back to tall' "$(shape 4)" 'press cmd+f,wait-layout fat,press cmd+g,wait-layout grid,press cmd+s,wait-layout stack,press cmd+t,wait-layout tall'
+is 'ch2 beat 4 tours the layouts back to tall' "$(shape 4)" 'press cmd+f,wait-layout fat,press cmd+g,wait-layout grid,press cmd+s,wait-layout stack,press cmd+l,wait-layout tall'
 is 'ch2 beat 5 zooms and back'             "$(shape 5)" 'press ctrl+alt+z,wait-layout stack,press ctrl+alt+z,wait-layout tall'
 is 'ch2 beat 6 detaches a pane'            "$(shape 6)" 'press cmd+shift+up,wait-own-tab B'
 is 'ch2 beat 7 returns, then shows its slide, then switches' \

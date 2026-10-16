@@ -11,6 +11,6 @@ beat-pause 2
 press cmd+s
 wait-layout stack
 beat-pause 2
-press cmd+t
+press cmd+l
 wait-layout tall
 beat-pause 2
