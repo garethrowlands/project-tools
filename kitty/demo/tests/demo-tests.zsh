@@ -418,6 +418,20 @@ is 'cleanup stops the recording first' "$(head -1 $T/hcalls)" 'return demoStage.
 is '...before closing panes' "$(grep -c 'close-window --match id:31' $T/kcalls)" 1
 grep -q 'if recordTask then M.recordStop() end' $DEMO_ROOT/stage.lua && ok 'an aborted run stops recording too' || bad 'finish leaves a recording running'
 DEMO_RECORD=; reset_stubs
+# The director of a clean --record take marks itself (play's backstop quits the
+# deck on that); a take without --record, or one that fails, doesn't.
+direct_state() {   # direct_state RECORD BEATS-RESULT
+  ( DEMO_STATE=$T/direct; mkdir -p $DEMO_STATE; rm -f $DEMO_STATE/take-ok; local beats_rc=$2
+    source $DEMO_ROOT/play
+    demo_begin() { return 0 }; wait-text() { return 0 }; demo_record_start() { return 0 }
+    demo_deck_title() { print x }; demo_snapshot() { : }; demo_hs() { : }
+    demo_run_beats() { return $beats_rc }
+    DEMO_RECORD=$1; demo_direct a >/dev/null 2>&1
+    [[ -e $DEMO_STATE/take-ok ]] && print -n marked || print -n unmarked; print -n " ${DEMO_QUIT_DECK:-no}" )
+}
+is 'a clean --record take marks itself and quits its deck' "$(direct_state /x/t.mov 0)" 'marked 1'
+is 'a take without --record does not'                       "$(direct_state '' 0)"       'unmarked no'
+is 'a failed take does not'                                 "$(direct_state /x/t.mov 1)" 'unmarked no'
 
 # --- play -------------------------------------------------------------------------
 # Sourcing play re-sources lib.zsh, which replaces the stubs above with the

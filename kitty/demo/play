@@ -215,15 +215,26 @@ demo_run_instance() {
 # then stop the director (its EXIT trap cleans up). Not exec: play runs under
 # the pane's shell, which outlives presenterm, so the pane never closes.
 demo_present() {
+  local director=$1 me=$sysparams[pid]
+  # Backstop for a --record take that ran clean: its director sends q to
+  # presenterm itself, but if the deck is still up 5 s after the director has
+  # gone, end it here, so a chain of takes never waits for someone at the
+  # keyboard. (take-ok is only ever written by a clean --record take.)
+  (
+    while kill -0 $director 2>/dev/null; do sleep 0.5; done
+    [[ -e $DEMO_STATE/take-ok ]] || exit 0
+    sleep 5
+    pkill -TERM -P $me presenterm
+  ) >/dev/null 2>&1 </dev/null &!
   presenterm $DEMO_CHAPTER_DIR/deck.md
-  kill -TERM $1 2>/dev/null
+  kill -TERM $director 2>/dev/null
   return 0
 }
 
 # The background half of a real run, from the moment presenterm starts.
 demo_direct() {
   demo_begin $DEMO_STATE/play.pid && wait-text deck "$(demo_deck_title $DEMO_CHAPTER_DIR/deck.md)" \
-    && demo_record_start && demo_run_beats "$@" && { [[ -z $DEMO_RECORD ]] || DEMO_QUIT_DECK=1; return 0 }
+    && demo_record_start && demo_run_beats "$@" && { [[ -z $DEMO_RECORD ]] || { DEMO_QUIT_DECK=1; : >| $DEMO_STATE/take-ok }; return 0 }
   demo_snapshot
   demo_hs "return demoStage.notify($(demo_lua_str "kitty demo stopped at beat ${DEMO_BEAT:-?}: see $DEMO_STATE/play.log"))" >/dev/null 2>&1
   return 1
@@ -296,6 +307,7 @@ demo_play_main() {
   [[ -r $DEMO_CHAPTER_DIR/layout ]] && typeset -g DEMO_START_LAYOUT=$(<$DEMO_CHAPTER_DIR/layout)
   mkdir -p $DEMO_STATE
   : >| $DEMO_STATE/play.log
+  rm -f $DEMO_STATE/take-ok
   (
     print -r -- $sysparams[pid] >| $DEMO_STATE/play.pid
     # EXIT traps in zsh functions fire on return, so these live here, in the

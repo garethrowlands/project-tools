@@ -293,7 +293,10 @@ demo_cleanup() {
   # takes carries on without anyone pressing q. After the recording stopped
   # and everything was put back; never on an abort or a failure, where the
   # deck stays up to look at. (An instance's quit, below, takes the deck too.)
-  [[ -n $DEMO_QUIT_DECK ]] && demo_kitten send-key --match id:$deck q >/dev/null 2>&1
+  if [[ -n $DEMO_QUIT_DECK ]]; then
+    print -r -- '# take finished: quitting the deck'
+    demo_kitten send-key --match id:$deck q >/dev/null 2>&1 || print -r -- '# sending q to the deck failed'
+  fi
   # In a chapter's own kitty instance, quit that instance (it runs with
   # confirm_os_window_close=0, so kitty doesn't ask; kitten @ has no command
   # to close an OS window). It ends this process too, so it comes last.

@@ -87,7 +87,9 @@ never touched.
 slide is up and stops before anything closes, so the video runs from the
 first slide to the last with nothing to trim. A take that ran clean quits its own
 deck afterwards (so a chain of takes needs no one at the keyboard); a failed or
-aborted one leaves the deck up. Hammerspoon runs
+aborted one leaves the deck up. If the deck is still up
+5 s after a clean take's director has gone, `play` ends it itself. The log
+says `# take finished: quitting the deck` when the director sent the `q`. Hammerspoon runs
 `screencapture`, so it needs Screen Recording permission (System Settings ›
 Privacy & Security; the first take asks). It records the display kitty is on
 (`screencapture -D N`, with N worked out from kitty's window and checked
