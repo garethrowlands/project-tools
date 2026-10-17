@@ -45,9 +45,10 @@ Chapter 2's beats 2–7 use the panes beat 1 opens, so rehearse them with
 `--from 1` rather than `--only`.
 
 Chapter 1's stack beat (9) shows Hammerspoon's list of every window piled on
-the TextEdit windows' half of the screen, so any of your own windows there
-(browser, editor behind kitty) would join the list, titles and all: close or
-minimise them on that display before recording.
+the TextEdit windows' half of the screen. Any of your own windows there
+(browser, editor behind kitty) join the list below the three TextEdit windows,
+which the beat never leaves, so it works the same; but their titles show in
+the list. For a video you'll share, close or minimise them first.
 
 ## Chapter 3 setup (once)
 
