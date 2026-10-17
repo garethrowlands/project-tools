@@ -13,10 +13,10 @@ source "${0:A:h}/../functions/claude-session.zsh"
 
 # A window's row leads with what it is running — a `claude` window's
 # conversation title, any other window's foreground process — since that is
-# what tells windows apart; its project (cwd basename) follows, dimmed, unless
-# it is only the name of the tab it is in (the header says that), and a
-# bell if the window has rung one that you haven't seen (the tab bar's bell
-# says only which tab). The tab
+# what tells windows apart; its project (cwd basename) follows, dimmed — even
+# when it only repeats the tab's name, so that searching by project finds the
+# row — and a bell if the window has rung one that you haven't seen (the tab
+# bar's bell says only which tab). The tab
 # is not on the row: each tab gets a header row over its windows (see the end
 # of this file).
 
@@ -79,7 +79,6 @@ if [[ $3 == close ]]; then
     IFS=$'\t' read -r tab_id tab cwd proc pid <<< "$row"
     _window_list_name "$proc" "$pid"
     tab=$(_window_list_tab_name "$tab")
-    [[ ${cwd:t} == "$tab" ]] && cwd=""
     label=$(_window_list_label "$reply[@]" "$cwd")
     # the tab goes along, so the row keeps its header once the tab is gone
     printf '%s\t%s\t%s\t%s\n' "$window_id" "$label" "$tab_id" "$tab" >> "$closed_entries"
@@ -108,7 +107,6 @@ live_list=$(
   ' | while IFS=$'\t' read -r id tab_id tab cwd proc pid seen_at bell; do
     _window_list_name "$proc" "$pid" "$seen_at" $(( id == ${WINDOW_CURRENT_ID:-0} ))
     tab=$(_window_list_tab_name "$tab")
-    [[ ${cwd:t} == "$tab" ]] && cwd=""
     ids+=("$id") tab_ids+=("$tab_id") tabs+=("$tab") cwds+=("$cwd")
     markers+=("$reply[1]") names+=("$reply[2]") sgrs+=("$reply[3]") bells+=("$bell")
   done

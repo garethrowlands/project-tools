@@ -142,10 +142,10 @@ windows 1 1:claude:proj:1000 6:zsh:f:1000 2:claude:b:1000 3:zsh:other:1000
 two_tabs '~/src/some/other' 2 3
 LIST=$(list 1)
 is 'each tab follows its own windows'            "$(ids)" '1 6 tab:1 2 3 tab:2 '
-is 'a path for a tab title is cut to its tail'   "$(row tab:2)" "other ${(l:9::─:):-}"
-is 'every rule ends where the widest row does'   "$(row tab:1)" "proj ${(l:10::─:):-}"
+is 'a path for a tab title is cut to its tail'   "$(row tab:2)" "other ${(l:13::─:):-}"
+is 'every rule ends where the widest row does'   "$(row tab:1)" "proj ${(l:14::─:):-}"
 is 'a window names its project'                  "$(row 2)" '  … slug-102 b'
-is 'but not when it is only the tab'"'"'s name'   "$(row 3)" '    zsh'
+is 'even when it is only the tab'"'"'s name'     "$(row 3)" '    zsh other'
 
 # closing: the row stays put, dimmed, under its header; a header closes nothing
 print -r -- "$LIST" | cut -f1 | sed 's/^closed://' >| $T/order
