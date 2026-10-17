@@ -44,6 +44,11 @@ kitty/demo/play 3 --record ~/Movies/chapter-3.mov   # record the take
 Chapter 2's beats 2–7 use the panes beat 1 opens, so rehearse them with
 `--from 1` rather than `--only`.
 
+Chapter 1's stack beat (9) shows Hammerspoon's list of every window piled on
+the TextEdit windows' half of the screen, so any of your own windows there
+(browser, editor behind kitty) would join the list, titles and all: close or
+minimise them on that display before recording.
+
 ## Chapter 3 setup (once)
 
 Chapter 3 runs in a kitty instance of its own, against a staged world in
@@ -114,6 +119,9 @@ left open.
 | `stage open-other FILE` | kitty takes the left half; FILE opens in TextEdit on the right half, focused |
 | `stage focus-other TITLE` / `stage focus-main` | move focus between TextEdit's window and kitty |
 | `stage close-other TITLE` | close that window (and TextEdit, if the demo started it) |
+| `stage open-stack FILE...` | kitty takes the left half; the files open in TextEdit one by one, piled on one another on the right half (the last on top, focused) |
+| `stage press-other KEYS` | like `press`, for keys Hammerspoon acts on (the stack keys), with TextEdit frontmost |
+| `stage close-stack` | close the pile (and TextEdit, if the demo started it) |
 | `stage fill` | main window back to the whole screen |
 | `press KEYS` | the real keystroke (e.g. `cmd+shift+enter`), with an on-screen badge |
 | `press-focus KEYS` / `press-reorders KEYS` | press, then wait for focus / the pane order to change |

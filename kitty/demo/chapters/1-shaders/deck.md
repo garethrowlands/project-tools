@@ -134,6 +134,20 @@ hand it's Ctrl+Option+Cmd+arrow.
 
 <!-- jump_to_middle -->
 
+Windows piled on one another
+============================
+
+Three windows share this half.
+Hammerspoon steps through the pile and
+lists it, so you can see where you are:
+
+* Ctrl+Option+Cmd+]   one down
+* Ctrl+Option+Cmd+[   one back up
+
+<!-- end_slide -->
+
+<!-- jump_to_middle -->
+
 Clicking links in the terminal
 ==============================
 

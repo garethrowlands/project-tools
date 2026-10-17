@@ -294,6 +294,11 @@ reset_stubs
 stage fill
 is 'stage fill gives the main window the whole screen' "$(grep fill $T/hcalls)" 'return demoStage.fill()'
 : >| $T/hcalls
+stage open-stack /x/a.txt /x/b.txt
+grep -qF 'demoStage.openStack({"/x/a.txt", "/x/b.txt"})' $T/hcalls && ok 'stage open-stack lists the files' || bad "open-stack: $(<$T/hcalls)"
+stage close-stack; grep -qF 'demoStage.closeStack()' $T/hcalls && ok 'stage close-stack' || bad 'close-stack not called'
+stage press-other 'ctrl+alt+cmd+]'; grep -qF 'demoStage.pressOther({"ctrl","alt","cmd"}, "]", "⌃⌥⌘]")' $T/hcalls && ok 'stage press-other posts the keys' || bad "press-other: $(tail -1 $T/hcalls)"
+reset_stubs
 stage open-other /x/other-app.txt
 stage focus-other other-app.txt
 stage focus-main
@@ -491,7 +496,7 @@ kill -0 $director 2>/dev/null && { bad 'quitting presenterm left the director ru
 unfunction presenterm
 
 # --- deck and beats ---------------------------------------------------------------
-is 'deck has 16 slides' "$(grep -c '^<!-- end_slide -->' $C1/deck.md)" 15
+is 'deck has 17 slides' "$(grep -c '^<!-- end_slide -->' $C1/deck.md)" 16
 # Every `slide goto N TEXT` must find TEXT on slide N, or the beat times out.
 slides=("${(@ps:<!-- end_slide -->:)$(<$C1/deck.md)}")
 for f in $C1/beats/*.zsh; do
@@ -536,7 +541,7 @@ is 'comet.txt fits a half-width pane' "$(awk 'length > 60' $C1/scene/comet.txt)"
 is 'beat 5 clicks four times' "$(grep -c '^mouse click' $C1/beats/05-ripple.zsh)" 4
 is 'beat 5 clicks empty background once' \
   "$(grep -A1 '^#.*empty background' $C1/beats/05-ripple.zsh | grep -c '^mouse glide deck')" 1
-for f in 04-spotlight 05-ripple 10-finale; do
+for f in 04-spotlight 05-ripple 11-finale; do
   prev=''
   for line in "${(@f)$(<$C1/beats/$f.zsh)}"; do
     if [[ $line == 'mouse glide'* ]]; then
@@ -553,17 +558,17 @@ for f in 04-spotlight 05-ripple 10-finale; do
   done
 done
 
-# --- beats 6-10 --------------------------------------------------------------------
+# --- beats 6-11 --------------------------------------------------------------------
 dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 6 2>&1)
 is 'beat 6 dry-run shape' "$(print -r -- $dry | grep -v '^#' | awk '{print $1, $2}' | paste -sd, -)" \
   'slide goto,card open,beat-pause 0.6,card say,beat-pause 0.6,card say,beat-pause 0.6,bell A,card say,beat-pause 2.5,pane close'
 dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 7 2>&1)
 is '--only 7 opens C itself' "$(print -r -- $dry | grep -v '^#' | sed -n 2p | awk '{print $1, $2, $3}')" 'card open C'
-dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 9 2>&1)
+dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 10 2>&1)
 # rg --hyperlink-format=kitty links only the heading and the line number, so
 # the click must land on the hit's line number ("5:" at column 0), not its text.
 [[ $dry == *"mouse glide-text A '5:# TODO"* && $dry == *'mouse click cmd'* ]] \
-  && ok 'beat 9 cmd-clicks the rg hit' || bad 'beat 9 does not cmd-click the rg hit'
+  && ok 'beat 10 cmd-clicks the rg hit' || bad 'beat 10 does not cmd-click the rg hit'
 [[ $(cd $C1/scene/repo && rg --hyperlink-format=kitty --color=always --heading -n TODO .) \
    == *$'main.py#5\e\\'*5*$'\e]8;;\e\\:#'* ]] && ok 'rg links the line number 5' || bad 'rg no longer links the line number'
 dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 8 2>&1)
@@ -580,13 +585,32 @@ for verb in focus-other close-other; do
     is "beat 8 $verb names the opened file" ${(Q)t} ${other:t}
   done
 done
-# Beat 9 narrates one step per slide, each before the step, and proves the cd.
-dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 9 2>&1)
-is 'beat 9 changes slide before each step' \
+# Beat 10 narrates one step per slide, each before the step, and proves the cd.
+dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 10 2>&1)
+is 'beat 10 changes slide before each step' \
   "$(print -r -- $dry | grep -E '^(slide|mouse glide-text|type-text)' | awk '{ if ($1 == "type-text") print $1, $2; else print $1, $2, $3 }' | paste -sd, -)" \
-  'slide goto 13,type-text A,slide goto 14,mouse glide-text A,slide goto 15,mouse glide-text A,type-text A'
-[[ $dry == *"type-text A 'pwd; cat sparkle.txt"* ]] && ok 'beat 9 shows where the click took the shell' || bad 'beat 9 does not prove the cd'
-is 'link slides fit a half-width window' "$(print -r -- $slides[13,15] | awk 'length > 48')" ''
+  'slide goto 14,type-text A,slide goto 15,mouse glide-text A,slide goto 16,mouse glide-text A,type-text A'
+[[ $dry == *"type-text A 'pwd; cat sparkle.txt"* ]] && ok 'beat 10 shows where the click took the shell' || bad 'beat 10 does not prove the cd'
+is 'link slides fit a half-width window' "$(print -r -- $slides[14,16] | awk 'length > 48')" ''
+# Beat 9: three windows piled on one another, stepped through with the real keys.
+dry=$(zsh $DEMO_ROOT/play 1 --dry-run --only 9 2>&1)
+is 'beat 9 opens the pile, steps down twice and up twice, then tidies up' \
+  "$(print -r -- $dry | grep -E '^(stage|slide)' | awk '{print $1, $2}' | paste -sd, -)" \
+  'slide goto,stage open-stack,stage press-other,stage press-other,stage press-other,stage press-other,stage focus-main,stage close-stack,stage fill'
+is 'beat 9 presses ] ] [ [' "$(print -r -- $dry | grep '^stage press-other' | awk '{print $3}' | tr -d "'" | paste -sd' ' -)" 'ctrl+alt+cmd+] ctrl+alt+cmd+] ctrl+alt+cmd+[ ctrl+alt+cmd+['
+for f in back middle front; do
+  [[ -f $C1/scene/stack-$f.txt ]] && ok "beat 9's stack-$f.txt exists" || bad "stack-$f.txt is missing"
+  [[ $dry == *scene/stack-$f.txt* ]] && ok "beat 9 opens stack-$f.txt" || bad "beat 9 doesn't open stack-$f.txt"
+done
+# stack.lua reuses one snapshot of the pile only while presses come within a
+# second of each other, so the pauses between presses must be under that (and
+# over the badge's 0.7 s lead, or the next press cancels the one before).
+for pause in ${(f)"$(awk '/^stage press-other/ {getline; print $2}' $C1/beats/09-stack.zsh | head -3)"}; do
+  (( pause > 0.7 && pause < 1.0 )) && ok "stack presses are $pause s apart" || bad "stack presses $pause s apart: not between 0.7 and 1.0"
+done
+[[ $slides[13] == *'piled on one another'* && $slides[13] == *'Ctrl+Option+Cmd+]'* && $slides[13] == *'Ctrl+Option+Cmd+['* ]] \
+  && ok 'slide 13 gives the stack keys' || bad 'slide 13 lacks the stack keys'
+is 'stack slide fits a half-width window' "$(print -r -- $slides[13] | awk 'length > 48')" ''
 is 'scene repo has one TODO' "$(rg -c TODO $C1/scene/repo | paste -sd' ' -)" "$C1/scene/repo/main.py:1"
 grep -rq glitter $C1/scene/repo/main.py && bad 'glitter appears in rg output' || ok 'glitter only in the eza listing'
 

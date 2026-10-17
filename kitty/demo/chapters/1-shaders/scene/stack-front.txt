@@ -1,0 +1,5 @@
+I'm the window at the front.
+
+The list in the middle of the screen
+shows the whole pile, with the window
+you are on highlighted.

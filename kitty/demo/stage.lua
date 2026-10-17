@@ -15,6 +15,10 @@ local main, savedFrame, pidFile, glideTimer, abortKey
 -- already running (if not, closeOther quits it again).
 local OTHER_APP = "com.apple.TextEdit"
 local otherTitle, otherWasRunning, otherWin, placeTimer
+-- The windows openStack opened, back to front (their file names, and the
+-- windows once placed), and whether the app was already running (if not,
+-- closeStack quits it again).
+local stackNames, stackWins, stackWasRunning, stackTimer = {}, {}, nil, nil
 -- The app window a launcher key opened (VS Code, Edge), tiled beside kitty by
 -- tileNext: {bundle, win, savedFrame (if it was already open), wasRunning}.
 local EDGE = "com.microsoft.edgemac"
@@ -72,6 +76,22 @@ function M.press(mods, key, label)
   -- The keystroke follows the badge after BADGE_LEAD, on a timer (a blocking
   -- sleep would stop the badge drawing); every press in a beat is followed by
   -- a wait for its effect, so the director needs no change.
+  showBadge(label, BADGE_LEAD + BADGE_HOLD)
+  if pressTimer then pressTimer:stop() end
+  pressTimer = hs.timer.doAfter(BADGE_LEAD, function()
+    pressTimer = nil
+    hs.eventtap.keyStroke(mods, key, 20000)
+  end)
+  return "ok"
+end
+
+-- Like press, but for keys Hammerspoon itself acts on, with the other app
+-- (TextEdit, where openStack left the focus) frontmost.
+function M.pressOther(mods, key, label)
+  local front = hs.application.frontmostApplication()
+  if not (front and front:bundleID() == OTHER_APP) then
+    return "the other app is not the frontmost app"
+  end
   showBadge(label, BADGE_LEAD + BADGE_HOLD)
   if pressTimer then pressTimer:stop() end
   pressTimer = hs.timer.doAfter(BADGE_LEAD, function()
@@ -189,6 +209,62 @@ function M.closeOther(title)
     if app then app:kill() end
   end
   otherTitle, otherWasRunning, otherWin = nil, nil, nil
+  return "ok"
+end
+
+-- Open each file in `paths` in TextEdit, back to front, and put every window
+-- on the right half (kitty takes the left): the windows end up piled on one
+-- another, the last one opened on top and focused. One at a time, so the pile
+-- is in a known order. stackPlaced() reports when all are in place.
+function M.openStack(paths)
+  if not main then return "no pinned window" end
+  if stackTimer then stackTimer:stop() end
+  stackWasRunning = hs.application.get(OTHER_APP) ~= nil
+  stackNames, stackWins = {}, {}
+  for i, path in ipairs(paths) do stackNames[i] = path:match("[^/]+$") end
+  local left, right = halves()
+  main:setFrame(left, 0)
+  local nextIndex, deadline = 1, 0
+  local function launch(i)
+    deadline = hs.timer.secondsSinceEpoch() + 5
+    -- -F: no restored windows if TextEdit wasn't running
+    local args = i == 1 and {"-g", "-F", "-b", OTHER_APP, paths[i]} or {"-g", "-b", OTHER_APP, paths[i]}
+    hs.task.new("/usr/bin/open", nil, args):start()
+  end
+  launch(1)
+  stackTimer = hs.timer.doEvery(0.01, function()
+    local app = hs.application.get(OTHER_APP)
+    for _, win in ipairs(app and app:allWindows() or {}) do
+      local t = win:title()
+      if t == stackNames[nextIndex] or t == stackNames[nextIndex]:gsub("%.[^.]*$", "") then
+        win:setFrame(right, 0)
+        win:focus()
+        stackWins[nextIndex] = win
+        nextIndex = nextIndex + 1
+        if nextIndex > #paths then stackTimer:stop(); stackTimer = nil; return end
+        launch(nextIndex)
+        return
+      end
+    end
+    if hs.timer.secondsSinceEpoch() > deadline then stackTimer:stop(); stackTimer = nil end
+  end)
+  return "ok"
+end
+
+function M.stackPlaced()
+  return (#stackNames > 0 and #stackWins == #stackNames) and "ok" or "not yet"
+end
+
+-- Close the windows openStack opened (never edited, so no save prompt), and
+-- quit TextEdit if it wasn't running before.
+function M.closeStack()
+  if stackTimer then stackTimer:stop(); stackTimer = nil end
+  for _, win in ipairs(stackWins) do win:close() end
+  if stackWasRunning == false then
+    local app = hs.application.get(OTHER_APP)
+    if app then app:kill() end
+  end
+  stackNames, stackWins, stackWasRunning = {}, {}, nil
   return "ok"
 end
 
@@ -366,6 +442,7 @@ function M.finish()
   if badge then badge:delete(); badge = nil end
   if pressTimer then pressTimer:stop(); pressTimer = nil end
   if otherTitle then M.closeOther(otherTitle) end
+  if stackNames[1] then M.closeStack() end
   if tiled then M.closeTiled() end
   if recordTask then M.recordStop() end
   if main and savedFrame then main:setFrame(savedFrame, 0) end

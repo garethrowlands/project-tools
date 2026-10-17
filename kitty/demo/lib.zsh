@@ -405,6 +405,7 @@ demo_glide() {
 
 demo_tiled_placed() { [[ $(demo_hs 'return demoStage.tiledPlaced()') == ok ]] }
 demo_other_placed() { [[ $(demo_hs 'return demoStage.otherPlaced()') == ok ]] }
+demo_stack_placed() { [[ $(demo_hs 'return demoStage.stackPlaced()') == ok ]] }
 
 # stage open-other FILE: make room (the main window takes the left half of
 #   the screen), open FILE in another app (TextEdit) and wait until
@@ -413,6 +414,11 @@ demo_other_placed() { [[ $(demo_hs 'return demoStage.otherPlaced()') == ok ]] }
 #   window and kitty.
 # stage close-other TITLE: close that window (and TextEdit, if the demo
 #   started it).
+# stage open-stack FILE...: the same, for several files: their windows pile
+#   up on the right half (the last on top, focused). Waits until all are there.
+# stage close-stack: close them (and TextEdit, if the demo started it).
+# stage press-other KEYS: like press, for keys Hammerspoon acts on, with
+#   that app frontmost (kitty isn't, after open-other / open-stack).
 # stage fill: give the main window the whole screen again.
 # stage tile-next BUNDLE TITLE: before a launcher key, arm Hammerspoon to
 #   tile the app's window (title containing TITLE) on the right half.
@@ -427,6 +433,12 @@ stage() {
     focus-other) call="demoStage.focusOther($(demo_lua_str $2))" ;;
     focus-main)  call='demoStage.focusMain()' ;;
     close-other) call="demoStage.closeOther($(demo_lua_str $2))" ;;
+    open-stack)  local -a quoted; local f
+                 for f in ${@:2}; do quoted+=("$(demo_lua_str $f)"); done
+                 call="demoStage.openStack({${(j:, :)quoted}})" ;;
+    close-stack) call='demoStage.closeStack()' ;;
+    press-other) local args; args=$(demo_press_args $2) || { demo_err "stage press-other $2: bad keys"; return 1 }
+                 call="demoStage.pressOther($args)" ;;
     tile-next)   call="demoStage.tileNext($(demo_lua_str $2), $(demo_lua_str $3))" ;;
     wait-tiled)  # an IDE can take a while to start; tests shorten it
                  local DEMO_TIMEOUT=${DEMO_TIMEOUT_TILED:-30}
@@ -439,6 +451,9 @@ stage() {
   [[ $reply == ok ]] || { demo_err "stage $*: ${reply:-no reply}"; return 1 }
   if [[ $1 == open-other ]]; then
     demo_poll "the other app's window to be placed" demo_other_placed
+  fi
+  if [[ $1 == open-stack ]]; then
+    demo_poll "the stacked windows to be placed" demo_stack_placed
   fi
 }
 
