@@ -90,7 +90,7 @@ echo 'include links.conf' >> ~/.config/kitty/kitty.conf
 echo "source $PWD/kitty/kitty-cd-link.zsh" >> ~/.zshrc
 ```
 
-Then reload kitty's config (Cmd+Ctrl+,) and start a new shell. Needs kitty's shell integration and `micro`, `glow`, `yazi` on `PATH`. See `docs/kitty-links.md`.
+Then reload kitty's config (Cmd+Ctrl+,) and start a new shell. Needs kitty's shell integration and `micro`, `mdfried`, `yazi` on `PATH`. See `docs/kitty-links.md`.
 
 ## kitty shaders (`kitty/shaders/`)
 
