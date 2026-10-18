@@ -1,3 +1,5 @@
+source "${0:A:h}/theme.zsh"
+
 _notes_extract_titles() {
   local vault="${1:-$HOME/notes}"
   # -A2 captures one continuation line for both >- block scalars and flow scalars that wrap

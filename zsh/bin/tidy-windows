@@ -5,6 +5,8 @@
 # deterministic project-grouping for move). Nothing is applied until the user
 # confirms in the fzf picker below.
 
+source "${0:A:h}/../functions/theme.zsh"
+
 echo "tidy-windows: reviewing open windows…" >&2
 
 kitty @ ls &>/dev/null 2>&1 || { echo "kitty not available" >&2; exit 1 }

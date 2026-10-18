@@ -1,6 +1,7 @@
 # project.zsh — interactive git project picker
 # Source this file to get the `project` function.
 _PROJECT_ZSH_PATH="${0:A}"
+source "${0:A:h}/theme.zsh"
 
 # The title of the kitty tab a project lives in: the main worktree's directory name, so
 # a linked worktree shares its repo's tab. python/tidy-windows-advise's project_label
