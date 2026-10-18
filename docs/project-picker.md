@@ -6,7 +6,7 @@
 - `current-project` — prints the git root of `$PWD`.
 - `_project_build_list` — builds the tab-delimited `PATH<TAB>LABEL` list (with group headers) fed to fzf. Open projects detected from kitty CWDs. Both groups are ranked by zoxide frecency (third arg, from `_project_zoxide_scores`; highest first, ties and never-visited repos alphabetical by label) — see "zoxide ranking" below.
 - `_project_zoxide_scores` — runs `zoxide query --list --score` and emits `SCORE<TAB>DIR<TAB>KIND` per entry, where `KIND` is `repo` (has a `.git` dir), `wt:<main>` (linked worktree, main repo resolved from its `.git` file's `gitdir: <main>/.git/worktrees/<name>`), or empty (plain dir, submodule). No output if zoxide isn't installed, which leaves the list alphabetical.
-- `_project_preview_dir` — preview command: shows open kitty windows for the project (bold, with divider), then `bat` output of README/CLAUDE.md or `ls`.
+- `_project_preview_dir` — preview command: shows open kitty windows for the project (bold, with divider), then README/CLAUDE.md rendered by `glow` (`-s dark`, wrapped to the pane; `bat` if `glow` is missing) or `ls`.
 - `_project_preview_windows` — reads pre-fetched `kitty @ ls` JSON from a temp file, returns bold-formatted window list for a given project path.
 - `_project_picker` — runs fzf with all bindings; pre-fetches `kitty @ ls` once at startup into a temp file to avoid hangs in preview subprocesses.
 - `_project_scan` — scans `$PROJECT_ROOTS` for git repos using `fd`, writes to cache file.

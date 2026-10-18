@@ -203,11 +203,15 @@ _project_preview_dir() {
   if [[ -n "$windows" ]]; then
     printf '%s\n%s\n\n' "$windows" "$(printf '%.0s─' $(seq 1 ${FZF_PREVIEW_COLUMNS:-40}))"
   fi
-  local bat_width=${FZF_PREVIEW_COLUMNS:-80}
-  if [[ -f "$dir/README.md" ]]; then
-    bat --color=always --style=header --terminal-width "$bat_width" "$dir/README.md"
-  elif [[ -f "$dir/CLAUDE.md" ]]; then
-    bat --color=always --style=header --terminal-width "$bat_width" "$dir/CLAUDE.md"
+  local width=${FZF_PREVIEW_COLUMNS:-80} doc=""
+  [[ -f "$dir/README.md" ]] && doc="$dir/README.md" || { [[ -f "$dir/CLAUDE.md" ]] && doc="$dir/CLAUDE.md"; }
+  if [[ -n "$doc" ]]; then
+    # glow renders Markdown without a terminal (mdfried needs one); bat if it's missing
+    if (( $+commands[glow] )); then
+      glow -s dark -w "$width" "$doc"
+    else
+      bat --color=always --style=header --terminal-width "$width" "$doc"
+    fi
   else
     ls "$dir"
   fi
