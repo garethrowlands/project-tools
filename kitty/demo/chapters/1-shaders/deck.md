@@ -97,7 +97,7 @@ Which window has focus?
 =======================
 
 kitty has the focus, so it shows
-a thin amber border.
+a thin peach border.
 
 <!-- end_slide -->
 
@@ -109,7 +109,7 @@ Another app takes the focus
 TextEdit has the focus now,
 so kitty steps back:
 
-* a little dimmer
+* duller colours
 * a cool blue tint
 * a soft shadow at its edges (a vignette)
 
@@ -123,8 +123,8 @@ Ctrl+Option+arrow does by hand.
 …and back to kitty
 ==================
 
-kitty has the focus again: the amber
-border pulses, and the dimming, tint
+kitty has the focus again: the peach
+border pulses, and the dulling, tint
 and vignette lift.
 
 Hammerspoon moved the focus here; by

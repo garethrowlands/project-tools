@@ -31,8 +31,8 @@
 
 import kitty_custom_shader_types;
 
-// Border colour in linear RGB. Default: the cursor trail's amber.
-static const float3 OSW_FOCUS_COLOR = float3(0.8, 0.5, 0.12);
+// Border colour in linear RGB. Default: Catppuccin Mocha peach, like the cursor trail.
+static const float3 OSW_FOCUS_COLOR = float3(0.956, 0.4508, 0.2423);
 // Width of the solid part of the border, in framebuffer pixels (2 per point on Retina).
 static const float OSW_FOCUS_BORDER_WIDTH_PX = 1.0;
 // How far the glow fades inward beyond the solid border, in framebuffer pixels.
@@ -43,9 +43,13 @@ static const float OSW_FOCUS_STEADY_INTENSITY = 0.35;
 static const float OSW_FOCUS_PULSE_INTENSITY = 0.9;
 // Fraction of the original colour kept while the OS window is unfocused (1 = no dim).
 static const float OSW_UNFOCUSED_DIM = 0.93;
+// How far every colour is pulled toward its own grey while unfocused (0 = off, < 1).
+static const float OSW_UNFOCUSED_DESATURATION = 0.0;
 // Colour (linear RGB) blended in while unfocused, and how much (0 = off, < 1).
+// A dark colour here lowers contrast and tints without lifting the background.
 static const float3 OSW_UNFOCUSED_TINT_COLOR = float3(0.1022, 0.162, 0.2789);
 static const float OSW_UNFOCUSED_TINT = 0.0;
+static const float3 LUMA_WEIGHTS = float3(0.2126, 0.7152, 0.0722);
 // Darkening at the very edge while unfocused (0 = off, < 1), fading out over
 // OSW_UNFOCUSED_VIGNETTE_WIDTH_PX framebuffer pixels from each edge.
 static const float OSW_UNFOCUSED_VIGNETTE = 0.0;
@@ -74,7 +78,10 @@ static float3
 undo_unfocused(float3 rgb, float vignette) {
     rgb /= max(vignette, 1e-4);
     rgb = (rgb - OSW_UNFOCUSED_TINT_COLOR * OSW_UNFOCUSED_TINT) / max(1.0 - OSW_UNFOCUSED_TINT, 1e-4);
-    return max(rgb, 0.0) / max(OSW_UNFOCUSED_DIM, 1e-4);
+    rgb = max(rgb, 0.0) / max(OSW_UNFOCUSED_DIM, 1e-4);
+    // Desaturation keeps luma, so the inverse follows from luma(y) = luma(x).
+    float luma = dot(rgb, LUMA_WEIGHTS);
+    return max((rgb - OSW_UNFOCUSED_DESATURATION * luma) / max(1.0 - OSW_UNFOCUSED_DESATURATION, 1e-4), 0.0);
 }
 
 // Light added by a border of the given intensity, dist pixels from the edge.
@@ -93,6 +100,7 @@ fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
     float3 rgb = color.rgb;
 
     if (OSW_FOCUS_PASS == 0) {
+        rgb = lerp(rgb, float3(dot(rgb, LUMA_WEIGHTS)), OSW_UNFOCUSED_DESATURATION);
         rgb *= OSW_UNFOCUSED_DIM;
         rgb = lerp(rgb, OSW_UNFOCUSED_TINT_COLOR, OSW_UNFOCUSED_TINT);
         return float4(rgb * vignette, color.a);

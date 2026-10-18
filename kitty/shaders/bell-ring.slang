@@ -1,7 +1,7 @@
 #language slang 2026
 // Bell ring
 // When a bell (BEL) arrives, the edges of the kitty window (pane) it arrived in
-// flash red-orange and die away, and the pane's text shakes like a struck
+// flash red and die away, and the pane's text shakes like a struck
 // panel (mostly side to side, with a lag down the pane so it wobbles rather
 // than moving rigidly) and settles. The glow follows a rounded rectangle
 // (BELL_RADIUS_PX) and reaches BELL_OUTSET_PX outside the pane too, because
@@ -25,8 +25,8 @@
 
 import kitty_custom_shader_types;
 
-// Glow colour in linear RGB. Default: a muted red-orange (sRGB #f0703c).
-static const float3 BELL_COLOR = float3(0.8714, 0.162, 0.0452);
+// Glow colour in linear RGB. Default: Catppuccin Mocha red (sRGB #F38BA8).
+static const float3 BELL_COLOR = float3(0.8963, 0.2582, 0.3916);
 // Blend amount toward BELL_COLOR at the pane edge at the first strike (0..1).
 static const float BELL_INTENSITY = 0.5;
 // How far in from the pane edge the glow fades out, in framebuffer pixels.

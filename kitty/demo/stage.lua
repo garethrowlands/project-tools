@@ -50,7 +50,7 @@ local function showBadge(label, hold)
   badge = hs.canvas.new({x = s.x + (s.w - w) / 2, y = s.y + s.h - h - 70, w = w, h = h})
   badge:appendElements(
     {type = "rectangle", action = "strokeAndFill", fillColor = {white = 0.08, alpha = 0.9},
-     strokeColor = {red = 0.93, green = 0.73, blue = 0.38}, strokeWidth = 3,
+     strokeColor = {red = 0.98, green = 0.70, blue = 0.53}, strokeWidth = 3,
      roundedRectRadii = {xRadius = 20, yRadius = 20}},
     {type = "text", frame = {x = 0, y = 18, w = w, h = h - 18},
      text = hs.styledtext.new(label, {font = {name = "Menlo", size = 64}, color = {white = 0.97},

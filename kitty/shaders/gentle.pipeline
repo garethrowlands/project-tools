@@ -36,8 +36,8 @@ startgroup
     var float BORDER_GLOW = 0
     # additive edge glow (local shader options; stock: off)
     var float GLOW_STRENGTH = 0.5
-    # active_border_color #e7e7e7 in linear RGB
-    var float3 GLOW_COLOR = float3(0.8)
+    # active_border_color #B4BEFE (Catppuccin Mocha lavender) in linear RGB
+    var float3 GLOW_COLOR = float3(0.4564, 0.5149, 0.9911)
     var float GLOW_WIDTH_PX = 8.0
     var float INACTIVE_DIM = 1.0
     var bool INCLUDE_WINDOW_PADDING = true
@@ -63,9 +63,9 @@ startgroup
     # additive glow inside the spot, peaking at the centre (local shader
     # options; stock: off). Linear light: strength x colour is the light
     # added, so this is about sRGB #1d1a14 on black at the centre. The colour
-    # is a soft warm white (less blue than green than red)
+    # is a soft rosewater white (Mocha #F5E0DC, dimmed)
     var float GLOW_STRENGTH = 0.015
-    var float3 GLOW_COLOR = float3(0.8, 0.65, 0.45)
+    var float3 GLOW_COLOR = float3(0.7853, 0.641, 0.6155)
     # local copy of spotlight with the additive glow
     shaders spotlight-local
 endgroup
@@ -100,10 +100,10 @@ startgroup
     var float SPECULAR_STRENGTH = 0.06
     var float DIFFUSE_STRENGTH = 0.015
     # additive crest glow (local shader options; stock: off). Linear light, so
-    # the crest peaks around sRGB #1d1a14 on black; same warm white as the
+    # the crest peaks around sRGB #1d1a14 on black; same rosewater white as the
     # spotlight; raise the strength for a brighter ring
     var float GLOW_STRENGTH = 0.015
-    var float3 GLOW_COLOR = float3(0.8, 0.65, 0.45)
+    var float3 GLOW_COLOR = float3(0.7853, 0.641, 0.6155)
     # local copy of pond-ripple with the additive crest glow
     shaders pond-ripple-local
 endgroup
@@ -120,7 +120,8 @@ startgroup
     # follows kitty's own trail animation instead of blaze's DURATION)
     # colours are painted fully opaque, so tone down via the colours (linear RGB)
     # fill, stock: float4(1.0, 0.725, 0.161, 1.0)
-    var float4 TRAIL_COLOR = float4(0.8, 0.5, 0.12, 1.0)
+    # Catppuccin Mocha peach #FAB387
+    var float4 TRAIL_COLOR = float4(0.956, 0.4508, 0.2423, 1.0)
     # edge accent uses the cursor colour (local shader option; stock edge is
     # TRAIL_COLOR_ACCENT = float4(1.0, 0.0, 0.0, 1.0))
     var bool ACCENT_FROM_CURSOR = true
@@ -134,7 +135,7 @@ startgroup
     shaders cursor-trail-blaze-local
 endgroup
 
-# 6-9. OS window focus: a thin amber glow around the whole OS window (all
+# 6-9. OS window focus: a thin peach glow around the whole OS window (all
 #    panes and the tab bar) while it has keyboard focus; while it doesn't, a
 #    slight dim, cool tint and soft edge shadow (vignette). Last so the
 #    dimming, spotlight and ripple above don't dim or distort the glow. The glow adds light, so the pane focus glow
@@ -145,8 +146,8 @@ endgroup
 #    windows start with the unfocused look and without the glow.
 #    Shared tuning (pipeline-level vars apply to every group; only
 #    os-window-focus-border declares these names):
-#    glow colour in linear RGB; the cursor trail's amber
-var float3 OSW_FOCUS_COLOR = float3(0.8, 0.5, 0.12)
+#    glow colour in linear RGB; the cursor trail's peach (Mocha #FAB387)
+var float3 OSW_FOCUS_COLOR = float3(0.956, 0.4508, 0.2423)
 #    solid border width and inward glow radius, in framebuffer pixels
 #    (2 per point on Retina)
 var float OSW_FOCUS_BORDER_WIDTH_PX = 1.0
@@ -157,11 +158,15 @@ var float OSW_FOCUS_STEADY_INTENSITY = 0.1
 var float OSW_FOCUS_PULSE_INTENSITY = 0.6
 #    fraction of the original colour kept while unfocused (1 = no dim);
 #    linear light, so 0.8 is about 10% darker on screen
-var float OSW_UNFOCUSED_DIM = 0.8
-#    cool tint while unfocused: colour in linear RGB (sRGB #5a7090) and how
-#    much of it to blend in (0 = off; keep well below 1)
-var float3 OSW_UNFOCUSED_TINT_COLOR = float3(0.1022, 0.162, 0.2789)
-var float OSW_UNFOCUSED_TINT = 0.05
+var float OSW_UNFOCUSED_DIM = 1.0
+#    how far colours are pulled toward grey while unfocused (0 = off)
+var float OSW_UNFOCUSED_DESATURATION = 0.35
+#    cool tint while unfocused: a dark slate (sRGB #1f2b40, in linear RGB) and
+#    how much of it to blend in (0 = off; keep well below 1). Being dark, it
+#    lowers contrast and tints without lifting the background; raise the
+#    amount for a stronger tint and less contrast
+var float3 OSW_UNFOCUSED_TINT_COLOR = float3(0.0137, 0.0242, 0.0513)
+var float OSW_UNFOCUSED_TINT = 0.25
 #    edge shadow while unfocused: darkening at the very edge (0 = off; keep
 #    below 1), fading out over this many framebuffer pixels from each edge
 var float OSW_UNFOCUSED_VIGNETTE = 0.45
@@ -212,7 +217,7 @@ startgroup
     shaders os-window-focus-border
 endgroup
 
-# 10. Bell burst: the edges of the pane that rang flash red-orange and die
+# 10. Bell burst: the edges of the pane that rang flash red and die
 #    away, and the pane's text shakes like a struck panel (side to side, with
 #    a lag down the pane so it wobbles) and settles. Group 11 then keeps the
 #    edges lit until the pane is focused. A bell in another tab rings the
@@ -228,8 +233,8 @@ startgroup
     animation_curve linear
     animation_step 16
     var int BELL_MODE = 0
-    # glow colour in linear RGB; muted red-orange (sRGB #f0703c)
-    var float3 BELL_COLOR = float3(0.8714, 0.162, 0.0452)
+    # glow colour in linear RGB; Catppuccin Mocha red (sRGB #F38BA8)
+    var float3 BELL_COLOR = float3(0.8963, 0.2582, 0.3916)
     # blend amount toward the colour at the pane edge at the first strike (0..1;
     # a blend, not added light, so it stays red over the white active border)
     var float BELL_INTENSITY = 0.5
@@ -266,7 +271,7 @@ startgroup
     animation_stop window-focus-in
     animation_step 0
     var int BELL_MODE = 1
-    var float3 BELL_COLOR = float3(0.8714, 0.162, 0.0452)
+    var float3 BELL_COLOR = float3(0.8963, 0.2582, 0.3916)
     var float BELL_OUTSET_PX = 4.0
     var float BELL_RADIUS_PX = 20.0
     # blend amount at the pane edge (0..1), and how far in it fades out, in

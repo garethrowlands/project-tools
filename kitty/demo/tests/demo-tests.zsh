@@ -526,8 +526,8 @@ done
 [[ $slides[11] == *'Ctrl+Option+arrow'* ]] && ok 'slide 11 gives the tiling keys' || bad 'slide 11 lacks Ctrl+Option+arrow'
 [[ $slides[12] == *'Ctrl+Option+Cmd+arrow'* ]] && ok 'slide 12 gives the focus keys' || bad 'slide 12 lacks Ctrl+Option+Cmd+arrow'
 # Beat 8 narrates one state per slide: kitty focused, TextEdit focused, back.
-[[ $slides[10] == *amber* ]] && ok 'slide 10: kitty has focus, amber border' || bad 'slide 10 lacks amber'
-for word in TextEdit dimmer tint vignette; do
+[[ $slides[10] == *peach* ]] && ok 'slide 10: kitty has focus, peach border' || bad 'slide 10 lacks peach'
+for word in TextEdit duller tint vignette; do
   [[ $slides[11] == *$word* ]] && ok "slide 11 explains '$word'" || bad "slide 11 lacks '$word'"
 done
 [[ $slides[12] == *pulses* ]] && ok 'slide 12: the border pulses as focus returns' || bad 'slide 12 lacks pulses'
