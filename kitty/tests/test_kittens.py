@@ -212,6 +212,18 @@ for path, in_vault in [(f('vault/sub/n.md'), True), (f("it's #1 ü.md"), False)]
         check('o on a vault note -> obsidian://open with the exact path', opened and unquote(opened[0].split('path=', 1)[1]) == path, opened)
     else:
         check('o outside a vault -> error shown, nothing opened', not opened and boss.errors)
+# --- open_local: w in mdfried -> wide view --------------------------------------
+wide_path = f("it's #1 ü.md")
+launched.clear()
+ol.handle_result(['open_local.py', '--wide'], None, 7, FakeBoss(FakeWindow(user_vars={'kitty_md_path': wide_path})))
+opts, cmd = launched[0] if launched else (None, None)
+check('w -> sh overlay with the note path as an argument', cmd and cmd[:2] == ['sh', '-c'] and cmd[-1] == wide_path, cmd)
+check('w: the path is never spliced into the script', cmd and wide_path not in cmd[2], cmd)
+check('w: unwrapped glow into moor, moor alone as the fallback', cmd and 'glow -s dark -w 0' in cmd[2] and '| moor' in cmd[2] and 'else moor "$1"' in cmd[2], cmd)
+check('w overlay is pinned like the others', opts and opts.type == 'overlay' and opts.source_window == 'id:7' and opts.next_to == 'id:7', opts)
+launched.clear()
+ol.handle_result(['open_local.py', '--wide'], None, 7, FakeBoss(FakeWindow(user_vars={})))
+check('w without a note path -> nothing opened', not launched)
 opts, cmd = parse_launch_args(['--type=overlay', '--copy-env', '--env', 'EDITOR=x', '--var', 'kitty_md_path=/a b=c.md', '--', 'mdfried', '/a b=c.md'])
 check("kitty's parse_launch_args accepts the overlay arguments", opts.var == ['kitty_md_path=/a b=c.md'] and cmd[-1] == '/a b=c.md')
 

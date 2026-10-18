@@ -4,13 +4,15 @@ Invoked from open-actions.conf as:
     kitten open_local.py ${FILE_PATH} ${URL}
 and from kitty.conf, in a Markdown overlay, as:
     kitten open_local.py --obsidian
+    kitten open_local.py --wide
 
 What a click does:
   directory      cd in the pane's zsh if it is idle at a prompt (see
                  kitty-cd-link.zsh); otherwise yazi in an overlay
   file#LINE      micro at that line (rg --hyperlink-format=kitty links)
   Markdown       mdfried TUI (o opens in Obsidian if the note is inside a
-                 vault)
+                 vault; w shows it unwrapped, scrolling sideways, for wide
+                 tables mdfried squeezes)
   other text     micro
   anything else  yazi with the file selected
 Overlays cover the clicked pane, start in its directory and copy its
@@ -105,6 +107,18 @@ def overlay(boss: Any, window: Any, cmd: list[str], user_vars: tuple[str, ...] =
     launch(boss, opts, cmd)
 
 
+# glow -w 0 does not wrap, so a wide table keeps its natural width; moor
+# scrolls it sideways. -s dark because glow drops colour when piped.
+WIDE_VIEW = ('if command -v glow >/dev/null; then glow -s dark -w 0 "$1" | moor; '
+             'else moor "$1"; fi')
+
+
+def open_wide(boss: Any, window: Any) -> None:
+    path = window.user_vars.get(MD_PATH_VAR, '') if window is not None else ''
+    if path:
+        overlay(boss, window, ['sh', '-c', WIDE_VIEW, 'wide-view', path])
+
+
 def obsidian_vaults() -> list[str]:
     try:
         with open(OBSIDIAN_REGISTRY) as f:
@@ -136,6 +150,9 @@ def handle_result(args: list[str], answer: Any, target_window_id: int, boss: Any
     window = boss.window_id_map.get(target_window_id)
     if args[1:2] == ['--obsidian']:
         open_in_obsidian(boss, window)
+        return
+    if args[1:2] == ['--wide']:
+        open_wide(boss, window)
         return
     path = args[1] if len(args) > 1 else ''
     url = args[2] if len(args) > 2 else 'file://' + path
