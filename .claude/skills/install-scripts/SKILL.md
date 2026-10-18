@@ -88,6 +88,7 @@ for f in open_local.py hint_menu.py open-actions.conf links.conf; do
 done
 echo 'include links.conf' >> ~/.config/kitty/kitty.conf
 echo "source $PWD/kitty/kitty-cd-link.zsh" >> ~/.zshrc
+echo "source $PWD/zsh/functions/aliases.zsh" >> ~/.zshrc   # ls/rg/fd print hyperlinks
 ```
 
 Then reload kitty's config (Cmd+Ctrl+,) and start a new shell. Needs kitty's shell integration and `micro`, `mdfried`, `yazi` on `PATH`. See `docs/kitty-links.md`.

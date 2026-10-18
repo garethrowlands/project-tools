@@ -193,6 +193,12 @@ echo 'include links.conf' >> ~/.config/kitty/kitty.conf
 echo "source $PWD/kitty/kitty-cd-link.zsh" >> ~/.zshrc
 ```
 
+Links only appear if the listing tools print them; `zsh/functions/aliases.zsh` aliases `ls` (eza), `rg` and `fd` to do so:
+
+```zsh
+echo "source $PWD/zsh/functions/aliases.zsh" >> ~/.zshrc
+```
+
 `open-actions.conf` replaces any existing one; move yours aside first.
 
 ---
