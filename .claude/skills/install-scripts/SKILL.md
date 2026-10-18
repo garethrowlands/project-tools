@@ -94,15 +94,15 @@ Then reload kitty's config (Cmd+Ctrl+,) and start a new shell. Needs kitty's she
 
 ## Colour theme (`kitty/themes/`, `zsh/functions/theme.zsh`)
 
-The palette is Catppuccin Mocha with the crust background (`#11111B`), dark mode only. The theme lives in `kitty/themes/catppuccin-mocha-crust.conf` (deviations from the official file are commented in it); kitty's own theme files just include it by absolute path, so edit it in the repo. Move any existing `~/.config/kitty/current-theme.conf` and `dark-theme.auto.conf` aside first.
+The palette is Catppuccin Mocha with the crust background (`#11111B`), dark mode only. The theme lives in `kitty/themes/catppuccin-mocha-crust.conf` (deviations from the official file are commented in it); kitty's own theme files just include it by absolute path, so edit it in the repo. The files that have to live under `~/.config` are kept in `config/` and put in place by one idempotent script (a real file in the way is moved aside to `NAME.pre-symlink`; tests in `config/install-tests.zsh`):
 
 ```zsh
-for f in current-theme.conf dark-theme.auto.conf; do
-  printf '# vim:ft=kitty\ninclude %s\n' $PWD/kitty/themes/catppuccin-mocha-crust.conf > ~/.config/kitty/$f
-done
+zsh config/install.zsh
 ```
 
-`zsh/functions/theme.zsh` (sourced by `project.zsh`, `notes-lib.zsh` and `bin/tidy-windows`) sets `BAT_THEME=ansi` (bat follows the terminal's 16 colours) and Mocha colours in `FZF_DEFAULT_OPTS`. Other tools, set in their own config: btop `color_theme = "catppuccin_mocha"` (theme file in `~/.config/btop/themes`), mdfried `code_theme = "Catppuccin Mocha"`, hunk `theme=catppuccin-mocha`. The shader colours (below) are Mocha's too, in linear RGB: lavender pane glow (matches `active_border_color`), peach OS-window glow and cursor trail, red bell, rosewater spotlight and ripple, and a dark slate for the unfocused window.
+It writes kitty's `current-theme.conf` and `dark-theme.auto.conf` (each an `include` of the repo theme), links `config/btop/themes/catppuccin_mocha.theme` and `config/mdfried/config.toml` (which sets `code_theme = "Catppuccin Mocha"`) into place, and sets `color_theme = "catppuccin_mocha"` in `btop.conf` in place, since btop rewrites that file itself.
+
+`zsh/functions/theme.zsh` (sourced by `project.zsh`, `notes-lib.zsh` and `bin/tidy-windows`) sets `BAT_THEME=ansi` (bat follows the terminal's 16 colours) and Mocha colours in `FZF_DEFAULT_OPTS`. hunk is already `theme=catppuccin-mocha` in its own config. The shader colours (below) are Mocha's too, in linear RGB: lavender pane glow (matches `active_border_color`), peach OS-window glow and cursor trail, red bell, rosewater spotlight and ripple, and a dark slate for the unfocused window.
 
 ## kitty shaders (`kitty/shaders/`)
 

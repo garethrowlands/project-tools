@@ -10,6 +10,7 @@ zsh functions/project-tests.zsh
 zsh functions/sw-tests.zsh
 zsh functions/tidy-windows-tests.zsh
 zsh functions/window-tests.zsh
+zsh config/install-tests.zsh
 zsh kitty/demo/tests/demo-tests.zsh
 kitty +launch kitty/demo/tests/test_demo_geometry.py
 hs -c 'return dofile("'$PWD'/hammerspoon/stack-tests.lua")'   # runs inside Hammerspoon; errors on failure
@@ -25,6 +26,7 @@ Zsh shell tools for navigating projects and notes. Details are split out by area
 - **[docs/project-picker.md](docs/project-picker.md)** — `functions/project.zsh`, `functions/sw.zsh`, `bin/sw-preview`, `bin/switch-project`, `bin/window`(-list), `bin/next-agent`, `bin/tidy-windows` and `python/tidy-windows-advise/advise`, and how Claude Code session names/titles and agent state (blocked/working/done/idle) are looked up for the window switcher.
 - **[docs/notes.md](docs/notes.md)** — `functions/notes-lib.zsh`, `functions/web.zsh`, `bin/web`, `bin/note`: the notes vault (`$HOME/notes`) tooling.
 - **[docs/ide-tools.md](docs/ide-tools.md)** — `bin/ide`, `bin/close-project`, `bin/project-web`.
+- **`config/`** — files that live under `~/.config` (btop's Catppuccin theme, mdfried's config) plus `install.zsh`, which links them into place and points kitty and btop at the theme (see the `install-scripts` skill). The kitty theme itself is `kitty/themes/catppuccin-mocha-crust.conf`; `zsh/functions/theme.zsh` gives bat and fzf the same palette.
 - **`hammerspoon/init.lua`** — Hammerspoon config (symlinked to `~/.hammerspoon/init.lua`): Control+Option+arrow window snapping across monitors, Control+Option+Return to maximize, Control+Option+Command+arrow focus keys, Control+Option+Command+`[`/`]` to step through the stack of windows overlapping the focused one (with a list overlay), and the demo's `demoStage`. Private settings go in untracked `hammerspoon/local.lua`.
 - **`hammerspoon/stack.lua`** — the stack selection/cycling logic, free of `hs.*` so it can be tested. Hammerspoon's own directional focus ranks windows by focus recency rather than true z-order, which can pick the wrong window among windows tiled on the same frame; the stack keys use `hs.window.orderedWindows()` instead. Set `focusDebug = true` in `init.lua` to log every arrow-key focus press (candidates and landing window, window titles included) to `~/.hammerspoon/focus-debug.log`.
 - **[kitty/demo/README.md](kitty/demo/README.md)** — `kitty/demo/play`: self-running, screen-recordable chapters showing off the kitty setup (1 shaders, 2 windows, panes and tabs, 3 getting around projects) (presenterm deck + director driving kitty via `kitten @` and the mouse via Hammerspoon).
