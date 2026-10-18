@@ -21,7 +21,7 @@ _kitty_cd_link_announce() {
   print -n "\e]1337;SetUserVar=kitty_cd_link_pid=$_kitty_cd_link_pid64\a"
   # Also publish $EDITOR (only when it changes): kitty can only see a shell's
   # environment as it was at exec time, not variables exported in .zshrc, so
-  # open_local.py passes this to the micro/glow/yazi overlays it launches.
+  # open_local.py passes this to the micro/mdfried/yazi overlays it launches.
   if [[ ${EDITOR-} != $_kitty_cd_link_editor ]]; then
     _kitty_cd_link_editor=${EDITOR-}
     print -n "\e]1337;SetUserVar=kitty_editor=$(print -rn -- $_kitty_cd_link_editor | base64 | tr -d '\n')\a"

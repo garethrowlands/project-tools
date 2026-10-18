@@ -13,7 +13,7 @@ Clicking a local `file://` link (from `eza --hyperlink`, `rg --hyperlink-format=
 | directory, pane's zsh idle at a prompt | `cd` in that shell (typed command kept) |
 | directory, anything else running | `yazi` overlay at that directory |
 | `file#LINE` | `micro file +LINE` overlay |
-| Markdown | `glow --tui` overlay; `e` edits in `$EDITOR`, `o` opens the note in Obsidian if it is inside a vault |
+| Markdown | `mdfried` overlay; `o` opens the note in Obsidian if it is inside a vault |
 | other text (sniffed: UTF-8, no NULs) | `micro` overlay |
 | anything else | `yazi` overlay with the file selected |
 

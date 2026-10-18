@@ -176,12 +176,12 @@ Clicking a file or directory link (e.g. from `eza --hyperlink`) opens it in a TU
 
 - Directory: `cd` in the pane's zsh when it is idle at a prompt, otherwise `yazi`
 - `file#LINE` (from `rg --hyperlink-format=kitty`): `micro` at that line
-- Markdown: `glow` (`e` to edit, `o` to open in Obsidian when the note is in a vault)
+- Markdown: `mdfried` (`o` to open in Obsidian when the note is in a vault)
 - Other text: `micro`; anything else: `yazi` with the file selected
 - `Cmd+click` opens links without kitty's double-click delay
 - `Cmd+P` shows a menu of hint modes, including `p`: insert the quoted path of a listed file
 
-Needs kitty 0.49+, zsh with kitty's shell integration, and `micro`, `glow` and `yazi`. Details and the kitty quirks involved: [docs/kitty-links.md](docs/kitty-links.md).
+Needs kitty 0.49+, zsh with kitty's shell integration, and `micro`, `mdfried` and `yazi`. Details and the kitty quirks involved: [docs/kitty-links.md](docs/kitty-links.md).
 
 ### Installation
 

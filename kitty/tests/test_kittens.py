@@ -193,8 +193,8 @@ check('file#2 -> micro +2', cmd == ['micro', f('code.py'), '+2'], cmd)
 check('overlay pinned to the clicked pane, its cwd and env', opts and opts.type == 'overlay' and opts.cwd == 'current'
       and opts.copy_env and opts.source_window == 'id:7' and opts.next_to == 'id:7', opts)
 w, cmd, opts = click('file://' + f("it's #1 ü.md").replace(' ', '%20').replace('ü', '%C3%BC'))
-check("eza raw \"it's #1 ü.md\" -> glow, not a line link", cmd == ['glow', '--tui', f("it's #1 ü.md")], cmd)
-check('glow overlay carries the note path user var', opts and opts.var == [f"kitty_md_path={f(chr(105) + chr(116) + chr(39) + 's #1 ü.md')}"], opts and opts.var)
+check("eza raw \"it's #1 ü.md\" -> mdfried, not a line link", cmd == ['mdfried', f("it's #1 ü.md")], cmd)
+check('mdfried overlay carries the note path user var', opts and opts.var == [f"kitty_md_path={f(chr(105) + chr(116) + chr(39) + 's #1 ü.md')}"], opts and opts.var)
 for name, prog in [('d.json', 'micro'), ('trunc-utf8.txt', 'micro'), ('empty', 'micro'), ('img.png', 'yazi'), ('doc.pdf', 'yazi')]:
     w, cmd, _ = click(enc(f(name)))
     check(f'{name} -> {prog}', cmd == [prog, f(name)], cmd)
@@ -203,7 +203,7 @@ check('missing file -> nothing opened', cmd is None and not opened)
 w, cmd, opts = click(enc(f('code.py')), FakeWindow(user_vars={'kitty_cd_link_pid': '100', 'kitty_editor': 'micro'}))
 check("overlay gets EDITOR/VISUAL from the shell's user var", opts and opts.env == ['EDITOR=micro', 'VISUAL=micro'], opts and opts.env)
 
-# --- open_local: o in glow -> Obsidian ------------------------------------
+# --- open_local: o in mdfried -> Obsidian ------------------------------------
 for path, in_vault in [(f('vault/sub/n.md'), True), (f("it's #1 ü.md"), False)]:
     boss = FakeBoss(FakeWindow(user_vars={'kitty_md_path': path}))
     opened.clear()
@@ -212,7 +212,7 @@ for path, in_vault in [(f('vault/sub/n.md'), True), (f("it's #1 ü.md"), False)]
         check('o on a vault note -> obsidian://open with the exact path', opened and unquote(opened[0].split('path=', 1)[1]) == path, opened)
     else:
         check('o outside a vault -> error shown, nothing opened', not opened and boss.errors)
-opts, cmd = parse_launch_args(['--type=overlay', '--copy-env', '--env', 'EDITOR=x', '--var', 'kitty_md_path=/a b=c.md', '--', 'glow', '/a b=c.md'])
+opts, cmd = parse_launch_args(['--type=overlay', '--copy-env', '--env', 'EDITOR=x', '--var', 'kitty_md_path=/a b=c.md', '--', 'mdfried', '/a b=c.md'])
 check("kitty's parse_launch_args accepts the overlay arguments", opts.var == ['kitty_md_path=/a b=c.md'] and cmd[-1] == '/a b=c.md')
 
 # --- hint_menu: rendering -------------------------------------------------

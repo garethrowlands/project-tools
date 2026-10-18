@@ -2,15 +2,15 @@
 
 Invoked from open-actions.conf as:
     kitten open_local.py ${FILE_PATH} ${URL}
-and from kitty.conf, in a glow overlay, as:
+and from kitty.conf, in a Markdown overlay, as:
     kitten open_local.py --obsidian
 
 What a click does:
   directory      cd in the pane's zsh if it is idle at a prompt (see
                  kitty-cd-link.zsh); otherwise yazi in an overlay
   file#LINE      micro at that line (rg --hyperlink-format=kitty links)
-  Markdown       glow TUI (e edits in $EDITOR, o opens in Obsidian if the
-                 note is inside a vault)
+  Markdown       mdfried TUI (o opens in Obsidian if the note is inside a
+                 vault)
   other text     micro
   anything else  yazi with the file selected
 Overlays cover the clicked pane, start in its directory and copy its
@@ -151,7 +151,7 @@ def handle_result(args: list[str], answer: Any, target_window_id: int, boss: Any
     elif line:
         overlay(boss, window, ['micro', path, f'+{line}'])
     elif path.lower().endswith(MARKDOWN_EXTS):
-        overlay(boss, window, ['glow', '--tui', path], (f'{MD_PATH_VAR}={path}',))
+        overlay(boss, window, ['mdfried', path], (f'{MD_PATH_VAR}={path}',))
     elif is_text(path):
         overlay(boss, window, ['micro', path])
     else:
