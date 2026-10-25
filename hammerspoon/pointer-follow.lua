@@ -40,8 +40,9 @@ function M.start(opts)
         return list
     end
 
-    -- Only a chord with cmd, ctrl or alt counts as keyboard evidence: every real
-    -- window switch uses one, and plain typing (shift included) must not.
+    -- Every key press counts, including plain typing: switchers like Contexts are
+    -- driven with unmodified keys (type a search, press Enter). A modifier change
+    -- counts only for cmd, ctrl and alt, so shift while typing is not noise.
     local function significant(flags) return flags.cmd or flags.ctrl or flags.alt end
     local wasSignificant = false
 
@@ -52,7 +53,7 @@ function M.start(opts)
         local now = hs.timer.secondsSinceEpoch()
         local t = e:getType()
         if t == types.keyDown then
-            if significant(e:getFlags()) then pointer.noteKey(evidence, now) end
+            pointer.noteKey(evidence, now)
         elseif t == types.flagsChanged then
             local sig = significant(e:getFlags())
             -- Pressing or releasing a significant modifier counts; shift alone does not.
