@@ -14,6 +14,7 @@ zsh config/install-tests.zsh
 zsh kitty/demo/tests/demo-tests.zsh
 kitty +launch kitty/demo/tests/test_demo_geometry.py
 hs -c 'return dofile("'$PWD'/hammerspoon/stack-tests.lua")'   # runs inside Hammerspoon; errors on failure
+hs -c 'return dofile("'$PWD'/hammerspoon/pointer-tests.lua")'  # pointer-follows-focus logic; same way
 (cd ../python/tidy-windows-advise && uv run pytest)
 ```
 
