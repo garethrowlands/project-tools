@@ -32,6 +32,16 @@ check(stack.select(items, 99, 0.5) == nil, "select unknown focused window")
 s = stack.select(items, 7, 0.5)
 check(ids(s) == "7", "select lone window")
 
+-- Symmetry: a half-width window lying on a full-width one is in its stack, and
+-- the full-width one is in the half-width window's. A small floater is not.
+local wide = {
+    win(1, 0, 0, 3840, 2130), win(2, 1920, 0, 1920, 2130), win(3, 100, 500, 230, 400),
+}
+s = stack.select(wide, 2, 0.5)
+check(ids(s) == "1,2", "half-width window's stack includes the full-width one, got " .. ids(s))
+s = stack.select(wide, 1, 0.5)
+check(ids(s) == "1,2", "full-width window's stack includes the half-width one, got " .. ids(s))
+
 -- cycle: first press snapshots, later presses walk the snapshot even though the
 -- live order changes under us (focusing raises a window).
 local t0 = 100

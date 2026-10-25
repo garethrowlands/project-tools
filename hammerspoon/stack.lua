@@ -2,6 +2,9 @@
 --
 -- A "stack" is the focused window plus every window that overlaps it by more
 -- than a fraction of the focused window's area, in true front-to-back order.
+-- A window that is itself mostly covered by the focused one also counts, as
+-- long as it is not tiny (so a half-width window and the full-width window it
+-- sits on are in each other's stacks, but a small floater isn't).
 -- Focusing a window raises it, so stepping through the live z-order only ever
 -- swaps the top two; instead the order is snapshotted on the first keypress and
 -- reused while keypresses keep coming, like cmd-tab.
@@ -20,7 +23,8 @@ end
 
 -- items: front-to-back list. Returns the stack (front-to-back) and the index of
 -- the focused window in it, or nil if the focused window isn't in items.
-function M.select(items, focusedId, minFraction)
+function M.select(items, focusedId, minFraction, minSizeRatio)
+    minSizeRatio = minSizeRatio or 0.25
     local focused
     for _, item in ipairs(items) do
         if item.id == focusedId then focused = item break end
@@ -29,8 +33,11 @@ function M.select(items, focusedId, minFraction)
 
     local stack, index = {}, nil
     for _, item in ipairs(items) do
+        local overlap = overlapArea(focused.frame, item.frame)
         if item.id == focusedId
-            or overlapArea(focused.frame, item.frame) > minFraction * area(focused.frame) then
+            or overlap > minFraction * area(focused.frame)
+            or (overlap > minFraction * area(item.frame)
+                and area(item.frame) >= minSizeRatio * area(focused.frame)) then
             stack[#stack + 1] = item
             if item.id == focusedId then index = #stack end
         end
