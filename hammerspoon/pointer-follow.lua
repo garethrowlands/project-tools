@@ -57,9 +57,13 @@ function M.start(opts)
         elseif t == types.flagsChanged then
             local sig = significant(e:getFlags())
             -- Pressing or releasing a significant modifier counts; shift alone does not.
-            if sig or wasSignificant then pointer.noteKey(evidence, now) end
+            if sig then pointer.noteKey(evidence, now)
+            elseif wasSignificant then pointer.noteRelease(evidence, now) end
             wasSignificant = sig
             pointer.noteModifiers(evidence, sig and true or false)
+        elseif t == types.leftMouseDown or t == types.rightMouseDown or t == types.otherMouseDown then
+            local p = e:location()
+            pointer.noteClick(evidence, now, {x = p.x, y = p.y})
         elseif t ~= types.mouseMoved or now - ownMoveAt > 0.1 then
             pointer.noteMouse(evidence, now)
         end
@@ -74,7 +78,15 @@ function M.start(opts)
         local now = hs.timer.secondsSinceEpoch()
         local pt = hs.mouse.absolutePosition()
 
-        -- Leaving the previous window: remember where the pointer was in it.
+        -- Is this a keyboard switch? A click inside the window that just gained
+        -- focus means the mouse focused it, whatever keys followed.
+        local keyboard = pointer.isKeyboardSwitch(evidence, now)
+            and not pointer.clickedInside(evidence, now, frameOf(win))
+        local function ago(t) return t and string.format("%.2fs", now - t) or "never" end
+
+        -- Leaving the previous window: remember where the pointer was in it. On a
+        -- keyboard switch the incoming window is already raised and may cover the
+        -- pointer, so leave it out when asking which window is topmost there.
         local previous = current
         if previous and previous:id() == id then
             log("focus", id, "already focused: ignored")
@@ -83,18 +95,22 @@ function M.start(opts)
         current = win
         if previous and previous:id() and previous:id() ~= id then
             local pid = previous:id()
-            local spot = pointer.record(pt, frameOf(previous), pointer.topmostAt(orderedItems(), pt), pid)
+            local items = orderedItems()
+            if keyboard then
+                for i = #items, 1, -1 do if items[i].id == id then table.remove(items, i) end end
+            end
+            local spot = pointer.record(pt, frameOf(previous), pointer.topmostAt(items, pt), pid)
             if spot then spots[pid] = spot end
         end
 
-        local function ago(t) return t and string.format("%.2fs", now - t) or "never" end
-        if not pointer.isKeyboardSwitch(evidence, now) then
+        if not keyboard then
             log("focus", id, "not a keyboard switch; key", ago(evidence.lastKey), "mouse", ago(evidence.lastMouse))
             return
         end
+        local keyAge = ago(evidence.lastKey)
         pointer.consume(evidence)
         local target = pointer.destination(pt, frameOf(win), spots[id], {screens = screenFrames()})
-        log("focus", id, target and ("move to " .. target.x .. "," .. target.y) or "stay", spots[id] and "(spot)" or "(no spot)")
+        log("focus", id, target and ("move to " .. target.x .. "," .. target.y) or "stay", spots[id] and "(spot)" or "(no spot)", "key", keyAge)
         if not target then return end
         ownMoveAt = now
         hs.mouse.absolutePosition(target)

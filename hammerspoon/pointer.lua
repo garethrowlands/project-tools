@@ -79,6 +79,27 @@ function M.noteMouse(state, now)
     state.lastMouse = now
 end
 
+-- A modifier was released. It counts as a key event (Cmd+Tab style switchers act
+-- on the release), but not if the mouse was used since the last key event: a
+-- click made while the modifier was held must not be overridden by letting go.
+function M.noteRelease(state, now)
+    if state.lastMouse and (not state.lastKey or state.lastMouse > state.lastKey) then return end
+    state.lastKey = now
+end
+
+-- A mouse button went down at pt. Also counts as mouse activity.
+function M.noteClick(state, now, pt)
+    state.lastMouse = now
+    state.lastClick = {at = now, pt = pt}
+end
+
+-- True if the last click was recent (within 1s) and inside frame: the mouse gave
+-- that window focus, whatever keys were pressed afterwards.
+function M.clickedInside(state, now, frame)
+    local c = state.lastClick
+    return c ~= nil and now - c.at <= 1.0 and inside(c.pt, frame)
+end
+
 -- Call once a focus change has used the evidence: one key press justifies at
 -- most one move, so a repeat focus event for the same press does nothing.
 function M.consume(state)

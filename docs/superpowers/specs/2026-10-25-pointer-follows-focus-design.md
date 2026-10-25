@@ -72,3 +72,11 @@ Anti-goals: the pointer must never move while the user is using the mouse or tra
 - Applies to standard, visible windows only. Ignore the desktop, Spotlight, panels, palettes and popups. Windows on other Spaces count like any other; the nearest-point rule handles a window on another screen.
 - One observer is the single mechanism. The Hammerspoon focus and stack keys are not given their own warp, unless the spike shows a key (e.g. focusing an already-focused window, or one in the same app) produces no focus event. In that case that key calls the same warp function.
 - The warp should make hover states update in Teams, Outlook and browsers, so post a real mouse-moved event if a bare `hs.mouse.absolutePosition` doesn't. Check in the spike.
+
+## Changes after live use and review
+
+- A focus event for the window that already has focus is ignored, and one key press justifies at most one move (found when the pointer jumped to a remembered spot after the user clicked inside Outlook).
+- Plain key presses count as keyboard evidence (switchers like Contexts are driven with unmodified keys); a modifier change counts only for cmd, ctrl and alt.
+- Releasing a modifier does not override a mouse action made since the last key event. A click inside the window that just gained focus, within 1s, makes the switch a mouse switch whatever keys followed.
+- On a keyboard switch, the departing window's spot is recorded with the incoming window left out of the "topmost at the pointer" check, since the incoming window is already raised and may cover the pointer.
+- Known trade-off, not fixed: because plain keys count for 0.5s, a window that steals focus while the user is typing (or Cmd+W handing focus to another window) moves the pointer. Shortening the window for plain keys would need a measurement of the key-to-focus lag first; the debug log prints it.

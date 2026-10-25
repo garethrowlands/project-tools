@@ -93,4 +93,31 @@ check(not pointer.isKeyboardSwitch(e, 0.2), "consumed evidence does not count ag
 pointer.noteKey(e, 0.3)
 check(pointer.isKeyboardSwitch(e, 0.4), "a fresh key press counts again")
 
+-- evidence: releasing a modifier after a click does not override the click
+-- (Cmd+Tab, click a Contexts entry while Cmd is held, then release Cmd).
+e = pointer.newEvidence(0.5)
+pointer.noteKey(e, 0)
+pointer.noteModifiers(e, true)
+pointer.noteMouse(e, 0.2)
+pointer.noteRelease(e, 0.3)
+pointer.noteModifiers(e, false)
+check(not pointer.isKeyboardSwitch(e, 0.35), "release after a click does not count")
+-- ...but a release with no mouse activity since the press still counts.
+e = pointer.newEvidence(0.5)
+pointer.noteKey(e, 0)
+pointer.noteModifiers(e, true)
+pointer.noteRelease(e, 2.0)
+pointer.noteModifiers(e, false)
+check(pointer.isKeyboardSwitch(e, 2.1), "release with no mouse activity counts")
+
+-- evidence: a click inside the window that gained focus means the mouse focused it,
+-- even if keys were pressed after the click.
+e = pointer.newEvidence(0.5)
+pointer.noteClick(e, 0, {x = 500, y = 300})
+pointer.noteKey(e, 0.1)
+check(pointer.clickedInside(e, 0.2, F), "recent click inside the window")
+check(not pointer.clickedInside(e, 0.2, {x = 2000, y = 0, w = 100, h = 100}), "click was elsewhere")
+check(not pointer.clickedInside(e, 5, F), "old click does not count")
+check(not pointer.clickedInside(pointer.newEvidence(0.5), 0, F), "no click at all")
+
 return string.format("pointer-tests: %d checks passed", passed)
