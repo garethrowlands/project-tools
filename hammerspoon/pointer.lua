@@ -79,6 +79,12 @@ function M.noteMouse(state, now)
     state.lastMouse = now
 end
 
+-- Forget all key and mouse activity, e.g. after the event tap was disabled and
+-- restarted: events may have been missed, so nothing seen so far can be trusted.
+function M.reset(state)
+    state.lastKey, state.lastMouse, state.lastClick, state.held = nil, nil, nil, false
+end
+
 -- A modifier was released. It counts as a key event (Cmd+Tab style switchers act
 -- on the release), but not if the mouse was used since the last key event: a
 -- click made while the modifier was held must not be overridden by letting go.

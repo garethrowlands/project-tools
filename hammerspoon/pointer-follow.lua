@@ -20,13 +20,19 @@ function M.start(opts)
     local current = nil       -- the window that currently has focus (as we last saw)
     local ownMoveAt = -1      -- when we last moved the pointer ourselves
 
-    local function frameOf(w) local f = w:frame() return {x = f.x, y = f.y, w = f.w, h = f.h} end
+    -- nil when the window has gone away between the event and now.
+    local function frameOf(w)
+        local ok, f = pcall(w.frame, w)
+        if not ok or not f then return nil end
+        return {x = f.x, y = f.y, w = f.w, h = f.h}
+    end
 
     local function orderedItems()
         local items = {}
         for _, w in ipairs(hs.window.orderedWindows()) do
             local id = w:id()
-            if id and w:isStandard() then items[#items + 1] = {id = id, frame = frameOf(w)} end
+            local frame = id and w:isStandard() and frameOf(w)
+            if frame then items[#items + 1] = {id = id, frame = frame} end
         end
         return items
     end
@@ -34,7 +40,7 @@ function M.start(opts)
     local function screenFrames()
         local list = {}
         for _, s in ipairs(hs.screen.allScreens()) do
-            local f = s:frame()
+            local f = s:fullFrame() -- spots over the menu bar or Dock are still on screen
             list[#list + 1] = {x = f.x, y = f.y, w = f.w, h = f.h}
         end
         return list
@@ -71,6 +77,17 @@ function M.start(opts)
     end)
     M.tap:start()
 
+    -- macOS can disable an event tap (timeout, secure input). Restart it, and
+    -- forget what we saw: events may have been missed in the meantime.
+    M.watchdog = hs.timer.doEvery(5, function()
+        if not M.tap:isEnabled() then
+            log("event tap was disabled; restarting")
+            pointer.reset(evidence)
+            wasSignificant = false
+            M.tap:start()
+        end
+    end)
+
     M.filter = hs.window.filter.new()
     M.filter:subscribe(hs.window.filter.windowFocused, function(win)
         local id = win:id()
@@ -80,8 +97,10 @@ function M.start(opts)
 
         -- Is this a keyboard switch? A click inside the window that just gained
         -- focus means the mouse focused it, whatever keys followed.
+        local winFrame = frameOf(win)
+        if not winFrame then return end
         local keyboard = pointer.isKeyboardSwitch(evidence, now)
-            and not pointer.clickedInside(evidence, now, frameOf(win))
+            and not pointer.clickedInside(evidence, now, winFrame)
         local function ago(t) return t and string.format("%.2fs", now - t) or "never" end
 
         -- Leaving the previous window: remember where the pointer was in it. On a
@@ -99,7 +118,8 @@ function M.start(opts)
             if keyboard then
                 for i = #items, 1, -1 do if items[i].id == id then table.remove(items, i) end end
             end
-            local spot = pointer.record(pt, frameOf(previous), pointer.topmostAt(items, pt), pid)
+            local prevFrame = frameOf(previous)
+            local spot = prevFrame and pointer.record(pt, prevFrame, pointer.topmostAt(items, pt), pid)
             if spot then spots[pid] = spot end
         end
 
@@ -109,7 +129,7 @@ function M.start(opts)
         end
         local keyAge = ago(evidence.lastKey)
         pointer.consume(evidence)
-        local target = pointer.destination(pt, frameOf(win), spots[id], {screens = screenFrames()})
+        local target = pointer.destination(pt, winFrame, spots[id], {screens = screenFrames()})
         log("focus", id, target and ("move to " .. target.x .. "," .. target.y) or "stay", spots[id] and "(spot)" or "(no spot)", "key", keyAge)
         if not target then return end
         ownMoveAt = now

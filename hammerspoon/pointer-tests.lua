@@ -120,4 +120,16 @@ check(not pointer.clickedInside(e, 0.2, {x = 2000, y = 0, w = 100, h = 100}), "c
 check(not pointer.clickedInside(e, 5, F), "old click does not count")
 check(not pointer.clickedInside(pointer.newEvidence(0.5), 0, F), "no click at all")
 
+-- evidence: reset forgets everything (used when the event tap is restarted).
+e = pointer.newEvidence(0.5)
+pointer.noteKey(e, 0)
+pointer.noteModifiers(e, true)
+pointer.noteClick(e, 0.1, {x = 1, y = 1})
+pointer.reset(e)
+check(not pointer.isKeyboardSwitch(e, 0.2), "reset forgets the key")
+check(not pointer.clickedInside(e, 0.2, {x = 0, y = 0, w = 10, h = 10}), "reset forgets the click")
+pointer.noteKey(e, 0.3)
+check(not pointer.isKeyboardSwitch(e, 5), "reset also drops a stuck modifier hold")
+check(e.window == 0.5, "reset keeps the configured window")
+
 return string.format("pointer-tests: %d checks passed", passed)
