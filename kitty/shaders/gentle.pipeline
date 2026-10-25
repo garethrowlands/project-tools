@@ -169,8 +169,8 @@ var float3 OSW_UNFOCUSED_TINT_COLOR = float3(0.0137, 0.0242, 0.0513)
 var float OSW_UNFOCUSED_TINT = 0.25
 #    edge shadow while unfocused: darkening at the very edge (0 = off; keep
 #    below 1), fading out over this many framebuffer pixels from each edge
-var float OSW_UNFOCUSED_VIGNETTE = 0.65
-var float OSW_UNFOCUSED_VIGNETTE_WIDTH_PX = 160.0
+var float OSW_UNFOCUSED_VIGNETTE = 0.72
+var float OSW_UNFOCUSED_VIGNETTE_WIDTH_PX = 180.0
 
 # 6. Unfocused look (dim, tint, vignette) for the whole OS window. Always
 #    active and static; group 7 undoes it exactly while focused, so it follows
