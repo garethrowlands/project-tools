@@ -50,10 +50,10 @@ local function nextAxis(position, size, origin, extent, direction)
 end
 
 local directions = {
-    Left  = {axis = "x", size = "w", sign = -1, screen = "toWest",  focus = "focusWindowWest"},
-    Right = {axis = "x", size = "w", sign =  1, screen = "toEast",  focus = "focusWindowEast"},
-    Up    = {axis = "y", size = "h", sign = -1, screen = "toNorth", focus = "focusWindowNorth"},
-    Down  = {axis = "y", size = "h", sign =  1, screen = "toSouth", focus = "focusWindowSouth"},
+    Left  = {axis = "x", size = "w", sign = -1, screen = "toWest",  focus = "focusWindowWest", windowsTo = "windowsToWest"},
+    Right = {axis = "x", size = "w", sign =  1, screen = "toEast",  focus = "focusWindowEast", windowsTo = "windowsToEast"},
+    Up    = {axis = "y", size = "h", sign = -1, screen = "toNorth", focus = "focusWindowNorth", windowsTo = "windowsToNorth"},
+    Down  = {axis = "y", size = "h", sign =  1, screen = "toSouth", focus = "focusWindowSouth", windowsTo = "windowsToSouth"},
 }
 
 -- window id -> axis -> {position, size} we last asked for, and what the app gave us.
@@ -168,6 +168,19 @@ local function describeWindow(w)
         w:screen() and w:screen():name() or "?")
 end
 
+local logSub
+local logOut, logT0 -- the log being built for the keypress in flight
+if focusDebug then
+    -- One long-lived subscription; creating a filter inside the handler
+    -- triggers a full window scan and stalls the focus change.
+    logSub = windows:subscribe(hs.window.filter.windowFocused, function(w)
+        if logOut then
+            logOut[#logOut + 1] = string.format("  focus event +%.3fs: %s id%s",
+                hs.timer.secondsSinceEpoch() - logT0, w:application():name(), tostring(w:id()))
+        end
+    end)
+end
+local logTimer -- keep a reference or the timer is garbage-collected
 local function logFocus(name, run)
     local out = {os.date("== %Y-%m-%d %H:%M:%S ") .. name}
     local from = hs.window.focusedWindow()
@@ -175,12 +188,39 @@ local function logFocus(name, run)
     for _, w in ipairs(windows:getWindows()) do
         out[#out + 1] = "  cand: " .. describeWindow(w)
     end
+    logOut, logT0 = out, hs.timer.secondsSinceEpoch()
     run()
-    hs.timer.doAfter(0.15, function()
+    out[#out + 1] = string.format("  run() returned +%.3fs", hs.timer.secondsSinceEpoch() - logT0)
+    logTimer = hs.timer.doAfter(0.8, function()
         local to = hs.window.focusedWindow()
         out[#out + 1] = "  land: " .. (to and describeWindow(to) or "none")
+        logOut = nil
         local fh = io.open(focusLog, "a")
         if fh then fh:write(table.concat(out, "\n"), "\n"); fh:close() end
+    end)
+end
+
+-- Activating an app makes some apps (kitty) bring forward their own
+-- last-active window a moment later, overriding the one we just focused.
+-- Re-assert the target a few times, but only against that: if focus lands
+-- in a different app (the user clicked or Cmd+Tabbed away), leave it alone.
+local holdTimer
+local function focusAndHold(target, origin)
+    local attempts = 0
+    local targetApp, originId = target:application(), origin and origin:id()
+    if holdTimer then holdTimer:stop() end
+    holdTimer = hs.timer.doEvery(0.08, function()
+        attempts = attempts + 1
+        local now = hs.window.focusedWindow()
+        local nowApp = now and now:application()
+        if now and now:id() == target:id() then
+            if attempts >= 3 then holdTimer:stop() end
+        elseif not now or now:id() == originId or (nowApp and nowApp:pid() == targetApp:pid()) then
+            target:focus() -- transition in progress, or the app stole focus back
+        else
+            holdTimer:stop() -- the user went somewhere else
+        end
+        if attempts >= 8 then holdTimer:stop() end
     end)
 end
 
@@ -188,8 +228,24 @@ for key, spec in pairs(directions) do
     local direction = spec
     hs.hotkey.bind(moveModifiers, key, function() moveWindow(direction) end)
     hs.hotkey.bind(focusModifiers, key, function()
-        -- Original focus behaviour: avoid obscured windows, strict direction.
-        local function focus() windows[direction.focus](windows, nil, true, true) end
+        -- Avoid obscured windows, strict direction. Candidates go in true
+        -- z-order: the filter's own list is in focus-recency order, which
+        -- makes Hammerspoon's tie-breaks and occlusion checks pick the most
+        -- recently used window (e.g. among several kitty OS windows) rather
+        -- than the one on top.
+        local function focus()
+            local from = hs.window.focusedWindow()
+            if not from then return end
+            local z = {}
+            for i, w in ipairs(hs.window.orderedWindows()) do z[w:id()] = i end
+            local ordered = windows:getWindows()
+            table.sort(ordered, function(a, b)
+                return (z[a:id()] or math.huge) < (z[b:id()] or math.huge)
+            end)
+            for _, w in ipairs(from[direction.windowsTo](from, ordered, true, true)) do
+                if w:focus() then focusAndHold(w, from) return end
+            end
+        end
         if focusDebug then logFocus(key, focus) else focus() end
     end)
 end
@@ -279,7 +335,7 @@ local function stepStack(delta)
     stackState = state
     -- The snapshot can name a window that has since closed.
     local win = byId[target.id]
-    if win then win:focus() end
+    if win and win:focus() then focusAndHold(win, focused) end
     showStackHud(state.order, position, (win and win:screen()) or focused:screen() or hs.screen.mainScreen())
 end
 
