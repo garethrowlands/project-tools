@@ -17,7 +17,10 @@ function M.start(opts)
 
     local evidence = pointer.newEvidence(opts.window)
     local spots = {}          -- window id -> offset from the window's top-left
-    local current = nil       -- the window that currently has focus (as we last saw)
+    -- The window that currently has focus. Seed it now, so the first switch after a
+    -- (re)load can still remember where the pointer was in the window being left.
+    local current = hs.window.focusedWindow()
+    if current and not (current:id() and current:isStandard()) then current = nil end
     local ownMoveAt = -1      -- when we last moved the pointer ourselves
 
     -- nil when the window has gone away between the event and now.
