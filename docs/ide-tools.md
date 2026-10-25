@@ -1,6 +1,6 @@
 # IDE tools
 
-**`bin/ide`** — opens the appropriate IDE (VS Code or IntelliJ IDEA) for the git root of a given path or file (or `$PWD`). Detects the IDE from project files (`pom.xml`, `.idea`, `.vscode`, etc.).
+**`bin/ide`** — opens the appropriate IDE (VS Code or IntelliJ IDEA) for the git root of a given path or file (or `$PWD`). Detects the IDE from project files: IntelliJ for `pom.xml`, `build.gradle`, `build.gradle.kts`, `go.mod` or `.idea`, VS Code otherwise. A running IDE is reused rather than relaunched: VS Code via `code --reuse-window`, IntelliJ via `open -a "IntelliJ IDEA"`, not the Toolbox `idea` shim, whose `open -n` starts a whole extra IntelliJ process per call. For a project with a `package.json` it first selects an nvm Node matching `.nvmrc` or `engines.node`, because it doesn't source `~/.zshrc` and may otherwise launch the IDE with no nvm Node on `PATH`.
 
 **`bin/close-project`** — inverse of `ide`: closes the IDE window for a given project path (or `$PWD`). When called with no argument, also closes the current kitty pane. Uses `System Events` + close-button click for VS Code (no AppleScript dictionary).
 

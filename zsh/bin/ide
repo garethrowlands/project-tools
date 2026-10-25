@@ -56,5 +56,7 @@ ide_cmd=$(_ide_detect "$project")
 
 case "$ide_cmd" in
   code) code --reuse-window "$project" ;;
-  idea) idea "$project" ;;
+  # Not the Toolbox `idea` shim: it runs `open -n`, spawning a whole extra
+  # IntelliJ process per call instead of reusing/focusing the running one.
+  idea) open -a "IntelliJ IDEA" "$project" ;;
 esac

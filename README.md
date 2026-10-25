@@ -8,10 +8,11 @@ Opens the current project in the appropriate IDE.
 ide [path]
 ```
 
-- Defaults to `$PWD` if no path is given
+- The path may be a directory or a file; defaults to `$PWD` if no path is given
 - When inside a git repo, opens at the repo root (not the subdirectory)
-- Detects IntelliJ IDEA for Java/Gradle projects (`.idea/`, `pom.xml`, `build.gradle`); falls back to VS Code for everything else
-- If the IDE is already running, focuses the existing window rather than opening a new instance
+- Detects IntelliJ IDEA for Java, Gradle and Go projects (`.idea/`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `go.mod`); falls back to VS Code for everything else
+- If the IDE is already running, focuses the existing window rather than opening a new instance: VS Code through `code --reuse-window`, IntelliJ through `open -a "IntelliJ IDEA"`. It deliberately avoids the Toolbox `idea` shim, which runs `open -n` and so starts an extra IntelliJ process on every call
+- For a project with a `package.json`, first selects an nvm-managed Node: the one `.nvmrc` names, else one satisfying `engines.node`, else nvm's default. The script doesn't source `~/.zshrc`, so without this the IDE could inherit a `PATH` with no nvm Node on it
 
 ### Installation
 
