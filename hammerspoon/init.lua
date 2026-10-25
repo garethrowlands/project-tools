@@ -285,3 +285,7 @@ end
 
 hs.hotkey.bind(focusModifiers, "]", function() stepStack(1) end)
 hs.hotkey.bind(focusModifiers, "[", function() stepStack(-1) end)
+
+-- Move the pointer with keyboard focus changes (Hammerspoon keys, Contexts, Cmd+Tab).
+-- See pointer.lua / pointer-follow.lua.
+dofile(hs.fs.pathToAbsolute(hs.configdir .. "/init.lua"):match("^(.*)/[^/]*$") .. "/pointer-follow.lua").start({debug = false})
