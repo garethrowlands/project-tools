@@ -40,6 +40,11 @@ function M.start(opts)
         return list
     end
 
+    -- Only a chord with cmd, ctrl or alt counts as keyboard evidence: every real
+    -- window switch uses one, and plain typing (shift included) must not.
+    local function significant(flags) return flags.cmd or flags.ctrl or flags.alt end
+    local wasSignificant = false
+
     M.tap = hs.eventtap.new({
         types.keyDown, types.flagsChanged, types.leftMouseDown, types.rightMouseDown,
         types.otherMouseDown, types.scrollWheel, types.mouseMoved,
@@ -47,10 +52,13 @@ function M.start(opts)
         local now = hs.timer.secondsSinceEpoch()
         local t = e:getType()
         if t == types.keyDown then
-            pointer.noteKey(evidence, now)
+            if significant(e:getFlags()) then pointer.noteKey(evidence, now) end
         elseif t == types.flagsChanged then
-            pointer.noteKey(evidence, now)
-            pointer.noteModifiers(evidence, next(e:getFlags()) ~= nil)
+            local sig = significant(e:getFlags())
+            -- Pressing or releasing a significant modifier counts; shift alone does not.
+            if sig or wasSignificant then pointer.noteKey(evidence, now) end
+            wasSignificant = sig
+            pointer.noteModifiers(evidence, sig and true or false)
         elseif t ~= types.mouseMoved or now - ownMoveAt > 0.1 then
             pointer.noteMouse(evidence, now)
         end
@@ -67,6 +75,10 @@ function M.start(opts)
 
         -- Leaving the previous window: remember where the pointer was in it.
         local previous = current
+        if previous and previous:id() == id then
+            log("focus", id, "already focused: ignored")
+            return
+        end
         current = win
         if previous and previous:id() and previous:id() ~= id then
             local pid = previous:id()
@@ -74,12 +86,14 @@ function M.start(opts)
             if spot then spots[pid] = spot end
         end
 
+        local function ago(t) return t and string.format("%.2fs", now - t) or "never" end
         if not pointer.isKeyboardSwitch(evidence, now) then
-            log("focus", id, "not a keyboard switch")
+            log("focus", id, "not a keyboard switch; key", ago(evidence.lastKey), "mouse", ago(evidence.lastMouse))
             return
         end
+        pointer.consume(evidence)
         local target = pointer.destination(pt, frameOf(win), spots[id], {screens = screenFrames()})
-        log("focus", id, target and ("move to " .. target.x .. "," .. target.y) or "stay")
+        log("focus", id, target and ("move to " .. target.x .. "," .. target.y) or "stay", spots[id] and "(spot)" or "(no spot)")
         if not target then return end
         ownMoveAt = now
         hs.mouse.absolutePosition(target)

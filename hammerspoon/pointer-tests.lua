@@ -84,4 +84,13 @@ pointer.noteMouse(e, 0)
 pointer.noteKey(e, 0.1)
 check(pointer.isKeyboardSwitch(e, 0.2), "key after mouse counts")
 
+-- evidence: one key press justifies one move; a second focus event does not repeat it.
+e = pointer.newEvidence(0.5)
+pointer.noteKey(e, 0)
+check(pointer.isKeyboardSwitch(e, 0.1), "first focus event after the key counts")
+pointer.consume(e)
+check(not pointer.isKeyboardSwitch(e, 0.2), "consumed evidence does not count again")
+pointer.noteKey(e, 0.3)
+check(pointer.isKeyboardSwitch(e, 0.4), "a fresh key press counts again")
+
 return string.format("pointer-tests: %d checks passed", passed)

@@ -79,6 +79,12 @@ function M.noteMouse(state, now)
     state.lastMouse = now
 end
 
+-- Call once a focus change has used the evidence: one key press justifies at
+-- most one move, so a repeat focus event for the same press does nothing.
+function M.consume(state)
+    state.lastKey = nil
+end
+
 -- True when a key event happened, nothing mouse-driven came after it, and it is
 -- either recent or a modifier is still held (Cmd+Tab style switchers).
 function M.isKeyboardSwitch(state, now)
