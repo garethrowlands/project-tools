@@ -154,6 +154,22 @@ hs.hotkey.bind(moveModifiers, "return", maximizeWindow)
 
 local windows = hs.window.filter.defaultCurrentSpace
 
+-- Candidates for the directional focus keys: the visible standard windows of
+-- the current space, front to back. Not hs.window.filter's list: that is a
+-- cache kept up to date by accessibility and app notifications, and a missed
+-- one leaves windows out (after days of uptime it lacked kitty, VS Code, Slack
+-- and others that a freshly loaded filter tracks fine), so they could never
+-- be focus targets; and it is in focus-recency order, which makes tie-breaks
+-- and occlusion checks pick the most recently used window rather than the
+-- one on top. This costs ~25ms a keypress (AX queries); the filter's ~3ms.
+local function focusCandidates()
+    local out = {}
+    for _, w in ipairs(hs.window.orderedWindows()) do
+        if w:isStandard() then out[#out + 1] = w end
+    end
+    return out
+end
+
 -- Set true to append every focus keypress to ~/.hammerspoon/focus-debug.log:
 -- the window we left, every candidate the filter saw, and where we landed.
 local focusDebug = false
@@ -185,7 +201,7 @@ local function logFocus(name, run)
     local out = {os.date("== %Y-%m-%d %H:%M:%S ") .. name}
     local from = hs.window.focusedWindow()
     out[#out + 1] = "  from: " .. (from and describeWindow(from) or "none")
-    for _, w in ipairs(windows:getWindows()) do
+    for _, w in ipairs(focusCandidates()) do
         out[#out + 1] = "  cand: " .. describeWindow(w)
     end
     logOut, logT0 = out, hs.timer.secondsSinceEpoch()
@@ -236,13 +252,7 @@ for key, spec in pairs(directions) do
         local function focus()
             local from = hs.window.focusedWindow()
             if not from then return end
-            local z = {}
-            for i, w in ipairs(hs.window.orderedWindows()) do z[w:id()] = i end
-            local ordered = windows:getWindows()
-            table.sort(ordered, function(a, b)
-                return (z[a:id()] or math.huge) < (z[b:id()] or math.huge)
-            end)
-            for _, w in ipairs(from[direction.windowsTo](from, ordered, true, true)) do
+            for _, w in ipairs(from[direction.windowsTo](from, focusCandidates(), true, true)) do
                 if w:focus() then focusAndHold(w, from) return end
             end
         end
