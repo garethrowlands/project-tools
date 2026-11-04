@@ -29,6 +29,8 @@ ln -s $PWD/zsh/bin/note ~/.local/bin/note
 startup_session ~/.config/kitty/sessions/restore.kitty-session
 ```
 
+kitty 0.50's `restore_session_after_logout yes` (also in `kitty.conf`) saves every instance, scrollback included, when you log out, restart or shut down with kitty running, and restores it at the next start *instead of* `startup_session`, once. It restarts nothing but the shell, so Claude agents come back as bare shells with their scrollback, not resumed. To have the agents resumed after a restart, run `save-session` and quit kitty yourself, then start it again: with no saved logout state, `startup_session` applies. On macOS the saved state is encrypted with a key in the login keychain.
+
 For `bin/window` live preview, enable socket-based remote control in `kitty.conf`:
 
 ```
