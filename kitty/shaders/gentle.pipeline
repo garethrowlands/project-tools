@@ -135,7 +135,7 @@ startgroup
     shaders cursor-trail-blaze-local
 endgroup
 
-# 6-9. OS window focus: a thin peach glow around the whole OS window (all
+# 6-9 (with 7b). OS window focus: a thin peach glow around the whole OS window (all
 #    panes and the tab bar) while it has keyboard focus; while it doesn't, a
 #    slight dim, cool tint and soft edge shadow (vignette). Last so the
 #    dimming, spotlight and ripple above don't dim or distort the glow. The glow adds light, so the pane focus glow
@@ -190,6 +190,23 @@ startgroup
     animation_stop os-window-focus-out
     animation_step 0
     var int OSW_FOCUS_PASS = 1
+    shaders os-window-focus-border
+endgroup
+
+# 7b. Focus-in fade: eases from the unfocused look to the focused one instead
+#    of switching at once. Runs on top of group 7, which undoes the unfocused
+#    look in one go; this puts it back and fades it out. The number in
+#    animation_stop is the fade duration in ms (shorter than the focus-out
+#    fade, to feel responsive); focus-out cuts it short. Also runs when the
+#    pipeline loads in a focused window.
+startgroup
+    animation_start os-window-focus-in
+    animation_stop 250 | os-window-focus-out
+    # sharp attack, soft tail: over half the look is gone after one frame
+    # (16ms), 73% after 32ms, 86% after 60ms, 95% after 100ms
+    animation_curve cubic-bezier(0.02, 0.98, 0.3, 1)
+    animation_step 16
+    var int OSW_FOCUS_PASS = 4
     shaders os-window-focus-border
 endgroup
 

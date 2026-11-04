@@ -6,11 +6,16 @@
 // soft inner shadow (vignette) along its edges.
 //
 // The shader has no notion of focus itself: the pipeline decides when each
-// pass runs. gentle.pipeline uses it in four groups, selected by OSW_FOCUS_PASS:
+// pass runs. gentle.pipeline uses it in five groups, selected by OSW_FOCUS_PASS:
 //   0 unfocused: always active; applies the dim, tint and vignette.
 //   1 steady:    started by os-window-focus-in, stopped by os-window-focus-out,
 //                animation_step 0. Undoes pass 0 exactly and adds the border
 //                at OSW_FOCUS_STEADY_INTENSITY.
+//   4 fade in:   started by os-window-focus-in, duration bounded, stopped
+//                early by os-window-focus-out. Runs after pass 1 and puts the
+//                unfocused look back, fading it out as animation_progress goes
+//                0 → 1, so gaining focus eases from the unfocused look to the
+//                focused one instead of switching at once.
 //   2 pulse:     started by os-window-focus-in, duration bounded. Adds the
 //                extra light that takes the border from
 //                OSW_FOCUS_STEADY_INTENSITY up to OSW_FOCUS_PULSE_INTENSITY,
@@ -54,7 +59,7 @@ static const float3 LUMA_WEIGHTS = float3(0.2126, 0.7152, 0.0722);
 // OSW_UNFOCUSED_VIGNETTE_WIDTH_PX framebuffer pixels from each edge.
 static const float OSW_UNFOCUSED_VIGNETTE = 0.0;
 static const float OSW_UNFOCUSED_VIGNETTE_WIDTH_PX = 120.0;
-// 0 = unfocused, 1 = steady, 2 = pulse, 3 = fade out (see above).
+// 0 = unfocused, 1 = steady, 2 = pulse, 3 = fade out, 4 = fade in (see above).
 static const int OSW_FOCUS_PASS = 1;
 
 // Distance from this pixel to the nearest edge of the OS window viewport, in pixels.
@@ -71,6 +76,15 @@ static float
 edge_falloff(float dist, float width) {
     float f = 1.0 - saturate(dist / max(width, 1e-4));
     return f * f;
+}
+
+// The unfocused look (pass 0) for a pixel with the given vignette factor.
+static float3
+apply_unfocused(float3 rgb, float vignette) {
+    rgb = lerp(rgb, float3(dot(rgb, LUMA_WEIGHTS)), OSW_UNFOCUSED_DESATURATION);
+    rgb *= OSW_UNFOCUSED_DIM;
+    rgb = lerp(rgb, OSW_UNFOCUSED_TINT_COLOR, OSW_UNFOCUSED_TINT);
+    return rgb * vignette;
 }
 
 // Inverse of the unfocused pass for a pixel with the given vignette factor.
@@ -100,10 +114,7 @@ fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
     float3 rgb = color.rgb;
 
     if (OSW_FOCUS_PASS == 0) {
-        rgb = lerp(rgb, float3(dot(rgb, LUMA_WEIGHTS)), OSW_UNFOCUSED_DESATURATION);
-        rgb *= OSW_UNFOCUSED_DIM;
-        rgb = lerp(rgb, OSW_UNFOCUSED_TINT_COLOR, OSW_UNFOCUSED_TINT);
-        return float4(rgb * vignette, color.a);
+        return float4(apply_unfocused(rgb, vignette), color.a);
     }
     if (OSW_FOCUS_PASS == 1) {
         rgb = undo_unfocused(rgb, vignette) + border_light(dist, OSW_FOCUS_STEADY_INTENSITY);
@@ -114,6 +125,14 @@ fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
         // unfocused look pass 0 already applied.
         float3 focused = undo_unfocused(rgb, vignette) + border_light(dist, OSW_FOCUS_STEADY_INTENSITY);
         return float4(lerp(focused, rgb, t.animation_progress), color.a);
+    }
+    if (OSW_FOCUS_PASS == 4) {
+        // Fade in: pass 1 has already undone the unfocused look and added the
+        // steady border. Take the border off, put the look back, and blend
+        // from that to pass 1's result as animation_progress goes 0 → 1.
+        float3 border = border_light(dist, OSW_FOCUS_STEADY_INTENSITY);
+        float3 unfocused = apply_unfocused(max(rgb - border, 0.0), vignette) + border;
+        return float4(lerp(unfocused, rgb, t.animation_progress), color.a);
     }
     // Pulse: only the excess over the steady pass, which has already added its share.
     float intensity = max(lerp(OSW_FOCUS_PULSE_INTENSITY, OSW_FOCUS_STEADY_INTENSITY, t.animation_progress) - OSW_FOCUS_STEADY_INTENSITY, 0.0);
