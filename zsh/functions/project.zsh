@@ -16,6 +16,31 @@ _project_tab_name() {
   fi
 }
 
+# Put a project in its own kitty tab, found by title and kept in alphabetical order
+# (kitty 0.50's --focus-existing=@title and --location=by-title). $2 is the id of a
+# window already open in the project, or empty if there is none: that window is moved to
+# the project's tab (made if need be) and focused; with none, the tab is focused or
+# opened at $1.
+_project_open_in_tab() {
+  local project_path="$1" window_id="$2" tab_name
+  tab_name=$(_project_tab_name "$project_path")
+
+  if [[ -z "$window_id" ]]; then
+    kitty @ launch --type=tab --tab-title="$tab_name" --location=by-title \
+      --focus-existing=@title --cwd="$project_path" 2>/dev/null || true
+    return 0
+  fi
+
+  local current_tab
+  current_tab=$(kitty @ ls 2>/dev/null | jq -r --argjson wid "$window_id" '
+    .[].tabs[] | select(any(.windows[]; .id == $wid)) | .title' 2>/dev/null | head -1)
+  if [[ "$current_tab" != "$tab_name" ]]; then
+    kitty @ detach-window --match="id:${window_id}" --target-tab=@title \
+      --tab-title="$tab_name" --location=by-title --create-if-missing 2>/dev/null || true
+  fi
+  kitty @ focus-window --match="id:${window_id}" 2>/dev/null || true
+}
+
 _project_cache_file() {
   if [[ -n "${PROJECT_CACHE:-}" ]]; then
     local p="$PROJECT_CACHE"

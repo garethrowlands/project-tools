@@ -158,6 +158,35 @@ _assert_eq "$(_project_tab_name "$_tt/shop/.claude/worktrees/fix")" "shop" "_pro
 _assert_eq "$(_project_tab_name "$_tt/plain")" "plain" "_project_tab_name: outside git is the directory's name"
 rm -rf "$_tt"
 
+# ── _project_open_in_tab: a project's tab is found by title, kept alphabetical ──
+
+_ot=$(mktemp -d "${TMPDIR:-/tmp}/project-tab-XXXXXX"); _ot=${_ot:A}
+mkdir -p "$_ot/shop"
+_ot_calls=()
+_ot_ls=""
+kitty() { _ot_calls+=("${(j: :)${(q)@}}"); [[ "$2" == ls ]] && print -r -- "$_ot_ls"; return 0 }
+_ot_ls_with() {  # $1 = id of the window, $2 = title of the tab it is in
+  _ot_ls='[{"tabs":[{"id":5,"title":"'$2'","windows":[{"id":'$1'}]}]}]'
+}
+
+_ot_calls=(); _ot_ls='[]'
+_project_open_in_tab "$_ot/shop" "" >/dev/null
+_assert_eq "${_ot_calls[-1]}" "@ launch --type=tab --tab-title=shop --location=by-title --focus-existing=@title --cwd=${(q)_ot}/shop" \
+  "open_in_tab: no window yet -> one launch that focuses the project's tab or makes it in order"
+
+_ot_calls=(); _ot_ls_with 9 other
+_project_open_in_tab "$_ot/shop" 9 >/dev/null
+_assert_contains "${_ot_calls[*]}" "@ detach-window --match=id:9 --target-tab=@title --tab-title=shop --location=by-title --create-if-missing" \
+  "open_in_tab: a window in another tab is moved to the project's named tab"
+_assert_eq "${_ot_calls[-1]}" "@ focus-window --match=id:9" "open_in_tab: ... and then focused"
+
+_ot_calls=(); _ot_ls_with 9 shop
+_project_open_in_tab "$_ot/shop" 9 >/dev/null
+_assert_not_contains "${_ot_calls[*]}" "detach-window" "open_in_tab: a window already in the project's tab is not moved"
+_assert_eq "${_ot_calls[-1]}" "@ focus-window --match=id:9" "open_in_tab: ... only focused"
+unfunction kitty
+rm -rf "$_ot"
+
 # ── summary ───────────────────────────────────────────────────────────────────
 
 if (( _failures == 0 )); then
