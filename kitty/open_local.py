@@ -1,4 +1,5 @@
-"""Open clicked local file links in a TUI instead of a GUI app.
+"""Open clicked local file links in a TUI instead of a GUI app (a path:line
+reference goes to the project's IDE through `ide`).
 
 Invoked from open-actions.conf as:
     kitten open_local.py ${FILE_PATH} ${URL}
@@ -13,7 +14,7 @@ What a click does:
   file#LINE      micro at that line (rg --hyperlink-format=kitty links)
   path:LINE[:COL] a file reference in plain text (compiler errors, stack
                  traces), found by detect_url_regex in links.conf and routed
-                 here with --ref; micro at that line and column. A relative
+                 here with --ref; `ide` opens it at that line and column. A relative
                  path is looked for in the clicked pane's directory, then in
                  each directory above it
   Markdown       mdfried TUI (o opens in Obsidian if the note is inside a
@@ -143,6 +144,17 @@ def overlay(boss: Any, window: Any, cmd: list[str], user_vars: tuple[str, ...] =
     launch(boss, opts, cmd)
 
 
+def background(boss: Any, window: Any, cmd: list[str]) -> None:
+    # no window of its own: for a program that opens something elsewhere (ide)
+    from kitty.launch import launch, parse_launch_args
+
+    largs = ['--type=background', '--cwd=current', '--copy-env']
+    if window is not None:
+        largs.append(f'--source-window=id:{window.id}')
+    opts, cmd = parse_launch_args(largs + ['--', *cmd])
+    launch(boss, opts, cmd)
+
+
 # glow -w 0 does not wrap, so a wide table keeps its natural width; moor
 # scrolls it sideways. -s dark because glow drops colour when piped.
 WIDE_VIEW = ('if command -v glow >/dev/null; then glow -s dark -w 0 "$1" | moor; '
@@ -190,6 +202,7 @@ def handle_result(args: list[str], answer: Any, target_window_id: int, boss: Any
     if args[1:2] == ['--wide']:
         open_wide(boss, window)
         return
+    ref = ''
     if args[1:2] == ['--ref']:
         cwd = (window.cwd_of_child if window is not None else '') or os.getcwd()
         ref = args[2] if len(args) > 2 else ''
@@ -212,8 +225,11 @@ def handle_result(args: list[str], answer: Any, target_window_id: int, boss: Any
             window.write_to_child(TRIGGER + path.encode('utf-8', 'surrogateescape').hex() + TERMINATOR)
         else:
             overlay(boss, window, ['yazi', path])
+    elif line and ref:
+        # a file reference from detect_url_regex: the project's IDE, via `ide`
+        background(boss, window, ['ide', f'{path}:{line}:{column}' if column else f'{path}:{line}'])
     elif line:
-        overlay(boss, window, ['micro', path, f'+{line}:{column}' if column else f'+{line}'])
+        overlay(boss, window, ['micro', path, f'+{line}'])
     elif path.lower().endswith(MARKDOWN_EXTS):
         overlay(boss, window, ['mdfried', path], (f'{MD_PATH_VAR}={path}',))
     elif is_text(path):
