@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Running Tests
 
 ```zsh
+zsh functions/ide-tests.zsh
 zsh functions/notes-tests.zsh
 zsh functions/project-tests.zsh
 zsh functions/sw-tests.zsh
@@ -18,7 +19,7 @@ hs -c 'return dofile("'$PWD'/hammerspoon/pointer-tests.lua")'  # pointer-follows
 (cd ../python/tidy-windows-advise && uv run pytest)
 ```
 
-Each zsh suite exits with code 1 if any test fails. `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `sw-tests.zsh` tests `sw` and its preview (`bin/sw-preview`, against a fake `kitty`) on a temp repo with worktrees. `tidy-windows-tests.zsh` runs `bin/tidy-windows`' apply step against a fake `advise`, `kitty` and `fzf`. `window-tests.zsh` runs `bin/window-list`, `bin/next-agent` and `bin/save-session` against a fake `kitty` and a temp `$HOME` of Claude session files. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic. `kitty/demo`'s suites test the shader demo's geometry, verbs (kitty and Hammerspoon stubbed), card and play; see `kitty/demo/README.md`.
+Each zsh suite exits with code 1 if any test fails. `ide-tests.zsh` runs `bin/ide` against fake `code` and `open` (project and file-at-line opening). `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `sw-tests.zsh` tests `sw` and its preview (`bin/sw-preview`, against a fake `kitty`) on a temp repo with worktrees. `tidy-windows-tests.zsh` runs `bin/tidy-windows`' apply step against a fake `advise`, `kitty` and `fzf`. `window-tests.zsh` runs `bin/window-list`, `bin/next-agent` and `bin/save-session` against a fake `kitty` and a temp `$HOME` of Claude session files. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic. `kitty/demo`'s suites test the shader demo's geometry, verbs (kitty and Hammerspoon stubbed), card and play; see `kitty/demo/README.md`.
 
 ## Architecture
 

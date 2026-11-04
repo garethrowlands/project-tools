@@ -5,10 +5,11 @@
 Opens the current project in the appropriate IDE.
 
 ```zsh
-ide [path]
+ide [path[:line[:column]]]
 ```
 
 - The path may be a directory or a file; defaults to `$PWD` if no path is given
+- `path:line` (and `path:line:column`) opens the project, then the file at that line: VS Code with `--goto`, IntelliJ with an `idea://open?file=…&line=…` URL sent to the running instance (after a one-second wait, `IDE_JUMP_DELAY`, so the project is open first; otherwise IntelliJ opens the file in a bare LightEdit window). A path that exists with a colon in its name is taken as a path; a line on a directory, or on a file that doesn't exist, is an error. The file is resolved through symlinks first
 - When inside a git repo, opens at the repo root (not the subdirectory)
 - Detects IntelliJ IDEA for Java, Gradle and Go projects (`.idea/`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `go.mod`); falls back to VS Code for everything else
 - If the IDE is already running, focuses the existing window rather than opening a new instance: VS Code through `code --reuse-window`, IntelliJ through `open -a "IntelliJ IDEA"`. It deliberately avoids the Toolbox `idea` shim, which runs `open -n` and so starts an extra IntelliJ process on every call

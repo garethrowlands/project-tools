@@ -45,8 +45,24 @@ _ide_use_node() {
   fi
 }
 
+# `ide path[:line[:column]]`. A path that exists, colons and all, is a path.
+local target=${1:-$PWD} line column
+setopt extended_glob
+if [[ ! -e $target ]] && [[ $target == (#b)(*):(<->):(<->) || $target == (#b)(*):(<->) ]]; then
+  target=$match[1] line=$match[2] column=$match[3]
+  if [[ -d $target ]]; then
+    print -u2 "ide: $target is a directory, so it can't take a line number"
+    exit 1
+  elif [[ ! -f $target ]]; then
+    print -u2 "ide: no such file: $target"
+    exit 1
+  fi
+  # through a symlink IntelliJ wouldn't see the file as inside the open project
+  target=${target:A}
+fi
+
 local project
-project=$(_ide_git_root "${1:-$PWD}")
+project=$(_ide_git_root "$target")
 
 _ide_use_node "$project"
 
@@ -54,9 +70,27 @@ local ide_cmd
 ide_cmd=$(_ide_detect "$project")
 [[ -z "$ide_cmd" ]] && exit 0
 
+# Percent-encodes everything but unreserved characters, for idea:// URLs.
+_ide_urlencode() {
+  python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"
+}
+
 case "$ide_cmd" in
-  code) code --reuse-window "$project" ;;
+  code)
+    if [[ -n $line ]]; then
+      code --reuse-window --goto "$target:$line${column:+:$column}" "$project"
+    else
+      code --reuse-window "$project"
+    fi ;;
   # Not the Toolbox `idea` shim: it runs `open -n`, spawning a whole extra
   # IntelliJ process per call instead of reusing/focusing the running one.
-  idea) open -a "IntelliJ IDEA" "$project" ;;
+  idea)
+    open -a "IntelliJ IDEA" "$project"
+    if [[ -n $line ]]; then
+      # IntelliJ opens a file in its project only if that project is already
+      # open (otherwise in a bare LightEdit window), so wait for the first
+      # step; the running instance then handles the idea:// URL.
+      sleep ${IDE_JUMP_DELAY:-1}
+      open "idea://open?file=$(_ide_urlencode "$target")&line=$line${column:+&column=$column}"
+    fi ;;
 esac

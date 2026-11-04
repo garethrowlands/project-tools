@@ -1,6 +1,6 @@
 # `ide` opens a file at a line: design
 
-Status: proposal, not yet built.
+Status: built (`zsh/bin/ide`, tested by `zsh/functions/ide-tests.zsh`). Not yet tried against real IntelliJ or VS Code; the open questions below still stand.
 
 ## Intent and why
 
