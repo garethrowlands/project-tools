@@ -9,7 +9,7 @@ export BAT_THEME=${BAT_THEME:-ansi}
 
 # fzf, from catppuccin/fzf (mocha), with the crust background used by kitty.
 _theme_fzf_colors='--color=bg+:#313244,bg:#11111B,spinner:#F5E0DC,hl:#F38BA8'
-_theme_fzf_colors+=' --color=fg:#CDD6F4,header:#F38BA8,info:#CBA6F7,pointer:#F5E0DC'
+_theme_fzf_colors+=' --color=fg:#CDD6F4,header:#A6ADC8,info:#CBA6F7,pointer:#F5E0DC'
 _theme_fzf_colors+=' --color=marker:#B4BEFE,fg+:#CDD6F4,prompt:#CBA6F7,hl+:#F38BA8'
 _theme_fzf_colors+=' --color=selected-bg:#45475A'
 [[ $FZF_DEFAULT_OPTS == *"$_theme_fzf_colors"* ]] ||
