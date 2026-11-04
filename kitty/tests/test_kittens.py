@@ -456,6 +456,83 @@ check('poll: a malformed session file is no state', 'agent_state' not in b.user_
 boss.all_windows = [b]
 fw.poll(boss)
 check('poll forgets closed windows', set(fw.published) == {2}, fw.published)
+
+
+# focus_watcher.py: the Program Status Protocol (OSC 7501) records come first
+def rec(state, app='claude-code'):
+    return {'id': '', 'state': state, 'kind': None, 'progress': None, 'app': app, 'title': '', 'msg': ''}
+
+
+class Status:
+    def __init__(self, *records):
+        self.records = list(records)
+
+    def as_list(self):
+        return self.records
+
+
+for records, want in [
+    ([], ''),
+    ([rec('working')], 'working'),
+    ([rec('blocked')], 'blocked'),
+    ([rec('done')], 'done'),
+    ([rec('idle')], 'idle'),
+    ([rec('idle'), rec('working')], 'working'),
+    ([rec('working'), rec('done')], 'done'),
+    ([rec('done'), rec('blocked'), rec('working')], 'blocked'),
+    ([rec('working', app='rsync')], ''),
+    ([rec('blocked', app='rsync'), rec('idle')], 'idle'),
+    ([rec('error')], ''),
+    ([{'app': 'claude-code'}], ''),
+    (['working'], ''),
+    (None, ''),
+]:
+    got = fw.status_state(records)
+    check(f'status_state: {[r["state"] if isinstance(r, dict) and "state" in r else r for r in records or []]} -> {want!r}', got == want, got)
+
+write_session(agent_home, 521, 'waiting', 2000)
+s1, s2, s3, s4 = (AgentWindow(i, p, proc=pr) for i, p, pr in [(11, 599, 'zsh'), (12, 521, 'claude'), (13, 599, 'zsh'), (14, 521, 'claude')])
+s1.program_status = Status(rec('working'))
+s2.program_status = Status(rec('working'))
+s3.program_status = Status()
+s4.program_status = Status()
+boss = AgentBoss(s1, s2, s3, s4)
+boss.active_window = s3
+fw.poll(boss)
+check('status: a window with a claude-code record has that state, claude process or not', s1.user_vars.get('agent_state') == 'working', s1.user_vars)
+check('status: the record wins over the session file', s2.user_vars.get('agent_state') == 'working', s2.user_vars)
+check('status: no records and no claude is no state', 'agent_state' not in s3.user_vars, s3.user_vars)
+check('status: no records falls back to the session file', s4.user_vars.get('agent_state') == 'blocked', s4.user_vars)
+
+boss.notified.clear()
+s1.program_status.records = [rec('blocked')]
+fw.on_program_status_change(boss, s1, {'program_status': s1.program_status.records})
+check('status change: published at once, and notifies when you are not looking',
+      s1.user_vars.get('agent_state') == 'blocked' and [n[:2] for n in boss.notified] == [(11, 'Claude needs you')], (s1.user_vars, boss.notified))
+fw.on_program_status_change(boss, s1, {})
+check('status change: nothing new, no second notification', len(boss.notified) == 1, boss.notified)
+
+boss.active_window = s1
+s1.program_status.records = [rec('done')]
+fw.on_program_status_change(boss, s1, {})
+check('status change: done in the window you are looking at is shown, without a notification',
+      s1.user_vars.get('agent_state') == 'done' and len(boss.notified) == 1, (s1.user_vars, boss.notified))
+s1.program_status.records = []
+fw.on_program_status_change(boss, s1, {})
+check('status change: kitty clearing the record clears the state', 'agent_state' not in s1.user_vars, s1.user_vars)
+
+boss.active_window = s3
+s1.program_status.records = [rec('done')]
+fw.on_program_status_change(boss, s1, {})
+check('status change: done elsewhere notifies', boss.notified[-1][:2] == (11, 'Claude finished'), boss.notified)
+
+s2.program_status = type('Broken', (), {'as_list': lambda self: 1 / 0})()
+s4.program_status = None
+fw.poll(boss)
+check('status: records that cannot be read fall back to the session file', s2.user_vars.get('agent_state') == 'blocked' and s4.user_vars.get('agent_state') == 'blocked', (s2.user_vars, s4.user_vars))
+del s4.program_status
+fw.poll(boss)
+check('status: a kitty with no program_status attribute falls back too', s4.user_vars.get('agent_state') == 'blocked', s4.user_vars)
 os.environ['HOME'] = real_home
 
 # a changed watcher is loaded beside the old copy, which it has to silence

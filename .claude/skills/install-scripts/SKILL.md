@@ -78,6 +78,8 @@ kitty loads a watcher file once and caches it by path, so after changing `focus_
 ln -s $PWD/kitty/focus_watcher.py ~/.config/kitty/agent_watcher.py   # then: watcher agent_watcher.py
 ```
 
+With kitty 0.50 and Claude Code 2.1.295 or later the watcher takes an agent's state straight from its Program Status Protocol records (`window.program_status`), and falls back to Claude's session files for windows without one. Nothing to configure; the protocol is negotiated by Claude Code at startup.
+
 ## kitty link handling (`kitty/`)
 
 Symlink the kittens and config into the kitty config directory (kitty follows the symlinks), include the mappings, and source the zsh side. Move any existing `~/.config/kitty/open-actions.conf` aside first — this one replaces it.

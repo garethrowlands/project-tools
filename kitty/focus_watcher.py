@@ -14,15 +14,22 @@ Two jobs:
    after I left". (Focus events only reach windows created after the watcher
    was loaded.)
 
-2. Every POLL_SECONDS, works out the agent state of every window running
-   `claude` — blocked, working, done or idle — and publishes it as the
-   window's `agent_state` user var. When a state changes it redraws the tab
+2. Works out the agent state of every window running `claude` — blocked,
+   working, done or idle — and publishes it as the window's `agent_state`
+   user var: when the window's program status changes, when its focus
+   changes, and every POLL_SECONDS for the windows that don't report one. When a state changes it redraws the tab
    bar (tab_bar.py turns the var into a tab marker) and, if the agent got
    blocked or finished in a window you aren't looking at, sends a desktop
    notification that focuses that window when clicked.
 
-The state comes from Claude Code's ~/.claude*/sessions/<pid>.json, by the same
-rules as `_claude_session_state` in zsh/functions/claude-session.zsh, which the
+The state comes first from the window's Program Status Protocol (OSC 7501)
+records, which Claude Code (2.1.295 and later) sends once the terminal answers
+its startup query, and which kitty 0.50 keeps on `window.program_status`:
+`status_state` picks the most pressing of the `claude-code` records. kitty
+itself keeps `done` until you focus the window or press a key, so it needs no
+`seen_at`. A window with no such record — an older Claude Code, or one whose
+idle record kitty dropped at a prompt — falls back to Claude Code's
+~/.claude*/sessions/<pid>.json, by the same rules as `_claude_session_state` in zsh/functions/claude-session.zsh, which the
 window picker and next-agent use, and `agent_state` in
 python/tidy-windows-advise/advise — keep the three in step. That file is
 undocumented internal state, so anything missing or malformed means "no
@@ -36,6 +43,9 @@ from glob import glob
 from typing import Any
 
 POLL_SECONDS = 2.0
+STATUS_APP = 'claude-code'
+# most pressing first: the state a window gets when its records hold several
+STATUS_ORDER = ('blocked', 'done', 'working', 'idle')
 NOTIFY = {'blocked': 'Claude needs you', 'done': 'Claude finished'}
 
 # window id -> the agent state last published for it
@@ -78,7 +88,30 @@ def claude_pid(window: Any) -> int:
         return 0
 
 
+def status_state(records: Any) -> str:
+    """The agent state in a window's program status records (a list of dicts
+    with `app` and `state`), the most pressing one of Claude Code's, or ''.
+    `msg` and `title` can hold commands and paths, so they are never read."""
+    try:
+        states = {r['state'] for r in records if r['app'] == STATUS_APP}
+        return next((s for s in STATUS_ORDER if s in states), '')
+    except Exception:
+        return ''
+
+
+def status_records(window: Any) -> list[Any]:
+    """kitty's `window.program_status` is internal, not documented, so a kitty
+    without it, or that has renamed it, just means no records."""
+    try:
+        return window.program_status.as_list()
+    except Exception:
+        return []
+
+
 def window_state(window: Any, looked_at: bool) -> str:
+    state = status_state(status_records(window))
+    if state:
+        return state
     pid = claude_pid(window)
     path = session_file(pid) if pid else ''
     if not path:
@@ -162,6 +195,15 @@ def start_timer() -> None:
 
 def on_load(*args: Any) -> None:
     start_timer()
+
+
+def on_program_status_change(boss: Any, window: Any, data: dict[str, Any]) -> None:
+    # straight away, so a ! or ✓ shows as it happens rather than at the next poll
+    try:
+        refresh(boss, window, is_looked_at(boss, window))
+        start_timer()
+    except Exception:
+        pass
 
 
 def on_focus_change(boss: Any, window: Any, data: dict[str, Any]) -> None:

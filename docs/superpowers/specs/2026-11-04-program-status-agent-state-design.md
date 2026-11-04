@@ -1,6 +1,7 @@
 # Agent state from the Program Status Protocol (OSC 7501)
 
-Status: proposal. Not implemented.
+Status: step 1 implemented in `kitty/focus_watcher.py` (not yet deployed to the
+live kitty config); step 2 is a proposal.
 
 ## Problem
 
@@ -81,9 +82,9 @@ text or paths, and the design never reads them.
   `tidy-windows` reads it for idle time. Its immediate `refresh` is kept so a
   `✓` clears as you arrive on the fallback path; on the status path kitty
   clears `done` itself and `on_program_status_change` fires.
-- The timer poll stays, but only for windows that have no `claude-code`
-  record: it applies the session-file rules to them as today. Windows that do
-  have one are skipped, so the two sources never fight.
+- The timer poll stays. It runs the same `window_state` for every window,
+  which takes the records first and reads the session file only for windows
+  with none, so the two sources never fight.
 
 ### Fallback
 
