@@ -2,6 +2,7 @@
 
 Invoked from open-actions.conf as:
     kitten open_local.py ${FILE_PATH} ${URL}
+    kitten open_local.py --ref ${URL}      (a path:line[:col] reference)
 and from kitty.conf, in a Markdown overlay, as:
     kitten open_local.py --obsidian
     kitten open_local.py --wide
@@ -10,6 +11,11 @@ What a click does:
   directory      cd in the pane's zsh if it is idle at a prompt (see
                  kitty-cd-link.zsh); otherwise yazi in an overlay
   file#LINE      micro at that line (rg --hyperlink-format=kitty links)
+  path:LINE[:COL] a file reference in plain text (compiler errors, stack
+                 traces), found by detect_url_regex in links.conf and routed
+                 here with --ref; micro at that line and column. A relative
+                 path is looked for in the clicked pane's directory, then in
+                 each directory above it
   Markdown       mdfried TUI (o opens in Obsidian if the note is inside a
                  vault; w shows it unwrapped, scrolling sideways, for wide
                  tables mdfried squeezes)
@@ -22,6 +28,7 @@ environment (EDITOR, PAGER, PATH).
 import codecs
 import json
 import os
+import re
 from typing import Any
 from urllib.parse import quote, unquote, urlparse
 
@@ -58,6 +65,35 @@ def resolve(path: str, url: str) -> tuple[str, int]:
     if raw.startswith('/') and os.path.exists(raw):
         return raw, 0
     return '', 0
+
+
+REF = re.compile(r'(.+?):(\d+)(?::(\d+))?')
+
+
+def resolve_ref(ref: str, cwd: str) -> tuple[str, int, int]:
+    """(path, line, column) for a `path:line[:column]` reference, or ('', 0, 0)
+    if it is not one or names nothing. A relative path is looked for in `cwd`
+    and then in each directory above it, since the tool that printed it may
+    have run from the project root while the pane sits in a subdirectory."""
+    m = REF.fullmatch(ref)
+    if not m:
+        return '', 0, 0
+    path = os.path.expanduser(m.group(1))
+    line, column = int(m.group(2)), int(m.group(3) or 0)
+    if os.path.isabs(path):
+        found = [path]
+    else:
+        found, d = [], os.path.abspath(cwd or '/')
+        while True:
+            found.append(os.path.join(d, path))
+            parent = os.path.dirname(d)
+            if parent == d:
+                break
+            d = parent
+    for candidate in found:
+        if os.path.exists(candidate):
+            return os.path.normpath(candidate), line, column
+    return '', 0, 0
 
 
 def is_text(path: str) -> bool:
@@ -154,19 +190,30 @@ def handle_result(args: list[str], answer: Any, target_window_id: int, boss: Any
     if args[1:2] == ['--wide']:
         open_wide(boss, window)
         return
-    path = args[1] if len(args) > 1 else ''
-    url = args[2] if len(args) > 2 else 'file://' + path
-    path, line = resolve(path, url)
-    if not path:
-        log_error(f'open_local: no such local file: {url!r}')
-        return
+    if args[1:2] == ['--ref']:
+        cwd = (window.cwd_of_child if window is not None else '') or os.getcwd()
+        ref = args[2] if len(args) > 2 else ''
+        path, line, column = resolve_ref(ref, cwd)
+        if not path:
+            # detect_url_regex also matches things that only look like files
+            # (example.com:443); say so rather than appearing to ignore the click
+            boss.show_error('No such file', f'{ref}\nlooked in {cwd} and the directories above it')
+            return
+    else:
+        path = args[1] if len(args) > 1 else ''
+        url = args[2] if len(args) > 2 else 'file://' + path
+        path, line = resolve(path, url)
+        column = 0
+        if not path:
+            log_error(f'open_local: no such local file: {url!r}')
+            return
     if os.path.isdir(path):
         if window is not None and not shell_refusal(window):
             window.write_to_child(TRIGGER + path.encode('utf-8', 'surrogateescape').hex() + TERMINATOR)
         else:
             overlay(boss, window, ['yazi', path])
     elif line:
-        overlay(boss, window, ['micro', path, f'+{line}'])
+        overlay(boss, window, ['micro', path, f'+{line}:{column}' if column else f'+{line}'])
     elif path.lower().endswith(MARKDOWN_EXTS):
         overlay(boss, window, ['mdfried', path], (f'{MD_PATH_VAR}={path}',))
     elif is_text(path):

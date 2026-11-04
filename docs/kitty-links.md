@@ -33,7 +33,8 @@ Overlays cover the clicked pane, start in its directory and copy its environment
 
 ## Files
 
-- **`open-actions.conf`** — one rule: every `file:` link goes to `open_local.py`.
+- **`open-actions.conf`** — two rules: a `path:line[:col]` file reference goes to `open_local.py --ref`, and every other `file:` link goes to `open_local.py`. The reference rule is first because kitty reads a scheme-less string as a `file` URL, which the second rule would take.
+- **`detect_url_regex`** (in `links.conf`, kitty 0.49.2+) — makes plain-text file references such as compiler errors and stack-trace lines (`src/main.go:10:3`) underline and Cmd+click like URLs. The extension must start with a letter, so `192.168.1.1:8080` isn't taken for a file; `example.com:443` still is, and clicking it finds no such file and does nothing. `open_local.py --ref` looks for a relative path in the pane's directory, then in each directory above it, and opens micro at the line (and column).
 - **`open_local.py`** — no-UI kitten that decides what a click does. Rebuilds the path from the raw URL because eza does not percent-encode `#`, `?` or `%` in names (so kitty would otherwise split `12#frag` at the `#`).
 - **`kitty-cd-link.zsh`** — sourced from `.zshrc`. The zsh side of click-to-cd, plus publishing `$EDITOR` to kitty.
 - **`hint_menu.py`** — the `Cmd+P` menu.

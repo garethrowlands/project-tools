@@ -203,6 +203,69 @@ check('missing file -> nothing opened', cmd is None and not opened)
 w, cmd, opts = click(enc(f('code.py')), FakeWindow(user_vars={'kitty_cd_link_pid': '100', 'kitty_editor': 'micro'}))
 check("overlay gets EDITOR/VISUAL from the shell's user var", opts and opts.env == ['EDITOR=micro', 'VISUAL=micro'], opts and opts.env)
 
+# --- open_local: file references (path:line[:col]) found by detect_url_regex ---
+def click_ref(ref: str, cwd: str = tmp):
+    window = FakeWindow(cwd=cwd)
+    launched.clear()
+    opened.clear()
+    ol.handle_result(['open_local.py', '--ref', ref], None, 7, FakeBoss(window))
+    opts, cmd = launched[0] if launched else (None, None)
+    return window, cmd, opts
+
+
+os.makedirs(f('proj/src/deep'), exist_ok=True)
+for name in ('proj/src/main.go', 'proj/src/deep/x.py', 'proj/README.md'):
+    with open(f(name), 'wb') as fh:
+        fh.write(b'x\n')
+for ref, cwd, want in [
+    ('code.py:2', tmp, (f('code.py'), 2, 0)),
+    ('./code.py:2:5', tmp, (f('code.py'), 2, 5)),
+    (f('code.py') + ':7', '/', (f('code.py'), 7, 0)),
+    ('src/main.go:10:3', f('proj'), (f('proj/src/main.go'), 10, 3)),
+    ('src/main.go:10', f('proj/src/deep'), (f('proj/src/main.go'), 10, 0)),   # found in a parent of the cwd
+    ('main.go:10', f('proj/src'), (f('proj/src/main.go'), 10, 0)),
+    ('missing.py:3', tmp, ('', 0, 0)),
+    ('code.py', tmp, ('', 0, 0)),
+    ('code.py:x', tmp, ('', 0, 0)),
+    ('example.com:443', tmp, ('', 0, 0)),
+]:
+    check(f'resolve_ref({ref!r} in {os.path.relpath(cwd, tmp) if cwd.startswith(tmp) else cwd}) -> {want[1:]}', ol.resolve_ref(ref, cwd) == want, ol.resolve_ref(ref, cwd))
+w, cmd, opts = click_ref('code.py:2')
+check('file ref -> micro at that line', cmd == ['micro', f('code.py'), '+2'], cmd)
+check('file ref overlay is pinned to the clicked pane like any other link', opts and opts.type == 'overlay' and opts.source_window == 'id:7', opts)
+w, cmd, _ = click_ref('code.py:2:5')
+check('file ref with a column -> micro +line:col', cmd == ['micro', f('code.py'), '+2:5'], cmd)
+w, cmd, _ = click_ref('main.go:10', f('proj/src'))
+check('file ref is resolved from the clicked window\'s cwd', cmd == ['micro', f('proj/src/main.go'), '+10'], cmd)
+w, cmd, _ = click_ref('README.md:3', f('proj'))
+check('a Markdown file ref still opens at the line, in micro', cmd == ['micro', f('proj/README.md'), '+3'], cmd)
+w, cmd, _ = click_ref('dir with space:4')
+check('a directory ref opens the directory, ignoring the line', w.written and payload_path(w.written) == f('dir with space'), (w.written, cmd))
+w, cmd, _ = click_ref('missing.py:3')
+check('a ref to nothing opens nothing', cmd is None and not opened and w.written is None)
+errors = []
+w = FakeWindow(cwd=tmp)
+boss = FakeBoss(w)
+ol.handle_result(['open_local.py', '--ref', 'missing.py:3'], None, 7, boss)
+check('a ref to nothing says so, naming it and where it looked',
+      len(boss.errors) == 1 and boss.errors[0][0] == 'No such file' and 'missing.py:3' in boss.errors[0][1] and tmp in boss.errors[0][1], boss.errors)
+
+# open-actions.conf routes file references to --ref, and leaves real URLs alone
+for ref in ('code.py:2', 'src/main.go:10:3', './a_b-c.test.ts:1', '~/x/y.rs:9', '/abs/p.zsh:12:1'):
+    a = next(actions_for_url_from_list(ref, acts), None)
+    check(f'open-actions routes the file reference {ref!r} to open_local --ref',
+          a and a.func == 'kitten' and list(a.args[:2]) == ['open_local.py', '--ref'] and ref in ' '.join(a.args), a)
+for url in ('https://example.com:8080/x.py:3', 'ssh://host:22', '192.168.1.1:8080', 'localhost:3000', 'a:3', 'code.py:'):
+    a = next(actions_for_url_from_list(url, acts), None)
+    check(f'open-actions does not take {url!r} for a file reference', a is None or '--ref' not in a.args, a)
+
+# the detect_url_regex in links.conf (POSIX ERE, checked with grep -E) matches the same references
+ere = next(line.split(None, 1)[1].strip() for line in open(os.path.join(SRC, 'links.conf')) if line.startswith('detect_url_regex '))
+for text, want in [('code.py:2', 'code.py:2'), ('src/main.go:10:3: undefined', 'src/main.go:10:3'), ('see ./a_b-c.test.ts:1.', './a_b-c.test.ts:1'),
+                   ('FAIL ~/x/y.rs:9:', '~/x/y.rs:9'), ('192.168.1.1:8080', ''), ('code.py: line', ''), ('plain words 12:30', '')]:
+    got = subprocess.run(['grep', '-oE', ere], input=text, capture_output=True, text=True).stdout.strip()
+    check(f'detect_url_regex on {text!r} -> {want!r}', got == want, got)
+
 # --- open_local: o in mdfried -> Obsidian ------------------------------------
 for path, in_vault in [(f('vault/sub/n.md'), True), (f("it's #1 ü.md"), False)]:
     boss = FakeBoss(FakeWindow(user_vars={'kitty_md_path': path}))
