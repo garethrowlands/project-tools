@@ -1,0 +1,36 @@
+#!/usr/bin/env zsh
+# hunk-dock [--close] [DIR] — review a repo's changes in Hunk, docked at the top of the
+# calling window's kitty tab (a kitty 0.50 window-dock: saved in sessions, closed with
+# its tab). Idempotent: if a window titled "hunk" is already in DIR it is left alone and
+# its id printed. --close closes it.
+#
+# HUNK_DOCK_EDGE (default top) and HUNK_DOCK_SIZE (default 65%) set where it goes; a
+# dock can't be resized once launched, so to resize, --close and reopen. No key binding
+# — ask Claude, which runs this and then drives Hunk with the hunk-review skill.
+
+local close=0
+if [[ "$1" == --close ]]; then close=1; shift; fi
+local dir="${1:-$PWD}"
+dir="${dir:A}"
+
+# id of an existing window titled "hunk" whose cwd is $dir
+local existing
+existing=$(kitten @ ls 2>/dev/null | jq -r --arg dir "$dir" '
+  [.[].tabs[].windows[] | select(.title == "hunk" and .cwd == $dir) | .id] | first // empty' 2>/dev/null)
+
+if (( close )); then
+  [[ -n "$existing" ]] && kitten @ close-window --match="id:$existing"
+  exit 0
+fi
+
+if [[ -n "$existing" ]]; then
+  print -r -- "$existing"
+  exit 0
+fi
+
+local -a match=()
+[[ -n "${KITTY_WINDOW_ID:-}" ]] && match=(--match="window_id:$KITTY_WINDOW_ID")
+
+kitten @ launch --type=window-dock \
+  --dock-edge="${HUNK_DOCK_EDGE:-top}" --dock-size="${HUNK_DOCK_SIZE:-65%}" \
+  "${match[@]}" --keep-focus --title=hunk --cwd="$dir" hunk diff --watch
