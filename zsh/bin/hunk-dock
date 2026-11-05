@@ -1,5 +1,5 @@
 #!/usr/bin/env zsh
-# hunk-dock [--close] [DIR] [HUNK_ARGS...] — review a repo's changes in Hunk, docked at the top of the
+# hunk-dock [--close | --changes | --view PATH...] [DIR] [HUNK_ARGS...] — review a repo's changes in Hunk, docked at the top of the
 # calling window's kitty tab (a kitty 0.50 window-dock: saved in sessions, closed with
 # its tab). Idempotent: if a window titled "hunk" is already in DIR it is left alone and
 # its id printed. --close closes it. DIR is the first argument if it is an existing
@@ -7,15 +7,40 @@
 # --mode split). An already-open dock is left as is, so to change its arguments --close
 # and reopen.
 #
+# --view PATH... shows those files (or directories) of the current repo in full, changed
+# or not: Hunk diffs them against git's empty tree, so each shows as all-added. If a dock
+# is open it is reloaded in place, otherwise one is launched. --changes reloads an open
+# dock back to the working-tree diff. PATHs must exist inside the repo.
+#
 # HUNK_DOCK_EDGE (default top) and HUNK_DOCK_SIZE (default 65%) set where it goes; a
 # dock can't be resized once launched, so to resize, --close and reopen. No key binding
 # — ask Claude, which runs this and then drives Hunk with the hunk-review skill.
 
-local close=0
-if [[ "$1" == --close ]]; then close=1; shift; fi
+local close=0 view=0 changes=0
+case "$1" in
+  --close)   close=1; shift ;;
+  --changes) changes=1; shift ;;
+  --view)    view=1; shift ;;
+esac
 local dir="$PWD"
-if [[ -n "$1" && "$1" != -* && -d "$1" ]]; then dir="$1"; shift; fi
-[[ "$1" == -- ]] && shift   # `--` ends our options so a following arg is never taken as DIR
+local -a hunk_args=("$@") view_paths=()
+if (( view )); then
+  # every argument is a path, so there is no DIR argument: the repo is the current one
+  dir=$(git rev-parse --show-toplevel 2>/dev/null) || { print -u2 "hunk-dock --view: not in a git repository"; exit 1 }
+  (( $# )) || { print -u2 "usage: hunk-dock --view PATH..."; exit 1 }
+  local p abs
+  for p in "$@"; do
+    abs="${p:A}"
+    if [[ ! -e "$abs" ]]; then print -u2 "hunk-dock --view: no such file: $p"; exit 1; fi
+    if [[ "$abs" != "$dir"/* ]]; then print -u2 "hunk-dock --view: $p is outside the repo $dir"; exit 1; fi
+    view_paths+=("${abs#$dir/}")
+  done
+  hunk_args=()
+else
+  if [[ -n "$1" && "$1" != -* && -d "$1" ]]; then dir="$1"; shift; fi
+  [[ "$1" == -- ]] && shift   # `--` ends our options so a following arg is never taken as DIR
+  hunk_args=("$@")
+fi
 dir="${dir:A}"
 
 # id of an existing window titled "hunk" whose cwd is $dir
@@ -28,14 +53,25 @@ if (( close )); then
   exit 0
 fi
 
+# git's empty tree: diffing against it shows every file whole, as additions
+local empty_tree=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+
 if [[ -n "$existing" ]]; then
+  if (( view )); then
+    hunk session reload --repo "$dir" -- diff "$empty_tree" -- "${view_paths[@]}" >/dev/null || exit 1
+  elif (( changes )); then
+    hunk session reload --repo "$dir" -- diff >/dev/null || exit 1
+  fi
   print -r -- "$existing"
   exit 0
 fi
+(( changes )) && exit 0   # nothing open to switch back
 
+local -a view_args=()
+(( view )) && view_args=("$empty_tree" -- "${view_paths[@]}")
 local -a match=()
 [[ -n "${KITTY_WINDOW_ID:-}" ]] && match=(--match="window_id:$KITTY_WINDOW_ID")
 
 kitten @ launch --type=window-dock \
   --dock-edge="${HUNK_DOCK_EDGE:-top}" --dock-size="${HUNK_DOCK_SIZE:-65%}" \
-  "${match[@]}" --keep-focus --title=hunk --cwd="$dir" hunk diff --watch "$@"
+  "${match[@]}" --keep-focus --title=hunk --cwd="$dir" hunk diff --watch "${hunk_args[@]}" "${view_args[@]}"

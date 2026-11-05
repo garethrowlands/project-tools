@@ -17,6 +17,11 @@ print -r -- "kitten ${(j: :)${(q)@}}" >> '$_zt'/calls
 if [[ "$2" == ls ]]; then print -r -- "$FAKE_LS"; fi
 if [[ "$2" == launch ]]; then print 42; fi' > "$_zt/bin/kitten"
 chmod +x "$_zt/bin/kitten"
+print -r -- '#!/bin/zsh
+print -r -- "hunk ${(j: :)${(q)@}}" >> '$_zt'/calls' > "$_zt/bin/hunk"
+chmod +x "$_zt/bin/hunk"
+git -C "$_zt/repo" init -q 2>/dev/null; mkdir -p "$_zt/repo/docs"; print x > "$_zt/repo/a.md"; print x > "$_zt/repo/docs/b.md"
+_E=4b825dc642cb6eb9a060e54bf8d69288fbee4904
 
 # runs hunk-dock from $_zt/repo; prints the calls made, then its output and rc=N
 _run() {
@@ -24,7 +29,7 @@ _run() {
   local out rc
   # zsh -f: the user's ~/.zshenv would put the real kitten first on PATH; no listen socket
   # either, so nothing can reach a live kitty
-  out=$(cd "$_zt/repo" && KITTY_LISTEN_ON= PATH="$_zt/bin:$PATH" zsh -f "$_hd" "$@" 2>&1); rc=$?
+  out=$(cd "${_cwd:-$_zt/repo}" && KITTY_LISTEN_ON= PATH="$_zt/bin:$PATH" zsh -f "$_hd" "$@" 2>&1); rc=$?
   cat "$_zt/calls"; print -r -- "$out"; print "rc=$rc"
 }
 _ls_hunk_in() {  # $1 = cwd of an existing window titled hunk
@@ -77,6 +82,39 @@ export FAKE_LS='[{"tabs":[{"id":1,"title":"t","windows":[{"id":7,"title":"claude
 out=$(_run --close)
 _assert_not_contains "$out" "close-window" "close: nothing open, nothing closed"
 _assert_contains "$out" "rc=0" "close: ... and that is not an error"
+
+# --view / --changes
+export FAKE_LS='[{"tabs":[{"id":1,"title":"t","windows":[{"id":7,"title":"claude","cwd":"'$_zt'/repo"}]}]}]'
+out=$(_run --view a.md docs)
+_assert_contains "$out" "hunk diff --watch $_E -- a.md docs" "view: no dock open launches one on the empty tree"
+
+out=$(_cwd="$_zt/repo/docs" _run --view b.md)
+_assert_contains "$out" "$_E -- docs/b.md" "view: paths are made relative to the repo root"
+
+out=$(_run --view nope.md)
+_assert_contains "$out" "no such file: nope.md" "view: a missing path is refused"
+_assert_contains "$out" "rc=1" "view: ... with a failure status"
+_assert_not_contains "$out" "@ launch" "view: ... and nothing is launched"
+
+out=$(_run --view "$_zt/other")
+_assert_contains "$out" "outside the repo" "view: a path outside the repo is refused"
+
+out=$(_run --view)
+_assert_contains "$out" "usage:" "view: needs at least one path"
+
+export FAKE_LS=$(_ls_hunk_in "$_zt/repo")
+out=$(_run --view a.md)
+_assert_not_contains "$out" "@ launch" "view: an open dock is reloaded, not duplicated"
+_assert_contains "$out" "hunk session reload --repo $_zt/repo -- diff $_E -- a.md" "view: ... via hunk session reload"
+_assert_contains "$out" "31" "view: ... and its id is printed"
+
+out=$(_run --changes)
+_assert_contains "$out" "hunk session reload --repo $_zt/repo -- diff" "changes: reloads the working-tree diff"
+
+export FAKE_LS='[{"tabs":[{"id":1,"title":"t","windows":[{"id":7,"title":"claude","cwd":"'$_zt'/repo"}]}]}]'
+out=$(_run --changes)
+_assert_not_contains "$out" "@ launch" "changes: with no dock open, nothing is launched"
+_assert_not_contains "$out" "session reload" "changes: ... nor reloaded"
 
 rm -rf "$_zt"
 if (( _failures == 0 )); then print "\nAll tests passed."; else print "\n$_failures test(s) failed."; exit 1; fi
