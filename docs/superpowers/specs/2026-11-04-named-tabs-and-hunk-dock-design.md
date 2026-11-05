@@ -48,3 +48,11 @@ Out of scope for now: `ide`/`note`/`project-web`.
   `save-session` and `restore.kitty-session` need no change.
 - No key binding (the user prefers asking Claude); Claude runs `hunk-dock` instead of
   composing the `kitten @ launch` line, then drives Hunk with `hunk-review`.
+
+## 3. `btop-dock`: btop in a bottom tab-dock
+
+`bin/btop-dock [--close]`, the same shape as `hunk-dock` but a `tab-dock`: bottom edge,
+25% of the tab, `--dock-skip-focus` (display-only, so `--close` removes it), titled `btop`,
+running `btop -c <copy of the user's btop.conf with shown_boxes = "cpu">` (btop with its four
+boxes needs 24 rows and will not draw in a 25% strip; `BTOP_DOCK_BOXES` overrides). Idempotent per tab (a `btop` window in the calling window's tab), not per
+repo. `BTOP_DOCK_EDGE` / `BTOP_DOCK_SIZE` override. Closes with the tab's last real window.

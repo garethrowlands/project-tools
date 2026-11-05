@@ -1,6 +1,6 @@
 ---
 name: install-scripts
-description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, save-session, tidy-windows, project-web, hunk-dock, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh) and the custom shader pipeline in kitty/shaders/. Use when setting up a new machine or adding a symlink for a newly added bin script.
+description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, save-session, tidy-windows, project-web, hunk-dock, btop-dock, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh) and the custom shader pipeline in kitty/shaders/. Use when setting up a new machine or adding a symlink for a newly added bin script.
 ---
 
 ## Installation
@@ -18,6 +18,7 @@ ln -s $PWD/zsh/bin/save-session ~/.local/bin/save-session
 ln -s $PWD/zsh/bin/tidy-windows ~/.local/bin/tidy-windows
 ln -s $PWD/zsh/bin/project-web ~/.local/bin/project-web
 ln -s $PWD/zsh/bin/hunk-dock ~/.local/bin/hunk-dock
+ln -s $PWD/zsh/bin/btop-dock ~/.local/bin/btop-dock
 ln -s $PWD/zsh/bin/web ~/.local/bin/web
 ln -s $PWD/zsh/bin/note ~/.local/bin/note
 ```

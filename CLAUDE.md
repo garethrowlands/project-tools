@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Running Tests
 
 ```zsh
+zsh functions/btop-dock-tests.zsh
 zsh functions/hunk-dock-tests.zsh
 zsh functions/ide-tests.zsh
 zsh functions/notes-tests.zsh
@@ -20,7 +21,7 @@ hs -c 'return dofile("'$PWD'/hammerspoon/pointer-tests.lua")'  # pointer-follows
 (cd ../python/tidy-windows-advise && uv run pytest)
 ```
 
-Each zsh suite exits with code 1 if any test fails. `hunk-dock-tests.zsh` runs `bin/hunk-dock` against a fake `kitten`. `ide-tests.zsh` runs `bin/ide` against fake `code` and `open` (project and file-at-line opening). `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `sw-tests.zsh` tests `sw` and its preview (`bin/sw-preview`, against a fake `kitty`) on a temp repo with worktrees. `tidy-windows-tests.zsh` runs `bin/tidy-windows`' apply step against a fake `advise`, `kitty` and `fzf`. `window-tests.zsh` runs `bin/window-list`, `bin/next-agent` and `bin/save-session` against a fake `kitty` and a temp `$HOME` of Claude session files. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic. `kitty/demo`'s suites test the shader demo's geometry, verbs (kitty and Hammerspoon stubbed), card and play; see `kitty/demo/README.md`.
+Each zsh suite exits with code 1 if any test fails. `hunk-dock-tests.zsh` and `btop-dock-tests.zsh` run `bin/hunk-dock` and `bin/btop-dock` against a fake `kitten`. `ide-tests.zsh` runs `bin/ide` against fake `code` and `open` (project and file-at-line opening). `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `sw-tests.zsh` tests `sw` and its preview (`bin/sw-preview`, against a fake `kitty`) on a temp repo with worktrees. `tidy-windows-tests.zsh` runs `bin/tidy-windows`' apply step against a fake `advise`, `kitty` and `fzf`. `window-tests.zsh` runs `bin/window-list`, `bin/next-agent` and `bin/save-session` against a fake `kitty` and a temp `$HOME` of Claude session files. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic. `kitty/demo`'s suites test the shader demo's geometry, verbs (kitty and Hammerspoon stubbed), card and play; see `kitty/demo/README.md`.
 
 ## Architecture
 
@@ -28,7 +29,7 @@ Zsh shell tools for navigating projects and notes. Details are split out by area
 
 - **[docs/project-picker.md](docs/project-picker.md)** — `functions/project.zsh`, `functions/sw.zsh`, `bin/sw-preview`, `bin/switch-project`, `bin/window`(-list), `bin/next-agent`, `bin/tidy-windows` and `python/tidy-windows-advise/advise`, and how Claude Code session names/titles and agent state (blocked/working/done/idle) are looked up for the window switcher.
 - **[docs/notes.md](docs/notes.md)** — `functions/notes-lib.zsh`, `functions/web.zsh`, `bin/web`, `bin/note`: the notes vault (`$HOME/notes`) tooling.
-- **[docs/ide-tools.md](docs/ide-tools.md)** — `bin/ide`, `bin/close-project`, `bin/project-web`, `bin/hunk-dock`.
+- **[docs/ide-tools.md](docs/ide-tools.md)** — `bin/ide`, `bin/close-project`, `bin/project-web`, `bin/hunk-dock`, `bin/btop-dock`.
 - **`config/`** — files that live under `~/.config` (btop's Catppuccin theme, mdfried's config) plus `install.zsh`, which links them into place and points kitty and btop at the theme (see the `install-scripts` skill). The kitty theme itself is `kitty/themes/catppuccin-mocha-crust.conf`; `zsh/functions/theme.zsh` gives bat and fzf the same palette.
 - **`hammerspoon/init.lua`** — Hammerspoon config (symlinked to `~/.hammerspoon/init.lua`): Control+Option+arrow window snapping across monitors, Control+Option+Return to maximize, Control+Option+Command+arrow focus keys, Control+Option+Command+`[`/`]` to step through the stack of windows overlapping the focused one (with a list overlay), and the demo's `demoStage`. Private settings go in untracked `hammerspoon/local.lua`.
 - **`hammerspoon/stack.lua`** — the stack selection/cycling logic, free of `hs.*` so it can be tested. Hammerspoon's own directional focus ranks windows by focus recency rather than true z-order, which can pick the wrong window among windows tiled on the same frame; the stack keys use `hs.window.orderedWindows()` instead. A window is in the focused window's stack if it overlaps more than half of the focused window, or if the focused window covers more than half of it and it is at least a quarter of the focused window's size — so a half-width window and the full-width window under it are in each other's stacks, but a small floater isn't in a big window's. Set `focusDebug = true` in `init.lua` to log every arrow-key focus press (candidates and landing window, window titles included) to `~/.hammerspoon/focus-debug.log`.

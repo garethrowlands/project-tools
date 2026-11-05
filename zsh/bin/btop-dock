@@ -1,0 +1,47 @@
+#!/usr/bin/env zsh
+# btop-dock [--close] — a btop strip along the bottom of the calling window's kitty tab
+# (a kitty 0.50 tab-dock: the layout arranges the other windows above it, it is saved in
+# sessions and closes with the tab's last real window). It is display-only — it never
+# takes keyboard focus — so --close is how to get rid of it. Idempotent: a window titled
+# "btop" already in the tab is left alone and its id printed.
+#
+# BTOP_DOCK_EDGE (default bottom) and BTOP_DOCK_SIZE (default 25%, of the tab) set where
+# it goes; a dock can't be resized once launched, so to resize, --close and reopen.
+#
+# btop with its usual four boxes needs 24 rows and refuses to draw in less, so the dock
+# runs it on a copy of the user's config (theme and all) showing only BTOP_DOCK_BOXES
+# (default "cpu"), which fits in about 10.
+
+local close=0
+[[ "$1" == --close ]] && close=1
+
+# id of a window titled "btop" in the calling window's tab (or, with no calling window,
+# the focused tab)
+local existing
+existing=$(kitten @ ls 2>/dev/null | jq -r --arg wid "${KITTY_WINDOW_ID:-}" '
+  [.[] as $os | $os.tabs[]
+   | select(if $wid != "" then any(.windows[]; .id == ($wid | tonumber))
+            else ($os.is_focused and .is_active) end)
+   | .windows[] | select(.title == "btop") | .id] | first // empty' 2>/dev/null)
+
+if (( close )); then
+  [[ -n "$existing" ]] && kitten @ close-window --match="id:$existing"
+  exit 0
+fi
+
+if [[ -n "$existing" ]]; then
+  print -r -- "$existing"
+  exit 0
+fi
+
+local src="${XDG_CONFIG_HOME:-$HOME/.config}/btop/btop.conf"
+local conf="${XDG_CACHE_HOME:-$HOME/.cache}/project-tools/btop-dock.conf"
+mkdir -p "${conf:h}"
+{ [[ -r "$src" ]] && grep -v '^shown_boxes' "$src"; print -r -- "shown_boxes = \"${BTOP_DOCK_BOXES:-cpu}\""; } >| "$conf"
+
+local -a match=()
+[[ -n "${KITTY_WINDOW_ID:-}" ]] && match=(--match="window_id:$KITTY_WINDOW_ID")
+
+kitten @ launch --type=tab-dock \
+  --dock-edge="${BTOP_DOCK_EDGE:-bottom}" --dock-size="${BTOP_DOCK_SIZE:-25%}" \
+  --dock-skip-focus "${match[@]}" --title=btop btop -c "$conf"
