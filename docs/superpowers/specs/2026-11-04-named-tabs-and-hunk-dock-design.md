@@ -26,8 +26,11 @@ tabs alphabetically *including* tabs that were not created that way (they sort b
 current title). Tab order is therefore alphabetical for every tab; this is the thing to
 revisit if chronological order turns out to be missed.
 
-Out of scope for now: `window`'s `ctrl-t`, `tidy-windows`' apply step and `ide`/`note`/
-`project-web` (the same primitives would simplify them; do it once this has been lived with).
+`window`'s `ctrl-t` uses the same function. `tidy-windows`' apply step sends `new:<project>`
+moves to the named tab the same way (`--stay-in-tab` keeps you where you were); moves to a
+tab `advise` chose by id are unchanged, since such a tab may be untitled.
+
+Out of scope for now: `ide`/`note`/`project-web`.
 
 ## 2. `hunk-dock`: Hunk review in a top window-dock
 
