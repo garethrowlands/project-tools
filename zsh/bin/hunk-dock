@@ -1,8 +1,11 @@
 #!/usr/bin/env zsh
-# hunk-dock [--close] [DIR] — review a repo's changes in Hunk, docked at the top of the
+# hunk-dock [--close] [DIR] [HUNK_ARGS...] — review a repo's changes in Hunk, docked at the top of the
 # calling window's kitty tab (a kitty 0.50 window-dock: saved in sessions, closed with
 # its tab). Idempotent: if a window titled "hunk" is already in DIR it is left alone and
-# its id printed. --close closes it.
+# its id printed. --close closes it. DIR is the first argument if it is an existing
+# directory; every other argument goes to `hunk diff --watch` (e.g. --staged, main..HEAD,
+# --mode split). An already-open dock is left as is, so to change its arguments --close
+# and reopen.
 #
 # HUNK_DOCK_EDGE (default top) and HUNK_DOCK_SIZE (default 65%) set where it goes; a
 # dock can't be resized once launched, so to resize, --close and reopen. No key binding
@@ -10,7 +13,9 @@
 
 local close=0
 if [[ "$1" == --close ]]; then close=1; shift; fi
-local dir="${1:-$PWD}"
+local dir="$PWD"
+if [[ -n "$1" && "$1" != -* && -d "$1" ]]; then dir="$1"; shift; fi
+[[ "$1" == -- ]] && shift   # `--` ends our options so a following arg is never taken as DIR
 dir="${dir:A}"
 
 # id of an existing window titled "hunk" whose cwd is $dir
@@ -33,4 +38,4 @@ local -a match=()
 
 kitten @ launch --type=window-dock \
   --dock-edge="${HUNK_DOCK_EDGE:-top}" --dock-size="${HUNK_DOCK_SIZE:-65%}" \
-  "${match[@]}" --keep-focus --title=hunk --cwd="$dir" hunk diff --watch
+  "${match[@]}" --keep-focus --title=hunk --cwd="$dir" hunk diff --watch "$@"

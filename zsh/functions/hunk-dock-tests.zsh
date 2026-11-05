@@ -45,6 +45,15 @@ _assert_contains "$out" "42" "open: prints the new window's id"
 out=$(_run "$_zt/other")
 _assert_contains "$out" "--cwd=$_zt/other hunk diff --watch" "open: a directory argument is the repo"
 
+out=$(_run --staged --mode split)
+_assert_contains "$out" "--cwd=$_zt/repo hunk diff --watch --staged --mode split" "open: other arguments pass through to hunk"
+
+out=$(_run "$_zt/other" main..HEAD)
+_assert_contains "$out" "--cwd=$_zt/other hunk diff --watch main..HEAD" "open: DIR then hunk arguments"
+
+out=$(_run -- main..HEAD)
+_assert_contains "$out" "--cwd=$_zt/repo hunk diff --watch main..HEAD" "open: -- ends dock options"
+
 out=$(KITTY_WINDOW_ID= _run)
 _assert_not_contains "$out" "--match" "open: with no calling window, docks to the active tab"
 
