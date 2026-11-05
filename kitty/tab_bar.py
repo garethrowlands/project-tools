@@ -35,6 +35,7 @@ from kitty.tab_bar import color_from_int
 # most pressing first: (states, marker, colour)
 MARKERS = (
     (('blocked',), '!', 'red'),
+    (('error',), '✗', 'red'),
     (('done',), '✓', 'green'),
     (('working',), '…', 'yellow'),
 )

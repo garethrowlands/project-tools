@@ -168,8 +168,6 @@ session 114 shell 2000
 LIST=$(list 1)
 is 'shell since after seen_at is done'           "$(row 13)" '  ✓ slug-113 m'
 is 'shell since before seen_at is idle'          "$(row 14)" '  · slug-114 m'
-windows 2 2:claude:b:1000 13:claude:m:1000 4:claude:d:3000
-is 'next-agent seeks out a finished shell one'   "$(next_agent)" '@ focus-window --match id:13'
 
 # pid 101 again, left behind in the other config dir by a dead process
 session 101 busy 100 .claude-k
@@ -186,47 +184,71 @@ LIST=$(list 1)
 is 'an unknown status has no marker'             "$(row 11)" '    claude k'
 is 'a malformed session file has no marker'      "$(row 12)" '    claude l'
 
-# --- next-agent: agents needing you first (blocked before done, longest-standing
-# first, cycling); with none, the next agent window in kitty order ---
+# --- next-agent: reads the agent_state / agent_state_at user vars that
+# kitty/focus_watcher.py publishes. Blocked first, then error, then done, most
+# recent first within each, cycling; with none of those, the most recently
+# focused other claude window. Windows with no state are never ranked ---
 
-windows 7 $ALL
-is 'from elsewhere: the longest-blocked agent'   "$(next_agent)" '@ focus-window --match id:9'
-windows 9 $ALL
-is 'from that one: the next blocked agent'       "$(next_agent)" '@ focus-window --match id:1'
-windows 1 $ALL
-is 'from the last blocked one: the done agent'   "$(next_agent)" '@ focus-window --match id:3'
-windows 3 $ALL
-is 'from the done one (now seen): wraps round'   "$(next_agent)" '@ focus-window --match id:9'
+# agents ACTIVE_ID SPEC... — each SPEC is ID:PROC:STATE:STATE_AT:LAST_FOCUSED_AT
+# (an empty STATE means no user vars). ACTIVE_ID is the window the overlay covers.
+agents() {
+  local active=$1; shift
+  print -rl -- "$@" | jq -R '
+    split(":") | (.[0] | tonumber) as $id |
+    {id: $id, title: "t", is_self: false, is_focused: false, is_active: false,
+     last_focused_at: (.[4] | tonumber),
+     user_vars: (if .[2] == "" then {} else {agent_state: .[2], agent_state_at: .[3]} end),
+     foreground_processes: [{pid: (100 + $id), cwd: "/p", cmdline: ["/usr/local/bin/\(.[1])"]}]}
+  ' | jq -s '. + [{id: 99, title: "next-agent", is_self: true, is_focused: true, is_active: true, user_vars: {},
+                   last_focused_at: 9999, foreground_processes: [{pid: 199, cwd: "/p", cmdline: ["zsh"]}]}] |
+             [{is_focused: true, tabs: [{id: 1, title: "proj", is_focused: true, is_active: true, windows: .}]}]' >| $T/ls.json
+  jq --argjson active $active '.[0].tabs[0].windows |= map(select(.id == $active))' $T/ls.json >| $T/parent.json
+}
 
-# (window 7 is done too whenever it isn't the current window)
-windows 9 $ALL
-is '--prev from the first: wraps to the last'    "$(next_agent --prev)" '@ focus-window --match id:7'
-windows 1 $ALL
-is '--prev from the second: back to the first'   "$(next_agent --prev)" '@ focus-window --match id:9'
-windows 7 $ALL
-is '--prev from elsewhere: the last needing you' "$(next_agent --prev)" '@ focus-window --match id:3'
+# queue, most pressing first: blocked 2 (newer) 1, error 3, done 5 (newer) 4
+A=(1:claude:blocked:100:10 2:claude:blocked:300:20 3:claude:error:200:30 4:claude:done:250:40
+   5:claude:done:400:50 6:zsh:::0 7:claude:idle:50:900 8:claude:working:60:500 9:claude::0:800)
+agents 7 $A
+is 'from elsewhere: the newest blocked agent'    "$(next_agent)" '@ focus-window --match id:2'
+agents 2 $A
+is 'next: the older blocked agent'               "$(next_agent)" '@ focus-window --match id:1'
+agents 1 $A
+is 'then the error agent, above done'            "$(next_agent)" '@ focus-window --match id:3'
+agents 3 $A
+is 'then the newest done agent'                  "$(next_agent)" '@ focus-window --match id:5'
+agents 5 $A
+is 'then the older done agent'                   "$(next_agent)" '@ focus-window --match id:4'
+agents 4 $A
+is 'from the last: wraps round'                  "$(next_agent)" '@ focus-window --match id:2'
+agents 7 $A
+is '--prev from elsewhere: the last in the queue' "$(next_agent --prev)" '@ focus-window --match id:4'
+agents 2 $A
+is '--prev from the first: wraps to the last'    "$(next_agent --prev)" '@ focus-window --match id:4'
+agents 3 $A
+is '--prev steps back through the queue'         "$(next_agent --prev)" '@ focus-window --match id:1'
 
-QUIET=(2:claude:b:1000 4:claude:d:3000 6:zsh:f:1000 8:claude:h:1000)
-windows 4 $QUIET
-is 'none needs you: the next agent window'       "$(next_agent)" '@ focus-window --match id:8'
+# nothing needs you: the most recently focused other claude window, including
+# ones with no state; --prev the least recent. Window 6 is a shell.
+Q=(7:claude:idle:50:900 8:claude:working:60:500 9:claude::0:800 10:claude:idle:70:300 6:zsh:::950)
+agents 7 $Q
+is 'none needs you: the most recently focused'   "$(next_agent)" '@ focus-window --match id:9'
 is 'none needs you: nothing printed'             "$(<$T/out)" ''
-windows 8 $QUIET
-is 'none needs you: wraps round'                 "$(next_agent)" '@ focus-window --match id:2'
-windows 2 $QUIET
-is 'none needs you, --prev: wraps to the last'   "$(next_agent --prev)" '@ focus-window --match id:8'
-windows 6 $QUIET
-is 'from a non-agent window: the first agent'    "$(next_agent)" '@ focus-window --match id:2'
-is 'from a non-agent window, --prev: the last'   "$(next_agent --prev)" '@ focus-window --match id:8'
+agents 9 $Q
+is 'and back again: it toggles'                  "$(next_agent)" '@ focus-window --match id:7'
+agents 7 $Q
+is 'none needs you, --prev: the least recent'    "$(next_agent --prev)" '@ focus-window --match id:10'
+agents 6 $Q
+is 'from a non-agent window: the most recent'    "$(next_agent)" '@ focus-window --match id:7'
 
-windows 1 1:claude:a:1000 2:claude:b:1000
-is 'only the current one needs you: next agent'  "$(next_agent)" '@ focus-window --match id:2'
+agents 1 1:claude:blocked:100:10 2:claude:idle:50:20
+is 'only the current one needs you: the last focused' "$(next_agent)" '@ focus-window --match id:2'
 
-windows 2 2:claude:b:1000 6:zsh:f:1000
+agents 2 2:claude:idle:50:20 6:zsh:::30
 is 'the only agent window: stays put'            "$(next_agent)" ''
 
 # run from a shell there is no overlay: the current window is the active one
-windows 9 $ALL
-jq '.[0].tabs[0].windows |= map(select(.id != 99) | .is_active = (.id == 9))' $T/ls.json >| $T/tmp.json && mv $T/tmp.json $T/ls.json
+agents 2 $A
+jq '.[0].tabs[0].windows |= map(select(.id != 99) | .is_active = (.id == 2))' $T/ls.json >| $T/tmp.json && mv $T/tmp.json $T/ls.json
 : >| $T/parent.json
 is 'no overlay: current is the active window'    "$(next_agent)" '@ focus-window --match id:1'
 

@@ -14,9 +14,10 @@ Two jobs:
    after I left". (Focus events only reach windows created after the watcher
    was loaded.)
 
-2. Works out the agent state of every window running `claude` — blocked,
+2. Works out the agent state of every window running `claude` — blocked, error,
    working, done or idle — and publishes it as the window's `agent_state`
-   user var: when the window's program status changes, when its focus
+   user var (and, as `agent_state_at`, the epoch second it last changed, which
+   next-agent orders by): when the window's program status changes, when its focus
    changes, and every POLL_SECONDS for the windows that don't report one. When a state changes it redraws the tab
    bar (tab_bar.py turns the var into a tab marker) and, if the agent got
    blocked or finished in a window you aren't looking at, sends a desktop
@@ -45,8 +46,8 @@ from typing import Any
 POLL_SECONDS = 2.0
 STATUS_APP = 'claude-code'
 # most pressing first: the state a window gets when its records hold several
-STATUS_ORDER = ('blocked', 'done', 'working', 'idle')
-NOTIFY = {'blocked': 'Claude needs you', 'done': 'Claude finished'}
+STATUS_ORDER = ('blocked', 'error', 'done', 'working', 'idle')
+NOTIFY = {'blocked': 'Claude needs you', 'error': 'Claude failed', 'done': 'Claude finished'}
 
 # window id -> the agent state last published for it
 published: dict[int, str] = {}
@@ -149,6 +150,8 @@ def refresh(boss: Any, window: Any, looked_at: bool) -> None:
         return
     published[window.id] = state
     window.set_user_var('agent_state', state or None)
+    # when it changed: next-agent goes to the most recent first
+    window.set_user_var('agent_state_at', str(int(time.time())) if state else None)
     tab_manager = boss.os_window_map.get(window.os_window_id)
     if tab_manager is not None:
         tab_manager.mark_tab_bar_dirty()

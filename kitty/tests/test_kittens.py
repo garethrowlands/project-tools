@@ -546,7 +546,9 @@ for records, want in [
     ([rec('done'), rec('blocked'), rec('working')], 'blocked'),
     ([rec('working', app='rsync')], ''),
     ([rec('blocked', app='rsync'), rec('idle')], 'idle'),
-    ([rec('error')], ''),
+    ([rec('error')], 'error'),
+    ([rec('error'), rec('done')], 'error'),
+    ([rec('blocked'), rec('error')], 'blocked'),
     ([{'app': 'claude-code'}], ''),
     (['working'], ''),
     (None, ''),
@@ -597,6 +599,22 @@ check('status: records that cannot be read fall back to the session file', s2.us
 del s4.program_status
 fw.poll(boss)
 check('status: a kitty with no program_status attribute falls back too', s4.user_vars.get('agent_state') == 'blocked', s4.user_vars)
+
+# agent_state_at: when the published state last changed, for next-agent's recency order
+boss.active_window = s3
+s1.program_status.records = [rec('working')]
+fw.on_program_status_change(boss, s1, {})
+first = s1.user_vars.get('agent_state_at')
+check('state_at: stamped when the state changes', str(first).isdigit(), s1.user_vars)
+fw.on_program_status_change(boss, s1, {})
+check('state_at: untouched while the state stays', s1.user_vars.get('agent_state_at') == first, s1.user_vars)
+s1.program_status.records = [rec('error')]
+boss.notified.clear()
+fw.on_program_status_change(boss, s1, {})
+check('state_at: error is published and notifies', s1.user_vars.get('agent_state') == 'error' and [n[:2] for n in boss.notified] == [(11, 'Claude failed')], (s1.user_vars, boss.notified))
+s1.program_status.records = []
+fw.on_program_status_change(boss, s1, {})
+check('state_at: cleared with the state', 'agent_state_at' not in s1.user_vars, s1.user_vars)
 os.environ['HOME'] = real_home
 
 # a changed watcher is loaded beside the old copy, which it has to silence

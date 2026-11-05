@@ -1,20 +1,19 @@
 #!/usr/bin/env zsh
-# Focuses the next kitty window running a Claude Code agent — one that needs
-# you, if any does: blocked on a prompt or question, else finished since you
-# last looked at it. Pressing it again moves on to the next of those, so
-# repeated presses cycle through them all. When none needs you (or only the
-# window you're in does) it simply steps to the next agent window in kitty's
-# order. `--prev` goes the other way round. Bound in kitty.conf as
+# Focuses a kitty window running a Claude Code agent that needs you, if any
+# does: blocked on a prompt or question first, then failed, then finished
+# unseen, the most recent first within each. Pressing it again moves on to the
+# next of those, so repeated presses cycle through them all. When none needs
+# you (or only the window you're in does) it goes to the claude window you
+# were last in, so the key toggles between two agents. `--prev` goes the other
+# way round (the least recently focused, when nothing needs you). Bound in
+# kitty.conf as
 #
 #   map kitty_mod+j       launch --type=overlay --cwd=current next-agent
 #   map kitty_mod+shift+j launch --type=overlay --cwd=current next-agent --prev
 #
 # like the pickers: as an overlay it has kitty's socket (KITTY_LISTEN_ON, which
 # a --type=background launch doesn't get). Needs kitty/focus_watcher.py for the
-# "finished" half — see zsh/functions/claude-session.zsh for how the states are
-# worked out.
-
-source "${0:A:h}/../functions/claude-session.zsh"
+# states and their timestamps (kitty >= 0.50, Claude Code >= 2.1.295).
 
 local step=1
 [[ $1 == --prev ]] && step=-1
@@ -32,27 +31,36 @@ current_id=$(kitty @ ls --match 'state:overlay_parent' 2>/dev/null | jq -r '.[].
   .[] | select(.is_focused) | .tabs[] | select(.is_active) | .windows[] | select(.is_active) | .id
 ' | head -1)
 
-# One `RANK SINCE ID` line per agent window, in kitty's order: blocked (0),
-# done (1), anything else (2)
+# One `RANK STATE_AT ID` line per window with an agent state, in kitty's order:
+# blocked (0), error (1), done (2). The states come from the `agent_state` and
+# `agent_state_at` user vars that kitty/focus_watcher.py publishes from the
+# window's Program Status Protocol records. A window with no state isn't ranked.
 local agents
 agents=$(printf '%s' "$kitty_ls" | jq -r '
   .[].tabs[].windows[] | select(.is_self | not) |
-  select((.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last) == "claude") |
-  [.id, .foreground_processes[-1].pid, (.user_vars.seen_at // "-")] | join(" ")
-' | while read -r id pid seen_at; do
-  IFS=$'\t' read -r state since <<< "$(_claude_session_state "$pid" "$seen_at" $(( id == ${current_id:-0} )))"
+  [(.user_vars.agent_state // "-"), .id, (.user_vars.agent_state_at // "0")] | join(" ")
+' | while read -r state id at; do
   case $state in
-    blocked) print -r -- "0 $since $id" ;;
-    'done')  print -r -- "1 $since $id" ;;
-    *)       print -r -- "2 0 $id" ;;
+    blocked) print -r -- "0 $at $id" ;;
+    error)   print -r -- "1 $at $id" ;;
+    'done')  print -r -- "2 $at $id" ;;
   esac
 done)
 
-# The ones needing you — blocked before done, longest-standing first within
-# each — and all of them
+# The ones needing you: by rank, then the most recent change first
 local -a waiting all
-waiting=(${(f)"$(printf '%s\n' "$agents" | awk '$1 < 2' | sort -n -k1,1 -k2,2 -k3,3 | awk '{print $3}')"})
-all=(${(f)"$(printf '%s\n' "$agents" | awk 'NF {print $3}')"})
+waiting=(${(f)"$(printf '%s\n' "$agents" | sort -k1,1n -k2,2nr -k3,3n | awk 'NF {print $3}')"})
+
+# Every claude window (or one with an agent state) but the current one, the
+# most recently focused first — what's left when nothing needs you. Stepping
+# from outside a list lands on its first, or with --prev its last.
+all=(${(f)"$(printf '%s' "$kitty_ls" | jq -r '
+  .[].tabs[].windows[] | select(.is_self | not) |
+  select(((.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last) == "claude")
+         or (.user_vars.agent_state // "") != "") |
+  [.last_focused_at, .id] | @tsv
+' | sort -k1,1nr -k2,2n | cut -f2)"})
+all=(${all:#$current_id})
 
 # Prints the window one step on from the current one in the given list,
 # wrapping round; from outside the list, its first (or, backwards, its last)
