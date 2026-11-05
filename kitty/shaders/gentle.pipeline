@@ -202,9 +202,9 @@ endgroup
 startgroup
     animation_start os-window-focus-in
     animation_stop 250 | os-window-focus-out
-    # sharp attack, soft tail: over half the look is gone after one frame
-    # (16ms), 73% after 32ms, 86% after 60ms, 95% after 100ms
-    animation_curve cubic-bezier(0.02, 0.98, 0.3, 1)
+    # A custom cubic-bezier(0.02, 0.98, 0.3, 1) here left the unfocused
+    # vignette stuck on a focused window; the built-in curves settle at 1.0.
+    animation_curve ease-out
     animation_step 16
     var int OSW_FOCUS_PASS = 4
     shaders os-window-focus-border
