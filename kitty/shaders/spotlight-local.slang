@@ -30,6 +30,13 @@ static const int HIDE_WHEN_POINTER_HIDDEN = 1;
 // linear RGB. It fades to 0 at the spot's edge, within the same soft edge.
 static const float GLOW_STRENGTH = 0.0;
 static const float3 GLOW_COLOR = float3(1.0);
+// Fade the effect out over the last part of the group's animation (0 = no
+// fade). animation_progress is 0 at the start and 1 at the end, so with
+// FADE_TAIL = 0.33 the effect is at full strength until progress 0.67 and then
+// eases to nothing. A group that restarts on every input event (animation_start
+// user-activity) is at progress ~0 while the input continues, so this fades out
+// the last FADE_TAIL of the time since the last input.
+static const float FADE_TAIL = 0.0;
 
 public float4
 fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
@@ -71,6 +78,11 @@ fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
     // the spot edge (shaped by the spot's own soft edge, too)
     float glowFalloff = spotlightIntensity * smoothstep(SPOTLIGHT_RADIUS, 0.0, distToCenter);
     result += GLOW_COLOR * (GLOW_STRENGTH * glowFalloff);
+
+    if (FADE_TAIL > 0.0) {
+        float k = smoothstep(0.0, 1.0, saturate((1.0 - t.animation_progress) / FADE_TAIL));
+        result = lerp(color.rgb, result, k);
+    }
 
     return float4(result, color.a);
 }

@@ -50,10 +50,19 @@ endgroup
 # 3. Spotlight around the mouse pointer: a faint glow brightens the spot and
 #    the rest dims a little (the stock spotlight only dims, so over an empty
 #    dark background it showed nothing). Hidden while the pointer is hidden
-#    (mouse_hide_wait) or outside the window.
+#    (mouse_hide_wait) or outside the window, and 2.4s after the last input.
 startgroup
     animation_start os-window-focus-in | user-activity
-    animation_stop os-window-focus-out | user-idle
+    # Every input event restarts the animation, so animation_progress is the
+    # time since the last input over 2400ms: ~0 (full strength) while you move,
+    # and the shader fades out over the last third of it (800ms), so the
+    # spotlight is gone at 2.4s, before mouse_hide_wait (3s) hides the pointer,
+    # which cuts it at once (HIDE_WHEN_POINTER_HIDDEN). The stop also bounds
+    # the 20fps redraws (rather than user-idle). No fade in, and no
+    # animation_reverse: progress starts from 0 on every restart, so neither
+    # shows while the mouse moves
+    animation_stop os-window-focus-out | 2400
+    var float FADE_TAIL = 0.3333
     # brightness outside the spot, linear light: 0.92 looks about 3.5% darker
     # (stock: 0.5). Over text this contrast is most of the spot; the glow
     # below is what shows it over empty background
