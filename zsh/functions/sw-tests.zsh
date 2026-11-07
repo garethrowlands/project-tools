@@ -121,6 +121,20 @@ _assert_eq "$out" "Windows
   ! proj [slug-102]
     other (zsh) this window" "sw-preview: lists the worktree's windows with agent state, marking the current one"
 
+# a window's agent_title user var (kitty/focus_watcher.py) is its name, ahead of the session file's
+jq '.[0].tabs[0].windows[1].user_vars.agent_title = "fluent modules review"' "$_zt/ls.json" > "$_zt/ls2.json" && mv "$_zt/ls2.json" "$_zt/ls.json"
+out=$(_win=3 _preview "$_fix" fix-foo | sed -n '/^Windows/,/^$/p')
+_assert_eq "$out" "Windows
+  ! proj [fluent modules review]
+    other (zsh) this window" "sw-preview: a window's agent_title var is its name"
+
+# with no title, its agent_hint var (what was last asked) stands in, quoted; a title still beats it
+jq '.[0].tabs[0].windows[1].user_vars |= (del(.agent_title) | .agent_hint = "which service owns it?")' "$_zt/ls.json" > "$_zt/ls2.json" && mv "$_zt/ls2.json" "$_zt/ls.json"
+out=$(_win=3 _preview "$_fix" fix-foo | sed -n '/^Windows/,/^$/p')
+_assert_eq "$out" "Windows
+  ! proj [“which service owns it?]
+    other (zsh) this window" "sw-preview: a window's agent_hint var is quoted when it has no title"
+
 out=$(_preview "$_zt/repo" main | sed -n '/^Windows/,/^$/p')
 _assert_eq "$out" "Windows
     proj (zsh)" "sw-preview: a window in a nested worktree doesn't count for the main one"

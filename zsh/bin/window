@@ -38,18 +38,19 @@ if [[ -n "$prev_id" ]]; then
   prev_pos=${prev_pos:-0}
 fi
 
-local start_bind=()
-[[ $prev_pos -gt 0 ]] && start_bind=(--bind "load:pos($prev_pos)")
+# the window you came from, else the first window (row 1 is a tab's header)
+local start_bind=(--bind "load:pos(${${${prev_pos#0}:+$prev_pos}:-2})")
 
-# Each tab's windows are followed by a header row (id "tab:<tab id>"), which
-# fzf's bottom-up list shows above them; enter on one goes to that tab (a row
+# Each tab's windows are preceded by a header row (id "tab:<tab id>"); the list
+# runs top to bottom in the tab bar's order (--layout=reverse-list, not fzf's
+# default of bottom-up). Enter on a header goes to that tab (a row
 # leaves out a project that is only its tab's name, so typing that name finds
 # the header), and nothing else acts on it. The
 # delimiter is a tab, not fzf's default of any whitespace, which would take a
 # row's indent for part of the gap after its id and drop it
-selection=$(printf '%s\n' "$window_list" | fzf --ansi --delimiter '\t' --with-nth=2.. --no-sort \
+selection=$(printf '%s\n' "$window_list" | fzf --ansi --layout=reverse-list --delimiter '\t' --with-nth=2.. --no-sort \
      "${start_bind[@]}" \
-     --header $'ctrl-t: move to project tab  ctrl-w: close window\nclaude: \033[1;31m!\033[0m needs you  \033[1;32m✓\033[0m done, unseen  \033[33m…\033[0m working  \033[2m·\033[0m idle' \
+     --header $'ctrl-t: move to project tab  ctrl-w: close window\nclaude: \033[1;31m!\033[0m needs you  \033[1;32m✓\033[0m done, unseen  \033[33m…\033[0m working' \
      --preview 'kitty @ get-text --match id:{1} --extent=screen --ansi 2>/dev/null | perl -pe "s/(\e\[[0-9;]*m|[ \t])*$//"' \
      --preview-window 'right:50%' \
      --bind 'return:transform([[ {1} != closed:* ]] && echo accept)' \

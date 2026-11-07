@@ -95,6 +95,11 @@ def build_rows(kitty_ls_json: list) -> list[dict]:
                         "last_focused_at": window.get("last_focused_at"),
                         # when you last looked at the window, stamped by kitty/focus_watcher.py
                         "seen_at": (window.get("user_vars") or {}).get("seen_at"),
+                        # the Claude session's name, published by kitty/focus_watcher.py:
+                        # a name you gave it, else its generated title
+                        "agent_title": (window.get("user_vars") or {}).get("agent_title"),
+                        # what you last asked in it, while it has no title (same source)
+                        "agent_hint": (window.get("user_vars") or {}).get("agent_hint"),
                         # last foreground process is the front-most running command
                         # (e.g. `claude`) - used to look up a Claude session name below.
                         "pid": fg[-1].get("pid"),
@@ -365,7 +370,16 @@ def build_windows_payload(
                 # Only trust a pid's session file when that pid is *currently* running
                 # claude (kitty's own live process data) - a pid whose claude session
                 # ended and got reused by an unrelated process must not show a stale title.
-                "claude_session": claude_session_name(row.get("pid")) if is_claude else None,
+                # the agent_title var the watcher publishes first (it knows a name you gave
+                # the session), else the quoted last prompt it publishes for a session with
+                # no title yet, else the session files
+                "claude_session": (
+                    row.get("agent_title")
+                    or (f"\u201c{row['agent_hint']}\u201d" if row.get("agent_hint") else None)
+                    or claude_session_name(row.get("pid"))
+                )
+                if is_claude
+                else None,
                 "claude_state": (
                     claude_agent_state(row.get("pid"), row.get("seen_at"), row["id"] == current_window_id)
                     if is_claude
@@ -475,7 +489,8 @@ of another window already open on the same project - which only ever applies to 
 running claude in the same directory, on the same branch, are two different conversations, never duplicates,
 whatever their git state; the same goes for any two windows running different commands. A window's claude_session field, if present, names
 the Claude Code session running there - a distinctive name (not a generic default) suggests active,
-purposeful work and is a reason to lean toward "keep". A window whose processes are just fzf under a
+purposeful work and is a reason to lean toward "keep". One in quotation marks is not a name but what was last
+asked in a session that has none yet: it says what the session is about. A window whose processes are just fzf under a
 shell script is a picker someone left open; once it has been idle a while it is safe to close. Its claude_state field says what that session
 is doing: "working" (mid-task), "blocked" (waiting on the user for a permission or an answer), "done"
 (finished, and the user has not looked at the result yet) or "idle" (finished, and the user has seen

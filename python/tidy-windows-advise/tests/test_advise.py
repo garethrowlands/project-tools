@@ -438,6 +438,52 @@ def test_build_windows_payload_includes_claude_session(monkeypatch):
     assert windows[0]["claude_session"] == "my-session"
 
 
+def test_build_rows_reads_agent_title_user_var():
+    module = load_module()
+    window = {**make_window(1, "/p/a"), "user_vars": {"agent_title": "fluent modules review"}}
+    assert module.build_rows(make_kitty_ls({7: [window]}))[0]["agent_title"] == "fluent modules review"
+    assert module.build_rows(make_kitty_ls({7: [make_window(1, "/p/a")]}))[0]["agent_title"] is None
+
+
+def test_build_windows_payload_prefers_the_agent_title_var(monkeypatch):
+    module = load_module()
+    monkeypatch.setattr(module, "claude_session_name", lambda pid: "file-title")
+    row = {"id": 1, "tab_id": 1, "cwd": "/p/a", "is_focused": False, "last_focused_at": 0.0, "pid": 42, "proc": "claude"}
+    named = module.build_windows_payload([{**row, "agent_title": "fluent modules review"}], {}, kitty_now_s=0.0, now_epoch_s=0.0)
+    assert named[0]["claude_session"] == "fluent modules review"
+    # no var (a window the watcher has not seen, or a session with no real title yet): the session files
+    unnamed = module.build_windows_payload([{**row, "agent_title": None}], {}, kitty_now_s=0.0, now_epoch_s=0.0)
+    assert unnamed[0]["claude_session"] == "file-title"
+
+
+def test_build_rows_reads_agent_hint_user_var():
+    module = load_module()
+    window = {**make_window(1, "/p/a"), "user_vars": {"agent_hint": "which service owns the invoice?"}}
+    assert module.build_rows(make_kitty_ls({7: [window]}))[0]["agent_hint"] == "which service owns the invoice?"
+    assert module.build_rows(make_kitty_ls({7: [make_window(1, "/p/a")]}))[0]["agent_hint"] is None
+
+
+def test_build_windows_payload_quotes_the_agent_hint_after_the_title(monkeypatch):
+    module = load_module()
+    monkeypatch.setattr(module, "claude_session_name", lambda pid: "slug-1a")
+    row = {"id": 1, "tab_id": 1, "cwd": "/p/a", "is_focused": False, "last_focused_at": 0.0, "pid": 42, "proc": "claude",
+           "agent_title": None, "agent_hint": "which service owns the invoice?"}
+    hinted = module.build_windows_payload([row], {}, kitty_now_s=0.0, now_epoch_s=0.0)
+    assert hinted[0]["claude_session"] == "\u201cwhich service owns the invoice?\u201d"
+    titled = module.build_windows_payload([{**row, "agent_title": "Real title"}], {}, kitty_now_s=0.0, now_epoch_s=0.0)
+    assert titled[0]["claude_session"] == "Real title"
+    # neither var (a window the watcher has not seen): the session files
+    neither = module.build_windows_payload([{**row, "agent_hint": None}], {}, kitty_now_s=0.0, now_epoch_s=0.0)
+    assert neither[0]["claude_session"] == "slug-1a"
+
+
+def test_build_windows_payload_ignores_a_stale_agent_title_on_a_non_claude_window(monkeypatch):
+    module = load_module()
+    monkeypatch.setattr(module, "claude_session_name", lambda pid: None)
+    row = {"id": 1, "tab_id": 1, "cwd": "/p/a", "is_focused": False, "last_focused_at": 0.0, "pid": 42, "proc": "zsh", "agent_title": "old"}
+    assert module.build_windows_payload([row], {}, kitty_now_s=0.0, now_epoch_s=0.0)[0]["claude_session"] is None
+
+
 def test_build_windows_payload_skips_claude_session_lookup_for_non_claude_proc(monkeypatch):
     module = load_module()
     monkeypatch.setattr(module, "claude_session_name", lambda pid: "my-session")

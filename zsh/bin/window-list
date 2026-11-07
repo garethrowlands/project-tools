@@ -23,20 +23,33 @@ source "${0:A:h}/../functions/claude-session.zsh"
 # Names can't line up past this many columns; a longer one pushes its project out
 name_width_max=48
 
-# _window_list_name PROC PID [SEEN_AT IS_CURRENT] — sets reply to a window's
-# state marker, its name, and the SGR code the name is shown in. The live list
-# passes the window's seen_at user var and whether it is the window the picker
+# _window_list_name PROC PID [SEEN_AT IS_CURRENT AGENT_TITLE AGENT_HINT] — sets reply to a
+# window's state marker, its name, and the SGR code the name is shown in (the faded grey the tab bar's lines are in). The live
+# list passes the window's seen_at user var and whether it is the window the picker
 # was opened from, to get the marker; the "close" case leaves them out, and
-# its marker blank.
+# its marker blank. AGENT_TITLE is the window's agent_title user var, the Claude
+# session's name as kitty/focus_watcher.py publishes it (a name you gave the
+# session, else its generated title, never the startup slug); "-" or empty for
+# none. AGENT_HINT is its agent_hint var, what was last asked in a session that has no
+# title yet, shown in quotation marks (“…) so as not to look like a name. With neither
+# var, the title is looked up in the session files (and its slug).
 _window_list_name() {
-  local proc=$1 pid=$2 seen_at=$3 is_current=$4
+  local proc=$1 pid=$2 seen_at=$3 is_current=$4 agent_title=$5 agent_hint=$6
   local state="" title=""
   if [[ "$proc" == "claude" ]]; then
     [[ -n "$seen_at" ]] && state=${"$(_claude_session_state "$pid" "$seen_at" "$is_current")"%%$'\t'*}
-    title=$(_claude_session_title "$pid")
+    if [[ -n "$agent_title" && "$agent_title" != "-" ]]; then
+      title=$agent_title
+    elif [[ -n "$agent_hint" && "$agent_hint" != "-" ]]; then
+      # cut to fit the name column, quote included: a long prompt would push the project out
+      (( ${#agent_hint} + 1 > name_width_max )) && agent_hint="${agent_hint[1,name_width_max-2]}…"
+      title="“$agent_hint"
+    else
+      title=$(_claude_session_title "$pid")
+    fi
   fi
   if [[ -n "$title" ]]; then
-    reply=("$(_claude_session_marker "$state")" "$title" '1;36')
+    reply=("$(_claude_session_marker "$state")" "$title" '2')
   else
     reply=("$(_claude_session_marker "$state")" "$proc" '2')
   fi
@@ -94,7 +107,7 @@ fi
 # by read, tab being IFS whitespace.
 live_list=$(
   local -a ids tab_ids tabs cwds markers names sgrs bells
-  local id tab_id tab cwd proc pid seen_at bell
+  local id tab_id tab cwd proc pid seen_at bell agent_title agent_hint
   kitty @ ls 2>/dev/null | jq -r '
     .[].tabs[] | . as $tab | .windows[] | select(.is_self | not) | . as $w |
     [($w.id | tostring), ($tab.id | tostring), ($tab.title),
@@ -102,10 +115,12 @@ live_list=$(
      ($w.foreground_processes[-1].cmdline[0] // "" | ltrimstr("-") | split("/") | last),
      ($w.foreground_processes[-1].pid // "" | tostring),
      ($w.user_vars.seen_at // "-"),
-     (if $w.needs_attention then "1" else "-" end)
+     (if $w.needs_attention then "1" else "-" end),
+     ($w.user_vars.agent_title // "-"),
+     ($w.user_vars.agent_hint // "-")
     ] | join("\t")
-  ' | while IFS=$'\t' read -r id tab_id tab cwd proc pid seen_at bell; do
-    _window_list_name "$proc" "$pid" "$seen_at" $(( id == ${WINDOW_CURRENT_ID:-0} ))
+  ' | while IFS=$'\t' read -r id tab_id tab cwd proc pid seen_at bell agent_title agent_hint; do
+    _window_list_name "$proc" "$pid" "$seen_at" $(( id == ${WINDOW_CURRENT_ID:-0} )) "$agent_title" "$agent_hint"
     tab=$(_window_list_tab_name "$tab")
     ids+=("$id") tab_ids+=("$tab_id") tabs+=("$tab") cwds+=("$cwd")
     markers+=("$reply[1]") names+=("$reply[2]") sgrs+=("$reply[3]") bells+=("$bell")
@@ -124,9 +139,10 @@ live_list=$(
 
 # Rows in their final order, still carrying their tab, go through this last:
 # it indents each row under its tab, and puts a header row (id "tab:<tab id>")
-# after each tab's windows — after, because fzf lists bottom-up, so that is
-# what shows the header above them. A header is the tab's name and a rule out
-# to where the widest row ends, so every row is read before any is printed.
+# before each tab's windows, so that the list reads top to bottom in the tab
+# bar's order (bin/window runs fzf with --layout=reverse-list). A header is the tab's
+# name and a rule out to where the widest row ends, so every row is read before
+# any is printed.
 _window_list_headers() {
   setopt localoptions extendedglob
   local -a ids labels tab_ids tab_names
@@ -143,12 +159,12 @@ _window_list_headers() {
   done
   for i in {1..$#ids}; do
     (( $#ids )) || break
-    print -r -- "$ids[i]"$'\t'"  $labels[i]"
-    if (( i == $#ids )) || [[ "$tab_ids[i+1]" != "$tab_ids[i]" ]]; then
+    if (( i == 1 )) || [[ "$tab_ids[i-1]" != "$tab_ids[i]" ]]; then
       rule=$(( width - ${(m)#tab_names[i]} - 1 ))
       (( rule < 2 )) && rule=2
       print -r -- "tab:$tab_ids[i]"$'\t\033[1m'"$tab_names[i]"$'\033[0m \033[2m'"${(l:rule::─:):-}"$'\033[0m'
     fi
+    print -r -- "$ids[i]"$'\t'"  $labels[i]"
   done
 }
 

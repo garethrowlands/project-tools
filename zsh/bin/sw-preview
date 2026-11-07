@@ -36,7 +36,7 @@ _sw_preview_windows() {
   ls=$(kitty @ ls 2>/dev/null) && [[ -n "$ls" ]] || return
   local -a worktrees
   worktrees=(${(f)"$(git worktree list --porcelain | awk '/^worktree / { print substr($0, 10) }')"})
-  local id tab cwd proc pid seen_at w best state title row
+  local id tab cwd proc pid seen_at agent_title agent_hint w best state title row
   local -i found=0
   print -r -- "${bold}Windows${reset}"
   # "-" for a missing field: an empty one would be swallowed by read, tab
@@ -47,9 +47,11 @@ _sw_preview_windows() {
      ($w.foreground_processes[0].cwd // $w.cwd // "-"),
      ($w.foreground_processes[-1].cmdline[0] // "-" | ltrimstr("-") | split("/") | last // "-"),
      ($w.foreground_processes[-1].pid // "-" | tostring),
-     ($w.user_vars.seen_at // "-")
+     ($w.user_vars.seen_at // "-"),
+     ($w.user_vars.agent_title // "-"),
+     ($w.user_vars.agent_hint // "-")
     ] | join("\t")
-  ' <<< "$ls" 2>/dev/null | while IFS=$'\t' read -r id tab cwd proc pid seen_at; do
+  ' <<< "$ls" 2>/dev/null | while IFS=$'\t' read -r id tab cwd proc pid seen_at agent_title agent_hint; do
     best=""
     for w in $worktrees; do
       [[ "$cwd" == "$w" || "$cwd" == "$w"/* ]] && (( $#w > $#best )) && best=$w
@@ -59,11 +61,18 @@ _sw_preview_windows() {
     state="" title=""
     if [[ "$proc" == claude ]]; then
       state=${"$(_claude_session_state "$pid" "$seen_at" $(( id == ${KITTY_WINDOW_ID:-0} )))"%%$'\t'*}
-      title=$(_claude_session_title "$pid")
+      # the window's agent_title user var (see _window_list_name in window-list) first
+      if [[ -n "$agent_title" && "$agent_title" != - ]]; then
+        title=$agent_title
+      elif [[ -n "$agent_hint" && "$agent_hint" != - ]]; then
+        title="“$agent_hint"   # what was last asked, quoted: not a name
+      else
+        title=$(_claude_session_title "$pid")
+      fi
     fi
     row="  $(_claude_session_marker "$state") $tab"
     if [[ -n "$title" ]]; then
-      row+=" "$'\033[1;36m'"[$title]"$reset
+      row+=" ${dim}[$title]${reset}"
     elif [[ "$proc" != - ]]; then
       row+=" ($proc)"
     fi

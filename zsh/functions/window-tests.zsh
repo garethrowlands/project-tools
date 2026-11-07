@@ -43,15 +43,16 @@ session() {
 }
 
 # windows ACTIVE_ID SPEC... — writes `kitty @ ls` for one focused OS window with
-# one tab "proj"; each SPEC is ID:PROC:CWD_BASENAME:SEEN_AT (pid is 100 + ID,
-# an empty SEEN_AT means no user var). ACTIVE_ID is the window next-agent's
+# one tab "proj"; each SPEC is ID:PROC:CWD_BASENAME:SEEN_AT[:AGENT_TITLE[:AGENT_HINT]] (pid is
+# 100 + ID, an empty SEEN_AT means no user var, and AGENT_TITLE and AGENT_HINT, if
+# there, are the window's agent_title and agent_hint user vars; no colons in them). ACTIVE_ID is the window next-agent's
 # overlay covers; the overlay itself (id 99, is_self) is the tab's active window.
 windows() {
   local active=$1; shift
   print -rl -- "$@" | jq -R --argjson active $active '
     split(":") | (.[0] | tonumber) as $id |
     {id: $id, title: "t", is_self: false, is_focused: false, is_active: false,
-     user_vars: (if .[3] == "" then {} else {seen_at: .[3]} end),
+     user_vars: ((if .[3] == "" then {} else {seen_at: .[3]} end) + (if (.[4] // "") == "" then {} else {agent_title: .[4]} end) + (if (.[5] // "") == "" then {} else {agent_hint: .[5]} end)),
      foreground_processes: [{pid: (100 + $id), cwd: "/p/\(.[2])", cmdline: ["/usr/local/bin/\(.[1])"]}]}
   ' | jq -s '. + [{id: 99, title: "next-agent", is_self: true, is_focused: true, is_active: true, user_vars: {},
                    foreground_processes: [{pid: 199, cwd: "/p", cmdline: ["zsh"]}]}] |
@@ -105,15 +106,42 @@ LIST=$(list 7)
 is 'waiting is blocked'                          "$(row 1)" '  ! slug-101 a'
 is 'busy is working'                             "$(row 2)" '  … slug-102 b'
 is 'idle since after seen_at is done'            "$(row 3)" '  ✓ slug-103 c'
-is 'idle since before seen_at is idle'           "$(row 4)" '  · slug-104 d'
-is 'idle with no seen_at is never done'          "$(row 5)" '  · slug-105 e'
+is 'idle since before seen_at is idle'           "$(row 4)" '    slug-104 d'
+is 'idle with no seen_at is never done'          "$(row 5)" '    slug-105 e'
 is 'a stale session file for a non-claude pid'   "$(row 6)" '    zsh f'
-is 'the current window is never done'            "$(row 7)" '  · slug-107 g'
+is 'the current window is never done'            "$(row 7)" '    slug-107 g'
 is 'claude with no session file has no marker'   "$(row 8)" '    claude h'
 is 'other config dir: state and last ai-title'   "$(row 9)" '  ! Real title i'
-is 'parked session takes the job'"'"'s title'    "$(row 10)" '  · the parked job j'
-is 'rows stay in kitty order, then their tab'    "$(ids)" '1 2 3 4 5 6 7 8 9 10 tab:1 '
+is 'parked session takes the job'"'"'s title'    "$(row 10)" '    the parked job j'
+is 'a tab header, then its windows in kitty order'  "$(ids)" 'tab:1 1 2 3 4 5 6 7 8 9 10 '
 is 'the tab is a header row'                     "$(row tab:1)" "proj ${(l:16::─:):-}"
+
+# --- window-list: the agent_title user var (kitty/focus_watcher.py) comes first ---
+
+session 111 waiting 400
+session 112 busy 2000
+windows 7 11:claude:k:1000:'fluent modules review' 12:claude:l:1000 13:zsh:m:1000:'stale title' 9:claude:i:1000:'Named by me'
+LIST=$(list 7)
+is 'agent_title is the name, with the state marker'      "$(row 11)" '  ! fluent modules review k'
+is 'no agent_title falls back to the session file'      "$(row 12)" '  … slug-112 l'
+is 'agent_title beats the ai-title in the session file' "$(row 9)"  '  ! Named by me i'
+is 'agent_title on a window not running claude is stale' "$(row 13)" '    zsh m'
+
+# --- window-list: the agent_hint user var, what was last asked, quoted, once there is no title ---
+
+session 114 busy 2000
+session 115 busy 2000
+windows 7 14:claude:n:1000::'which service owns it?' 15:claude:o:1000:'Real title':'ignored hint' 16:claude:p:1000
+LIST=$(list 7)
+is 'agent_hint is quoted, with the state marker'  "$(row 14)" '  … “which service owns it? n'
+is 'agent_title beats agent_hint'                 "$(row 15)" '  … Real title o'
+windows 7 14:claude:n:1000::'a very long first prompt that goes on and on and on and on' 
+LIST=$(list 7)
+is 'a long agent_hint is cut to the name column'  "$(row 14)" '  … “a very long first prompt that goes on and on a… n'
+# the tests below use the windows and the list as they were
+windows 7 $ALL
+LIST=$(list 7)
+
 is 'projects line up after the longest name'     "$(print -r -- "$LIST" | awk -F'\t' '$1 == 6 {print $2}')" '    zsh             f'
 
 # --- window-list: a window that has rung the bell ---
@@ -125,8 +153,8 @@ is 'the bell follows an agent row too'           "$(row 2)" '  … slug-102 b �
 is 'no bell on a window that has not rung'       "$(row 1)" '  ! slug-101 a'
 windows 7 $ALL
 
-# --- window-list: one header per tab, after its windows (fzf lists bottom-up,
-# so that shows it above them) ---
+# --- window-list: one header per tab, before its windows (the list runs top to bottom,
+# as in the tab bar) ---
 
 # two_tabs TITLE ID... — moves those windows to a second tab (id 2) called TITLE
 two_tabs() {
@@ -141,7 +169,7 @@ two_tabs() {
 windows 1 1:claude:proj:1000 6:zsh:f:1000 2:claude:b:1000 3:zsh:other:1000
 two_tabs '~/src/some/other' 2 3
 LIST=$(list 1)
-is 'each tab follows its own windows'            "$(ids)" '1 6 tab:1 2 3 tab:2 '
+is 'each tab precedes its own windows'          "$(ids)" 'tab:1 1 6 tab:2 2 3 '
 is 'a path for a tab title is cut to its tail'   "$(row tab:2)" "other ${(l:13::─:):-}"
 is 'every rule ends where the widest row does'   "$(row tab:1)" "proj ${(l:14::─:):-}"
 is 'a window names its project'                  "$(row 2)" '  … slug-102 b'
@@ -157,7 +185,7 @@ HOME=$T/home PATH=$T/bin:$PATH zsh -f $ROOT/zsh/bin/window-list $T/closed $T/ord
 is 'closing a window asks kitty to'              "$(grep -c close-window $T/kitty.calls)" '2'
 jq 'del(.[0].tabs[1])' $T/ls.json >| $T/tmp.json && mv $T/tmp.json $T/ls.json
 LIST=$(relist)
-is 'a closed tab keeps its header and rows'      "$(ids)" '1 6 tab:1 closed:2 closed:3 tab:2 '
+is 'a closed tab keeps its header and rows'      "$(ids)" 'tab:1 1 6 tab:2 closed:2 closed:3 '
 is 'a closed row keeps its label'                "$(row closed:2)" '  [closed] slug-102 b'
 : >| $T/closed
 
@@ -167,7 +195,7 @@ windows 1 13:claude:m:1000 14:claude:m:3000
 session 114 shell 2000
 LIST=$(list 1)
 is 'shell since after seen_at is done'           "$(row 13)" '  ✓ slug-113 m'
-is 'shell since before seen_at is idle'          "$(row 14)" '  · slug-114 m'
+is 'shell since before seen_at is idle'          "$(row 14)" '    slug-114 m'
 
 # pid 101 again, left behind in the other config dir by a dead process
 session 101 busy 100 .claude-k
