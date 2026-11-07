@@ -615,6 +615,159 @@ check('state_at: error is published and notifies', s1.user_vars.get('agent_state
 s1.program_status.records = []
 fw.on_program_status_change(boss, s1, {})
 check('state_at: cleared with the state', 'agent_state_at' not in s1.user_vars, s1.user_vars)
+
+# agent_title: the Claude session's title, for the second line of a vertical tab
+def write_titled_session(pid, session_id, status='busy', name=None, parked=None, job=None, config='.claude'):
+    write_session(agent_home, pid, status, 3000, config)
+    path = os.path.join(agent_home, config, 'sessions', f'{pid}.json')
+    with open(path) as fh:
+        data = json.load(fh)
+    data.update({k: v for k, v in (('sessionId', session_id), ('name', name), ('parkedJobId', parked), ('jobId', job)) if v})
+    with open(path, 'w') as fh:
+        json.dump(data, fh)
+
+
+def transcript(session_id, *lines, config='.claude', mode='w'):
+    d = os.path.join(agent_home, config, 'projects', '-p-shop-api')
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, f'{session_id}.jsonl'), mode) as fh:
+        for line in lines:
+            fh.write(line)
+
+
+def ai(title):
+    return json.dumps({'type': 'ai-title', 'aiTitle': title}) + '\n'
+
+
+user_line = json.dumps({'type': 'user', 'message': 'hi'}) + '\n'
+t1 = AgentWindow(31, 531)
+boss = AgentBoss(t1)
+boss.active_window = t1
+write_titled_session(531, 'sid531', name='shop-api-1a')
+transcript('sid531', user_line, ai('First title'), user_line)
+fw.poll(boss)
+check('title: the last ai-title of the transcript is published', t1.user_vars.get('agent_title') == 'First title', t1.user_vars)
+dirty = boss.dirty
+fw.poll(boss)
+check('title: nothing is redrawn while it stays', boss.dirty == dirty, (boss.dirty, dirty))
+transcript('sid531', ai('Second title'), mode='a')
+fw.poll(boss)
+check('title: a regenerated title replaces it, state unchanged', t1.user_vars.get('agent_title') == 'Second title' and t1.user_vars.get('agent_state') == 'working', t1.user_vars)
+check('title: a changed title redraws the tab bar', boss.dirty == dirty + 1, (boss.dirty, dirty))
+transcript('sid531', ai('Third ti'), mode='a')
+with open(os.path.join(agent_home, '.claude', 'projects', '-p-shop-api', 'sid531.jsonl'), 'a') as fh:
+    fh.write('{"type": "ai-title", "aiTitle": "Half writ')
+fw.poll(boss)
+check('title: a line still being written is not read', t1.user_vars.get('agent_title') == 'Third ti', t1.user_vars)
+with open(os.path.join(agent_home, '.claude', 'projects', '-p-shop-api', 'sid531.jsonl'), 'a') as fh:
+    fh.write('ten"}\n')
+fw.poll(boss)
+check('title: it is read once complete', t1.user_vars.get('agent_title') == 'Half written', t1.user_vars)
+transcript('sid531', ai('Fresh'), mode='w')
+fw.poll(boss)
+check('title: a transcript that shrinks is read again from the start', t1.user_vars.get('agent_title') == 'Fresh', t1.user_vars)
+
+os.remove(os.path.join(agent_home, '.claude', 'projects', '-p-shop-api', 'sid531.jsonl'))
+fw.poll(boss)
+check('title: a session with no ai-title yet has none, not its slug', 'agent_title' not in t1.user_vars and t1.user_vars.get('agent_state') == 'working', t1.user_vars)
+
+t2 = AgentWindow(32, 532)
+boss.all_windows = [t1, t2]
+write_titled_session(532, 'sid532', name='context-e1', parked='job1')
+write_titled_session(9001, 'sidjob', name='Job name', job='job1')
+transcript('sidjob', ai('Job title'))
+fw.poll(boss)
+check('title: a parked session shows its job\'s title', t2.user_vars.get('agent_title') == 'Job title', t2.user_vars)
+transcript('sid532', ai('Own title'))
+fw.poll(boss)
+check('title: its own ai-title comes before the job\'s', t2.user_vars.get('agent_title') == 'Own title', t2.user_vars)
+
+t4 = AgentWindow(34, 534)
+boss.all_windows = [t1, t4]
+write_titled_session(534, 'sid534', name='fluent modules review')
+with open(os.path.join(agent_home, '.claude', 'sessions', '534.json')) as fh:
+    named = json.load(fh)
+named['nameSource'] = 'user'
+with open(os.path.join(agent_home, '.claude', 'sessions', '534.json'), 'w') as fh:
+    json.dump(named, fh)
+transcript('sid534', ai('Generated title'))
+fw.poll(boss)
+check('title: a name you gave the session beats the generated title', t4.user_vars.get('agent_title') == 'fluent modules review', t4.user_vars)
+named['name'] = 'renamed again'
+with open(os.path.join(agent_home, '.claude', 'sessions', '534.json'), 'w') as fh:
+    json.dump(named, fh)
+fw.poll(boss)
+check('title: and follows a rename', t4.user_vars.get('agent_title') == 'renamed again', t4.user_vars)
+named['nameSource'] = 'derived'
+with open(os.path.join(agent_home, '.claude', 'sessions', '534.json'), 'w') as fh:
+    json.dump(named, fh)
+fw.poll(boss)
+check('title: a derived name is only a slug, so the generated title wins', t4.user_vars.get('agent_title') == 'Generated title', t4.user_vars)
+
+t3 = AgentWindow(33, 599, proc='zsh')
+t3.user_vars['agent_title'] = 'left by an older copy'
+boss.all_windows = [t1, t3]
+fw.poll(boss)
+check('title: a window without claude has none, and a stale one is cleared', 'agent_title' not in t3.user_vars, t3.user_vars)
+os.remove(os.path.join(agent_home, '.claude', 'sessions', '531.json'))
+fw.poll(boss)
+check('title: gone with the session', 'agent_title' not in t1.user_vars, t1.user_vars)
+check('title: closed windows are forgotten', set(fw.published_title) <= {31, 33}, fw.published_title)
+
+# agent_hint: what you last asked in a session, until it has a title
+def lp(prompt):
+    return json.dumps({'type': 'last-prompt', 'lastPrompt': prompt, 'sessionId': 'x'}) + '\n'
+
+
+h1 = AgentWindow(41, 541)
+boss = AgentBoss(h1)
+boss.active_window = h1
+write_titled_session(541, 'sid541', name='context-e1')
+transcript('sid541', user_line, lp('which service owns the invoice?'), user_line, lp('/clear'), lp('And  ADR-0011?\nTersely.'))
+fw.poll(boss)
+check('hint: the last prompt, on one line', h1.user_vars.get('agent_hint') == 'And ADR-0011? Tersely.', h1.user_vars)
+dirty = boss.dirty
+fw.poll(boss)
+check('hint: nothing is redrawn while it stays', boss.dirty == dirty, (boss.dirty, dirty))
+transcript('sid541', lp('Now the second one'), mode='a')
+fw.poll(boss)
+check('hint: a new prompt replaces it and redraws', h1.user_vars.get('agent_hint') == 'Now the second one' and boss.dirty == dirty + 1, (h1.user_vars, boss.dirty, dirty))
+transcript('sid541', lp('/clear'), lp('<command-name>/x</command-name>'), mode='a')
+fw.poll(boss)
+check('hint: commands are not prompts', h1.user_vars.get('agent_hint') == 'Now the second one', h1.user_vars)
+transcript('sid541', lp('yes'), lp('ok'), mode='a')
+fw.poll(boss)
+check('hint: a short reply is skipped for the prompt before', h1.user_vars.get('agent_hint') == 'Now the second one', h1.user_vars)
+transcript('sid541', ai('A real title'), mode='a')
+fw.poll(boss)
+check('hint: gone once the session has a title', 'agent_hint' not in h1.user_vars and h1.user_vars.get('agent_title') == 'A real title', h1.user_vars)
+
+h2 = AgentWindow(42, 542)
+boss.all_windows = [h2]
+write_titled_session(542, 'sid542', name='context-e2')
+transcript('sid542', lp('buried prompt'), *([json.dumps({'type': 'assistant', 'message': 'x' * 500}) + '\n'] * 600))
+fw.poll(boss)
+check('hint: a prompt far from the end is still found', h2.user_vars.get('agent_hint') == 'buried prompt', h2.user_vars)
+
+transcript('sid542', lp('x' * 300))
+fw.poll(boss)
+check('hint: a long prompt is cut', len(h2.user_vars.get('agent_hint', '')) == fw.HINT_LENGTH, h2.user_vars)
+
+h3 = AgentWindow(43, 543)
+boss.all_windows = [h3]
+write_titled_session(543, 'sid543', name='context-e3')
+transcript('sid543', user_line)
+fw.poll(boss)
+transcript('sid543', lp('yes'), lp('ok'))
+fw.poll(boss)
+check('hint: with only short prompts, the last of them', h3.user_vars.get('agent_hint') == 'ok', h3.user_vars)
+transcript('sid543', user_line)
+fw.poll(boss)
+check('hint: a session with no prompt has none', 'agent_hint' not in h3.user_vars, h3.user_vars)
+os.remove(os.path.join(agent_home, '.claude', 'sessions', '543.json'))
+fw.poll(boss)
+check('hint: closed windows are forgotten', set(fw.published_hint) <= {43}, fw.published_hint)
+
 os.environ['HOME'] = real_home
 
 # a changed watcher is loaded beside the old copy, which it has to silence
@@ -637,20 +790,20 @@ tb = load('tab_bar')
 # real colour codes; `tab` (back to the tab's own colour) needs a tab being drawn
 real_fg = ktb.ColorFormatter('fg')
 fmt = type('Fmt', (), {'bold': '<b>', 'nobold': '</b>',
-                       'fg': type('Fg', (), {'red': real_fg.red, 'green': real_fg.green, 'yellow': real_fg.yellow, 'tab': '<tab>'})()})()
+                       'fg': type('Fg', (), {'red': real_fg.red, 'green': real_fg.green, 'yellow': real_fg.yellow, 'cyan': real_fg.cyan, 'tab': '<tab>'})()})()
 
 
 def tab_marker(*states):
     windows = [type('W', (), {'user_vars': {'agent_state': s} if s else {}})() for s in states]
     tb.get_boss = lambda: type('Boss', (), {'tab_for_id': lambda self, tab_id: windows if tab_id == 7 else None})()
-    return tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': ''})
+    return tb.status_line({'tab_id': 7, 'fmt': fmt})
 
 
 red, green, yellow, back = '<b>' + fmt.fg.red, '<b>' + fmt.fg.green, '<b>' + fmt.fg.yellow, '</b>' + fmt.fg.tab
-check('tab marker: blocked beats everything', tab_marker('working', 'done', 'blocked', '') == f'{red}! {back}', repr(tab_marker('working', 'done', 'blocked', '')))
-check('tab marker: done beats working', tab_marker('idle', 'working', 'done') == f'{green}✓ {back}')
-check('tab marker: working', tab_marker('idle', 'working') == f'{yellow}… {back}')
-check('tab marker: nothing for idle agents or none', tab_marker('idle', '') == '' and tab_marker() == '')
+check('tab marker: blocked beats everything (the second line)', tab_marker('working', 'done', 'blocked', '') == f'{red}!{back}', repr(tab_marker('working', 'done', 'blocked', '')))
+check('tab marker: done beats working', tab_marker('idle', 'working', 'done') == f'{green}✓{back}')
+check('tab marker: working', tab_marker('idle', 'working') == f'{yellow}…{back}')
+check('tab marker: an idle agent is just "claude", no agents nothing', tab_marker('idle', '') == ' claude' and tab_marker() == '')
 check('tab marker: colours differ and are set', len({red, green, yellow, back}) == 4 and all((red, green, yellow, back)), (red, green, yellow, back))
 tb.get_boss = lambda: None
 check('tab marker: an error draws nothing', tb.draw_title({'tab_id': 7, 'fmt': fmt}) == '')
@@ -672,7 +825,7 @@ for title, want in (
 ):
     check(f'tab title: {title!r}', tb.short_title(title) == want, repr(tb.short_title(title)))
 tb.get_boss = lambda: type('Boss', (), {'tab_for_id': lambda self, tab_id: [type('W', (), {'user_vars': {'agent_state': 'blocked'}})()]})()
-check('tab title: no colour for the dropped directories without the tab\'s colours', tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': '/a/b/c/d'}) == f'{red}! {back}…/b/c/d')
+check('tab title: no colour for the dropped directories without the tab\'s colours', tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': '/a/b/c/d'}) == f'…/b/c/d\n{red}!{back}')
 # a real formatter, mid-draw: white text on a #204060 tab
 tab_fg = ktb.ColorFormatter('fg')
 tab_fg.tab_data = object()
@@ -688,9 +841,9 @@ for is_active, style, want in ((True, 'active_tab_font_style', ''), (False, 'ina
     fmt.fg.tab_data = type('TabData', (), {'is_active': is_active})()
     tb.get_options = lambda: type('Opts', (), {'active_tab_font_style': (True, True), 'inactive_tab_font_style': (False, False)})()
     check(f'tab marker: bold ends after it unless the tab is bold ({style})',
-          tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 't'}) == f'<b>{fmt.fg.red}! {want}<tab>t', repr(tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 't'})))
+          tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 't'}) == f't\n<b>{fmt.fg.red}!{want}<tab>', repr(tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 't'})))
 del fmt.fg.tab_data
-check('tab title: follows the marker', tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 'github.com/me/proj'}) == f'{red}! {back}g/m/proj')
+check('tab title: the marker is on the second line', tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 'github.com/me/proj'}) == f'g/m/proj\n{red}!{back}')
 
 
 # tab_bar.py: the activity symbol, for windows without an agent only
@@ -704,10 +857,124 @@ def tab_activity(symbol, *windows):
 
 plain_red = fmt.fg.red
 check('activity: a window without an agent shows the symbol', tab_activity('>', ('', True), ('', False)) == f'{plain_red}><tab>t', repr(tab_activity('>', ('', True), ('', False))))
-check('activity: an agent\'s activity does not count', tab_activity('>', ('idle', True), ('working', True), ('', False)) == f'{yellow}… {back}t')
-check('activity: it comes before the marker', tab_activity('>', ('working', True), ('', True)) == f'{plain_red}><tab>{yellow}… {back}t')
+check('activity: an agent\'s activity does not count', tab_activity('>', ('idle', True), ('working', True), ('', False)) == f't\n{yellow}…{back}')
+check('activity: it stays on the first line, the marker is on the second', tab_activity('>', ('working', True), ('', True)) == f'{plain_red}><tab>t\n{yellow}…{back}')
 check('activity: nothing without activity', tab_activity('>', ('', False)) == 't')
 check('activity: nothing when the symbol is off', tab_activity(None, ('', True)) == 't' and tab_activity('', ('', True)) == 't')
+
+
+# tab_bar.py: the second line of a vertical tab: the session title of the most pressing agent, else a running command
+class TW:
+    def __init__(self, state='', title='', at='0', prompt=True, cmd='', hint='', proc=''):
+        self.user_vars = {'agent_state': state, 'agent_state_at': at, **({'agent_title': title} if title else {}),
+                          **({'agent_hint': hint} if hint else {})} if state else {}
+        self.at_prompt, self.last_cmd_cmdline = prompt, cmd
+        if proc:
+            self.child = type('Child', (), {'foreground_processes': [{'cmdline': [proc]}]})()
+
+
+W, B = f'{yellow}…{back}', f'{red}!{back}'
+
+
+def cy(text, mark=''):
+    # an agent's marker, then its session title (the dim colour is '' without a real tab being drawn)
+    return f'{mark}{text}'
+
+
+def second_line(*windows, active=None):
+    tab = list(windows)
+    tab_obj = type('T', (list,), {'active_window': active})(tab)
+    tb.get_boss = lambda: type('Boss', (), {'tab_for_id': lambda self, tab_id: tab_obj})()
+    return tb.status_line({'tab_id': 7, 'fmt': fmt})
+
+
+check('line 2: an agent\'s session title', second_line(TW('working', 'Window switcher', '5')) == cy('Window switcher', W))
+check('line 2: +N for the other agents', second_line(TW('idle', 'Old one', '1'), TW('working', 'Window switcher', '5'), TW('idle', 'Another', '2')) == cy('Window switcher +2', W))
+check('line 2: the most pressing agent leads', second_line(TW('working', 'W', '9'), TW('blocked', 'B', '1'), TW('done', 'D', '5')) == cy('B +2', B))
+check('line 2: of equal agents, the most recently changed', second_line(TW('working', 'Old', '1'), TW('working', 'New', '9')) == cy('New +1', W))
+check('line 2: an agent with no title yet has just its marker', second_line(TW('working', '', '5')) == W)
+check('line 2: an idle agent with no title is just "claude"', second_line(TW('idle', '', '5')) == ' claude')
+check('line 2: a command running in a window with no agent', second_line(TW(), TW(prompt=False, cmd='pnpm dev')) == ' pnpm dev')
+check('line 2: the active window\'s command first', (lambda a: second_line(TW(prompt=False, cmd='tail -f log'), a, active=a))(TW(prompt=False, cmd='pnpm   dev')) == ' pnpm dev')
+tb.get_options = lambda: type('Opts', (), {'tab_title_max_length': 10, 'active_tab_font_style': (False, False), 'inactive_tab_font_style': (False, False)})()
+check('line 2: a long title is cut to leave room for +N', second_line(TW('working', 'abcdefghijklmnop', '5'), TW('idle', 'x', '1')) == cy('abcde… +1', W), repr(second_line(TW('working', 'abcdefghijklmnop', '5'), TW('idle', 'x', '1'))))
+check('line 2: a short title is left alone', second_line(TW('working', 'abc', '5'), TW('idle', 'x', '1')) == cy('abc +1', W))
+check('line 2: a lone long title is cut to the width', second_line(TW('working', 'abcdefghijklmnop', '5')) == cy('abcdefgh…', W), repr(second_line(TW('working', 'abcdefghijklmnop', '5'))))
+check('line 2: a title that just fits is left alone', second_line(TW('working', 'abcdefgh', '5')) == cy('abcdefgh', W))
+fmt.fg.tab_data = type('TabData', (), {'is_active': True})()
+check('line 2: on the active tab it is in the tab\'s own colours', second_line(TW('working', 'Title', '5')) == W + 'Title', repr(second_line(TW('working', 'Title', '5'))))
+del fmt.fg.tab_data
+check('line 2: nothing at a prompt', second_line(TW(), TW(cmd='ls')) == '')
+check('line 2: an agent\'s window is not a program', second_line(TW('working', 'Title', '5', prompt=False, cmd='claude')) == cy('Title', W))
+check('line 2: an agent beats a program', second_line(TW(prompt=False, cmd='pnpm dev'), TW('idle', 'Title', '5')) == cy('Title', ' '))
+check('line 2: no tab, no line', (setattr(tb, 'get_boss', lambda: type('Boss', (), {'tab_for_id': lambda self, i: None})()) or tb.status_line({'tab_id': 7, 'fmt': fmt})) == '')
+second_line(TW('working', 'T', '5'))
+drawn = tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 'proj'})
+check('line 2: draw_title puts it on a second line', drawn.endswith('proj\n' + cy('T', W)), repr(drawn))
+second_line(TW())
+check('line 2: a tab with nothing to say stays one line', '\n' not in tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 'proj'}))
+
+
+# tab_bar.py: with tab_title_max_lines 4, a line for each agent, then for each running command
+tb.get_options = lambda: type('Opts', (), {'tab_title_max_lines': 4, 'tab_title_max_length': 20,
+                                           'active_tab_font_style': (False, False), 'inactive_tab_font_style': (False, False)})()
+D = f'{green}✓{back}'
+
+
+def lines(*windows, active=None):
+    return second_line(*windows, active=active).split('\n')
+
+
+check('lines: an agent each, the most pressing first',
+      lines(TW('working', 'Build', '5'), TW('blocked', 'Fix', '1'), TW('done', 'Ship', '3')) == [cy('Fix', B), cy('Ship', D), cy('Build', W)],
+      lines(TW('working', 'Build', '5'), TW('blocked', 'Fix', '1'), TW('done', 'Ship', '3')))
+check('lines: more than fit end with how many more',
+      lines(TW('blocked', 'A', '1'), TW('done', 'B', '2'), TW('working', 'C', '3'), TW('working', 'D', '4'), TW('idle', 'E', '5'))
+      == [cy('A', B), cy('B', D), ' +3 more'],
+      lines(TW('blocked', 'A', '1'), TW('done', 'B', '2'), TW('working', 'C', '3'), TW('working', 'D', '4'), TW('idle', 'E', '5')))
+check('lines: exactly as many as fit all show', len(lines(TW('working', 'A', '1'), TW('working', 'B', '2'), TW('working', 'C', '3'))) == 3)
+check('lines: an idle agent has a blank where the marker goes', lines(TW('working', 'A', '5'), TW('idle', 'B', '1')) == [cy('A', W), cy('B', ' ')])
+check('lines: the marker\'s cell is kept when nothing has a marker', lines(TW('idle', 'A', '5'), TW('idle', 'B', '1')) == [cy('A', ' '), cy('B', ' ')])
+check('lines: the status icon shows without a session title', lines(TW('working', '', '5'), TW('idle', 'B', '1')) == [W, cy('B', ' ')])
+check('lines: and alone', lines(TW('blocked', '', '5')) == [B])
+check('lines: an idle agent with no title is "claude", lined up', lines(TW('working', 'A', '5'), TW('idle', '', '1')) == [cy('A', W), ' claude'])
+check('lines: an untitled agent shows its last prompt, quoted', lines(TW('idle', '', '5', hint='which service?'), TW('idle', '', '1', hint='And ADR-0011? Tersely please')) == [cy('\u201cwhich service?', ' '), cy('\u201cAnd ADR-0011? Ter…', ' ')])
+check('lines: a marked untitled agent shows the marker, then the prompt', lines(TW('working', '', '5', hint='fix it'), TW('idle', 'Named', '1')) == [cy('\u201cfix it', W), cy('Named', ' ')])
+check('lines: a title beats the hint', lines(TW('idle', 'Named', '5', hint='fix it')) == [cy('Named', ' ')])
+check('lines: two untitled idle agents', lines(TW('idle', '', '5'), TW('idle', '', '1')) == [' claude', ' claude'])
+check('lines: commands follow the agents', lines(TW(prompt=False, cmd='pnpm dev'), TW('working', 'A', '5')) == [cy('A', W), ' pnpm dev'])
+check('lines: commands alone have the gutter too', lines(TW(prompt=False, cmd='pnpm dev'), TW(prompt=False, cmd='tail -f log')) == [' pnpm dev', ' tail -f log'])
+check('lines: commands past the last line are counted too',
+      lines(TW('working', 'A', '5'), TW(prompt=False, cmd='a'), TW(prompt=False, cmd='b'), TW(prompt=False, cmd='c')) == [cy('A', W), ' a', ' +2 more'])
+check('lines: a shell at a prompt shows its name', lines(TW(proc='-zsh')) == [' zsh'])
+check('lines: a path to the shell is cut to its name', lines(TW(proc='/bin/fish')) == [' fish'])
+check('lines: a running command beats the process name', lines(TW(prompt=False, cmd='pnpm dev', proc='node')) == [' pnpm dev'])
+check('lines: with no command reported, the running process', lines(TW(prompt=False, proc='sleep')) == [' sleep'])
+check('lines: commands, then shells at a prompt', lines(TW(proc='zsh'), TW(prompt=False, cmd='pnpm dev', proc='zsh')) == [' pnpm dev', ' zsh'])
+check('lines: agents, then shells', lines(TW('working', 'A', '5'), TW(proc='zsh')) == [cy('A', W), ' zsh'])
+check('lines: a window with no process to name says nothing', lines(TW(), TW(proc='zsh'))[0] == ' zsh' and len(lines(TW(), TW(proc='zsh'))) == 1)
+check('lines: nothing to say is no lines', second_line(TW(), TW(cmd='ls')) == '')
+check('lines: a long title is cut to the width less the marker', lines(TW('working', 'abcdefghijklmnopqrstuvwxyz', '5')) == [cy('abcdefghijklmnopqr…', W)],
+      lines(TW('working', 'abcdefghijklmnopqrstuvwxyz', '5')))
+check('lines: and its padded neighbour likewise', lines(TW('working', 'A', '5'), TW('idle', 'abcdefghijklmnopqrstuvwxyz', '1'))[1] == cy('abcdefghijklmnopqr…', ' '))
+
+# a window's program line is redrawn when its command starts or ends
+pw = AgentWindow(31, 599, proc='zsh')
+pw.program_status = Status()
+pw.at_prompt, pw.last_cmd_cmdline = True, ''
+pboss = AgentBoss(pw)
+fw.poll(pboss)
+pdirty = pboss.dirty
+fw.poll(pboss)
+check('program: nothing redrawn while it stays', pboss.dirty == pdirty, (pboss.dirty, pdirty))
+pw.at_prompt, pw.last_cmd_cmdline = False, 'sleep 5'
+fw.poll(pboss)
+check('program: a command starting redraws the tab bar', pboss.dirty == pdirty + 1, (pboss.dirty, pdirty))
+fw.poll(pboss)
+check('program: and only once', pboss.dirty == pdirty + 1, (pboss.dirty, pdirty))
+pw.at_prompt = True
+fw.poll(pboss)
+check('program: a command ending redraws it too', pboss.dirty == pdirty + 2, (pboss.dirty, pdirty))
 
 print(f'\n{failures} failure(s)' if failures else '\nALL OK')
 sys.exit(1 if failures else 0)

@@ -66,7 +66,7 @@ ln -s $PWD/kitty/focus_watcher.py ~/.config/kitty/focus_watcher.py
 echo 'watcher focus_watcher.py' >> ~/.config/kitty/kitty.conf
 ```
 
-The same watcher drives the tab markers (`!` an agent in the tab is blocked, `✓` one has finished unseen, `…` one is working) and the "Claude needs you" / "Claude finished" desktop notifications. The markers also need `tab_bar.py`, and `{custom}` in place of `{activity_symbol}` and `{title}` in the tab title template in `kitty.conf` (`tab_bar.py` draws the activity symbol, leaving out agents' windows, then the marker and the title, shortening a path to `g/g/project-tools`):
+The same watcher drives the tab markers (`!` an agent in the tab is blocked, `✓` one has finished unseen, `…` one is working) and the "Claude needs you" / "Claude finished" desktop notifications. The markers also need `tab_bar.py`, and `{custom}` in place of `{activity_symbol}` and `{title}` in the tab title template in `kitty.conf` (`tab_bar.py` draws the activity symbol, leaving out agents' windows, then the title, shortening a path to `g/g/project-tools`; with `tab_bar_edge left` and `tab_title_max_lines 2` the marker leads a second line with the agent's Claude session title, see docs/project-picker.md):
 
 ```zsh
 ln -s $PWD/kitty/tab_bar.py ~/.config/kitty/tab_bar.py
