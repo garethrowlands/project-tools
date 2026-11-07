@@ -137,7 +137,7 @@ startgroup
     shaders cursor-trail-blaze-local
 endgroup
 
-# 6-9 (with 7b). OS window focus: a thin peach glow around the whole OS window (all
+# 6-8. OS window focus: a thin peach glow around the whole OS window (all
 #    panes and the tab bar) while it has keyboard focus; while it doesn't, a
 #    slight dim, cool tint and soft edge shadow (vignette). Last so the
 #    dimming, spotlight and ripple above don't dim or distort the glow. The glow adds light, so the pane focus glow
@@ -175,7 +175,7 @@ var float OSW_UNFOCUSED_VIGNETTE = 0.92
 var float OSW_UNFOCUSED_VIGNETTE_WIDTH_PX = 340.0
 
 # 6. Unfocused look (dim, tint, vignette) for the whole OS window. Always
-#    active and static; group 7 undoes it exactly while focused, so it follows
+#    active and static; group 7 undoes it while focused, so it follows
 #    the same focus state as the glow.
 startgroup
     animation_step 0
@@ -183,49 +183,27 @@ startgroup
     shaders os-window-focus-border
 endgroup
 
-# 7. While focused: undo the unfocused look and draw the steady glow. Static
-#    (animation_step 0): drawn as part of kitty's normal redraws, never by
-#    periodic animation frames. Stops (no time limit) only on
-#    os-window-focus-out.
+# 7. Focused look, faded: one group fades the unfocused look out over 250ms
+#    when the OS window gains focus and back in over 400ms (animation_reverse)
+#    when it loses it; the group then turns off, leaving group 6's unfocused
+#    look. Replaces the old static steady group plus separate fade-in and
+#    fade-out groups. Pipeline load in a focused window runs the fade in, as
+#    before; unfocused windows never start it.
+#    The curve applies both ways. A custom cubic-bezier(0.02, 0.98, 0.3, 1) left
+#    the unfocused vignette stuck on a focused window; the built-in curves
+#    settle at 1.0.
 startgroup
     animation_start os-window-focus-in
     animation_stop os-window-focus-out
-    animation_step 0
-    var int OSW_FOCUS_PASS = 1
-    shaders os-window-focus-border
-endgroup
-
-# 7b. Focus-in fade: eases from the unfocused look to the focused one instead
-#    of switching at once. Runs on top of group 7, which undoes the unfocused
-#    look in one go; this puts it back and fades it out. The number in
-#    animation_stop is the fade duration in ms (shorter than the focus-out
-#    fade, to feel responsive); focus-out cuts it short. Also runs when the
-#    pipeline loads in a focused window.
-startgroup
-    animation_start os-window-focus-in
-    animation_stop 250 | os-window-focus-out
-    # A custom cubic-bezier(0.02, 0.98, 0.3, 1) here left the unfocused
-    # vignette stuck on a focused window; the built-in curves settle at 1.0.
+    animation_duration 250
+    animation_reverse 400
     animation_curve ease-out
     animation_step 16
-    var int OSW_FOCUS_PASS = 4
+    var int OSW_FOCUS_PASS = 5
     shaders os-window-focus-border
 endgroup
 
-# 8. Focus-out fade: eases from the focused look (steady glow, no unfocused
-#    look) to the unfocused one instead of switching at once. The number in
-#    animation_stop is the fade duration in ms; focus-in cuts it short. Never
-#    runs on pipeline load, so unfocused windows still start fully unfocused.
-startgroup
-    animation_start os-window-focus-out
-    animation_stop 400 | os-window-focus-in
-    animation_curve ease-out
-    animation_step 16
-    var int OSW_FOCUS_PASS = 3
-    shaders os-window-focus-border
-endgroup
-
-# 9. Focus-in pulse on top of the steady glow, settling to it. The number in
+# 8. Focus-in pulse on top of the steady glow, settling to it. The number in
 #    animation_stop is the pulse duration in ms; animation frames stop with it.
 startgroup
     animation_start os-window-focus-in
@@ -236,9 +214,9 @@ startgroup
     shaders os-window-focus-border
 endgroup
 
-# 10. Bell burst: the edges of the pane that rang flash red and die
+# 9. Bell burst: the edges of the pane that rang flash red and die
 #    away, and the pane's text shakes like a struck panel (side to side, with
-#    a lag down the pane so it wobbles) and settles. Group 11 then keeps the
+#    a lag down the pane so it wobbles) and settles. Group 10 then keeps the
 #    edges lit until the pane is focused. A bell in another tab rings the
 #    whole tab area the same way.
 #    Last, so a bell in an unfocused OS window isn't dimmed with it. Needs
@@ -278,14 +256,14 @@ startgroup
     shaders bell-ring
 endgroup
 
-# 11. Bell hold: after a bell in a pane you aren't in, its edges stay softly
+# 10. Bell hold: after a bell in a pane you aren't in, its edges stay softly
 #    lit until a pane gains focus. Static (animation_step 0): drawn with
 #    kitty's normal redraws, no animation frames while it lingers, so it
 #    costs nothing. The shader draws nothing if the pane that rang is the
 #    focused one (a bell in the pane you're using), or if kitty gave the
 #    whole tab area (the bell was in another tab; the tab bar's bell marks
 #    that). kitty's own bell_border_color border marks every pane that has
-#    rung; this adds light to the latest one. Same colour and outset as 10.
+#    rung; this adds light to the latest one. Same colour and outset as 9.
 startgroup
     animation_start bell-in-window
     animation_stop window-focus-in

@@ -6,29 +6,25 @@
 // soft inner shadow (vignette) along its edges.
 //
 // The shader has no notion of focus itself: the pipeline decides when each
-// pass runs. gentle.pipeline uses it in five groups, selected by OSW_FOCUS_PASS:
+// pass runs. gentle.pipeline uses it in three groups, selected by OSW_FOCUS_PASS:
 //   0 unfocused: always active; applies the dim, tint and vignette.
-//   1 steady:    started by os-window-focus-in, stopped by os-window-focus-out,
-//                animation_step 0. Undoes pass 0 exactly and adds the border
-//                at OSW_FOCUS_STEADY_INTENSITY.
-//   4 fade in:   started by os-window-focus-in, duration bounded, stopped
-//                early by os-window-focus-out. Runs after pass 1 and puts the
-//                unfocused look back, fading it out as animation_progress goes
-//                0 → 1, so gaining focus eases from the unfocused look to the
-//                focused one instead of switching at once.
+//   5 focused:   started by os-window-focus-in, stopped by os-window-focus-out,
+//                with animation_duration (fade in) and animation_reverse (fade
+//                out), so animation_progress runs 0 → 1 as focus arrives and
+//                back 1 → 0 as it leaves, then the group turns off. Undoes
+//                pass 0 and adds the steady border at OSW_FOCUS_STEADY_INTENSITY,
+//                blended in by animation_progress: 0 is the unfocused look pass
+//                0 left, 1 the focused look.
 //   2 pulse:     started by os-window-focus-in, duration bounded. Adds the
 //                extra light that takes the border from
 //                OSW_FOCUS_STEADY_INTENSITY up to OSW_FOCUS_PULSE_INTENSITY,
 //                easing back as animation_progress goes 0 → 1.
-//   3 fade out:  started by os-window-focus-out, duration bounded, stopped
-//                early by os-window-focus-in. Fades from the focused look
-//                (steady border, no dim/tint/vignette) to the unfocused one as
-//                animation_progress goes 0 → 1.
+// (Passes 1, 3 and 4 are the older static / fade-out / fade-in groups that
+// pass 5 replaces; they are kept for comparison.)
 // Applying the unfocused look always and undoing it in the focus-gated pass
 // (rather than starting a group on os-window-focus-out) means an OS window
 // that is unfocused when the pipeline loads gets it straight away: kitty only
-// synthesizes os-window-focus-in on load, never focus-out (so pass 3 doesn't
-// run on load either). kitty's
+// synthesizes os-window-focus-in on load, never focus-out. kitty's
 // intermediate buffers are 16 bit, so the round trip doesn't band.
 //
 // The border adds light, like the pane focus glow, so the two sum where they
@@ -59,7 +55,7 @@ static const float3 LUMA_WEIGHTS = float3(0.2126, 0.7152, 0.0722);
 // OSW_UNFOCUSED_VIGNETTE_WIDTH_PX framebuffer pixels from each edge.
 static const float OSW_UNFOCUSED_VIGNETTE = 0.0;
 static const float OSW_UNFOCUSED_VIGNETTE_WIDTH_PX = 120.0;
-// 0 = unfocused, 1 = steady, 2 = pulse, 3 = fade out, 4 = fade in (see above).
+// 0 = unfocused, 1 = steady, 2 = pulse, 3 = fade out, 4 = fade in, 5 = focused (see above).
 static const int OSW_FOCUS_PASS = 1;
 
 // Distance from this pixel to the nearest edge of the OS window viewport, in pixels.
@@ -119,6 +115,12 @@ fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
     if (OSW_FOCUS_PASS == 1) {
         rgb = undo_unfocused(rgb, vignette) + border_light(dist, OSW_FOCUS_STEADY_INTENSITY);
         return float4(rgb, color.a);
+    }
+    if (OSW_FOCUS_PASS == 5) {
+        // Focused, faded: from the unfocused look pass 0 applied (progress 0)
+        // to the focused look with its steady border (progress 1).
+        float3 focused = undo_unfocused(rgb, vignette) + border_light(dist, OSW_FOCUS_STEADY_INTENSITY);
+        return float4(lerp(rgb, focused, t.animation_progress), color.a);
     }
     if (OSW_FOCUS_PASS == 3) {
         // Fade out: from the focused look with its steady border back to the
