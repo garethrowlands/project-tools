@@ -1,0 +1,61 @@
+#!/usr/bin/env zsh
+# Usage: tab-bar [vertical|horizontal|none|toggle]   (toggle if no argument)
+#
+# Moves the running kitty between three tab bars: the vertical one of
+# kitty.conf (on the left, a tab several lines tall: see kitty/tab_bar.py), a
+# horizontal one on the bottom edge (one line a tab, with the agents' marker in
+# front of the title), and none. `toggle` goes left → bottom → none → left.
+# Nothing in kitty.conf changes: horizontal and none are sets of overrides on
+# the running kitty (`kitten @ load-config -o …`, which survive later reloads)
+# and vertical drops them (`--ignore-overrides`), so a kitty restart is vertical.
+# Bound to shift+option+t in kitty.conf, through an action_alias (see the
+# install-scripts skill).
+#
+# kitty can't say which it is in, so the mode is remembered in a file beside
+# the kitty process's pid (KITTY_PID), which a new kitty doesn't match.
+#
+# TAB_BAR_EDGE (default bottom) is the edge the horizontal bar goes on.
+
+mode=${1:-toggle}
+state=${XDG_CACHE_HOME:-$HOME/.cache}/project-tools/tab-bar-mode
+
+current=vertical
+if [[ -r $state ]]; then
+  read -r pid saved < $state
+  [[ $pid == ${KITTY_PID:-0} && $saved == (horizontal|none) ]] && current=$saved
+fi
+
+if [[ $mode == toggle ]]; then
+  case $current in
+    vertical)   mode=horizontal ;;
+    horizontal) mode=none ;;
+    *)          mode=vertical ;;
+  esac
+fi
+
+remember() {
+  mkdir -p ${state:h}
+  print -r -- "${KITTY_PID:-0} $1" > $state
+}
+
+case $mode in
+  horizontal)
+    kitten @ load-config \
+      -o tab_bar_edge=${TAB_BAR_EDGE:-bottom} -o tab_bar_style=powerline \
+      -o tab_title_max_lines=1 -o tab_title_max_length=0 || exit 1
+    remember horizontal
+    ;;
+  none)
+    kitten @ load-config -o tab_bar_style=hidden || exit 1
+    remember none
+    ;;
+  vertical)
+    # a second, plain reload: after "none" the first doesn't bring the bar back
+    kitten @ load-config --ignore-overrides && kitten @ load-config || exit 1
+    rm -f $state
+    ;;
+  *)
+    print -u2 "usage: tab-bar [vertical|horizontal|none|toggle]"
+    exit 2
+    ;;
+esac

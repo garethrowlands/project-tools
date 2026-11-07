@@ -787,6 +787,9 @@ check('this copy keeps polling', fw.poll.__name__ == 'poll' and vars(fw)['poll']
 import kitty.tab_bar as ktb  # noqa: E402
 
 tb = load('tab_bar')
+# these tests are of a vertical tab bar unless they say otherwise (kitty's default edge is the bottom)
+from kitty.fast_data_types import LEFT_EDGE as _LEFT
+tb.get_options = lambda: type('Opts', (), {'tab_bar_edge': _LEFT})()
 # real colour codes; `tab` (back to the tab's own colour) needs a tab being drawn
 real_fg = ktb.ColorFormatter('fg')
 fmt = type('Fmt', (), {'bold': '<b>', 'nobold': '</b>',
@@ -975,6 +978,23 @@ check('program: and only once', pboss.dirty == pdirty + 1, (pboss.dirty, pdirty)
 pw.at_prompt = True
 fw.poll(pboss)
 check('program: a command ending redraws it too', pboss.dirty == pdirty + 2, (pboss.dirty, pdirty))
+
+# tab_bar.py: in a horizontal bar the marker leads the title and no lines follow it
+def horizontal_title(edge, *windows):
+    second_line(*windows)
+    tb.get_options = lambda: type('Opts', (), {'tab_bar_edge': edge, 'tab_title_max_lines': 6, 'tab_title_max_length': 20,
+                                               'active_tab_font_style': (False, False), 'inactive_tab_font_style': (False, False)})()
+    return tb.draw_title({'tab_id': 7, 'fmt': fmt, 'title': 'proj'})
+
+
+from kitty.fast_data_types import BOTTOM_EDGE, LEFT_EDGE, RIGHT_EDGE, TOP_EDGE
+check('horizontal: the most pressing agent\'s marker leads the title', horizontal_title(BOTTOM_EDGE, TW('working', 'A', '5'), TW('blocked', 'B', '1')) == f'{B} proj', repr(horizontal_title(BOTTOM_EDGE, TW('working', 'A', '5'), TW('blocked', 'B', '1'))))
+check('horizontal: a marker needs to be there (top edge too)', horizontal_title(TOP_EDGE, TW('done', 'A', '5')) == f'{D} proj')
+check('horizontal: no lines follow', '\n' not in horizontal_title(BOTTOM_EDGE, TW('working', 'A', '5'), TW(proc='zsh')))
+check('horizontal: idle agents leave the title alone', horizontal_title(BOTTOM_EDGE, TW('idle', 'A', '5')) == 'proj')
+check('horizontal: so does a tab with no agents', horizontal_title(BOTTOM_EDGE, TW(proc='zsh')) == 'proj')
+check('vertical: a left edge still has its lines', horizontal_title(LEFT_EDGE, TW('working', 'A', '5')) == f'proj\n{W}A', repr(horizontal_title(LEFT_EDGE, TW('working', 'A', '5'))))
+check('vertical: and so does a right edge', horizontal_title(RIGHT_EDGE, TW('working', 'A', '5')) == f'proj\n{W}A')
 
 print(f'\n{failures} failure(s)' if failures else '\nALL OK')
 sys.exit(1 if failures else 0)

@@ -1,6 +1,6 @@
 ---
 name: install-scripts
-description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, save-session, tidy-windows, project-web, hunk-dock, btop-dock, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh) and the custom shader pipeline in kitty/shaders/. Use when setting up a new machine or adding a symlink for a newly added bin script.
+description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, save-session, tidy-windows, project-web, hunk-dock, btop-dock, tab-bar, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh) and the custom shader pipeline in kitty/shaders/. Use when setting up a new machine or adding a symlink for a newly added bin script.
 ---
 
 ## Installation
@@ -19,6 +19,7 @@ ln -s $PWD/zsh/bin/tidy-windows ~/.local/bin/tidy-windows
 ln -s $PWD/zsh/bin/project-web ~/.local/bin/project-web
 ln -s $PWD/zsh/bin/hunk-dock ~/.local/bin/hunk-dock
 ln -s $PWD/zsh/bin/btop-dock ~/.local/bin/btop-dock
+ln -s $PWD/zsh/bin/tab-bar ~/.local/bin/tab-bar
 ln -s $PWD/zsh/bin/web ~/.local/bin/web
 ln -s $PWD/zsh/bin/note ~/.local/bin/note
 ```
@@ -57,7 +58,11 @@ map kitty_mod+n       launch --type=overlay --cwd=current note
 map kitty_mod+b       launch --type=overlay --cwd=current project-web
 map kitty_mod+j       launch --type=overlay --cwd=current next-agent
 map kitty_mod+shift+j launch --type=overlay --cwd=current next-agent --prev
+action_alias tab_bar_cycle launch --type=background --copy-env tab-bar toggle
+map shift+opt+t       tab_bar_cycle
 ```
+
+`tab-bar` (shift+option+t; the alias gives it a name of its own in kitty's command palette, where a bare `launch …` mapping is just `[Miscellaneous]`) moves the running kitty from the vertical tab bar to a horizontal one on the bottom edge, to none, and back, with `kitten @ load-config -o …` overrides, so `kitty.conf` doesn't change and a restart is vertical. It is launched `--type=background --copy-env`: a background process gets no `KITTY_LISTEN_ON` of its own, and without it `kitten @` has nothing to talk to. (The theme's colours are not re-read by `load-config`, see below.)
 
 `window`'s "done, unseen" marker and `next-agent`'s jump to a finished agent need to know when you last looked at each window. Symlink the watcher that records it and enable it (kitty only attaches it to windows created after the config is loaded):
 

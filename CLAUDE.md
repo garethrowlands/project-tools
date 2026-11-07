@@ -11,6 +11,7 @@ zsh functions/ide-tests.zsh
 zsh functions/notes-tests.zsh
 zsh functions/project-tests.zsh
 zsh functions/sw-tests.zsh
+zsh functions/tab-bar-tests.zsh
 zsh functions/tidy-windows-tests.zsh
 zsh functions/window-tests.zsh
 zsh config/install-tests.zsh
@@ -21,7 +22,7 @@ hs -c 'return dofile("'$PWD'/hammerspoon/pointer-tests.lua")'  # pointer-follows
 (cd ../python/tidy-windows-advise && uv run pytest)
 ```
 
-Each zsh suite exits with code 1 if any test fails. `hunk-dock-tests.zsh` and `btop-dock-tests.zsh` run `bin/hunk-dock` and `bin/btop-dock` against a fake `kitten`. `ide-tests.zsh` runs `bin/ide` against fake `code` and `open` (project and file-at-line opening). `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `sw-tests.zsh` tests `sw` and its preview (`bin/sw-preview`, against a fake `kitty`) on a temp repo with worktrees. `tidy-windows-tests.zsh` runs `bin/tidy-windows`' apply step against a fake `advise`, `kitty` and `fzf`. `window-tests.zsh` runs `bin/window-list`, `bin/next-agent` and `bin/save-session` against a fake `kitty` and a temp `$HOME` of Claude session files. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic. `kitty/demo`'s suites test the shader demo's geometry, verbs (kitty and Hammerspoon stubbed), card and play; see `kitty/demo/README.md`.
+Each zsh suite exits with code 1 if any test fails. `hunk-dock-tests.zsh`, `btop-dock-tests.zsh` and `tab-bar-tests.zsh` run `bin/hunk-dock`, `bin/btop-dock` and `bin/tab-bar` against a fake `kitten`. `ide-tests.zsh` runs `bin/ide` against fake `code` and `open` (project and file-at-line opening). `notes-tests.zsh` has unit tests (temp vault) and integration tests (against `$HOME/notes`). `project-tests.zsh` tests the project picker helpers. `sw-tests.zsh` tests `sw` and its preview (`bin/sw-preview`, against a fake `kitty`) on a temp repo with worktrees. `tidy-windows-tests.zsh` runs `bin/tidy-windows`' apply step against a fake `advise`, `kitty` and `fzf`. `window-tests.zsh` runs `bin/window-list`, `bin/next-agent` and `bin/save-session` against a fake `kitty` and a temp `$HOME` of Claude session files. `tidy-windows-advise`'s pytest suite tests all of its window/git/idle-time/recommendation logic. `kitty/demo`'s suites test the shader demo's geometry, verbs (kitty and Hammerspoon stubbed), card and play; see `kitty/demo/README.md`.
 
 ## Architecture
 
@@ -49,6 +50,8 @@ map kitty_mod+n         launch --type=overlay --cwd=current note
 map kitty_mod+b         launch --type=overlay --cwd=current project-web
 map kitty_mod+j         launch --type=overlay --cwd=current next-agent
 map kitty_mod+shift+j   launch --type=overlay --cwd=current next-agent --prev
+action_alias tab_bar_cycle launch --type=background --copy-env tab-bar toggle
+map shift+opt+t         tab_bar_cycle
 ```
 
 `switch-project` and `window` are picker-per-target (jump to one project/window); `tidy-windows` is a bulk review across all open windows — kept as a separate binding rather than merged into `window`, since it fires an Anthropic API call on each run. The same agent states appear as tab markers and desktop notifications without any key, from `kitty/focus_watcher.py` (polls each agent's state) and `kitty/tab_bar.py` (`{custom}` in `tab_title_template`); see `docs/project-picker.md`. `next-agent` has no picker: it focuses the next window whose Claude agent is blocked or has finished unseen (which needs `watcher focus_watcher.py` in `kitty.conf`), or with none of those just the next agent window; `--prev` goes backwards. See `.claude/skills/install-scripts/SKILL.md` for the full setup (symlinks, `listen_on` for `window`'s live preview, these bindings).

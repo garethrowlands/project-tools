@@ -15,12 +15,12 @@ red `!` (one is blocked on you), green `✓` (one has finished since you last
 looked) and yellow `…` (one is working) — or nothing, in bold. The states are
 the `agent_state` user vars that focus_watcher.py keeps up to date.
 
-With `tab_bar_edge left` and `tab_title_max_lines 2` the marker leads the
-second line, in front of the Claude session title (`agent_title`, also from
-focus_watcher.py) of the agent it stands for, and `+N` for the tab's other
-agents; a tab with no agent shows the command running in its windows there
-instead. In a horizontal bar, where kitty drops everything after the first
-line, the marker doesn't show at all.
+With `tab_bar_edge left` (or right) and `tab_title_max_lines` above 1 a line
+for each agent follows the title, led by its marker, in front of the Claude
+session title (`agent_title`, also from focus_watcher.py) or what was last asked
+in it (`agent_hint`), then a line for each other window; see status_lines. In a
+horizontal bar, where kitty drops everything after the first line, the
+most pressing agent's marker leads the title instead, and nothing follows it.
 
 The activity symbol (`tab_activity_symbol`, in red) is kitty's, but only for
 windows without an agent: Claude Code repaints when it loses focus, which kitty
@@ -36,7 +36,7 @@ it to their first letter, fish style, dropping all but the nearest few:
 
 from typing import Any
 
-from kitty.fast_data_types import get_boss, get_options
+from kitty.fast_data_types import LEFT_EDGE, RIGHT_EDGE, get_boss, get_options
 from kitty.tab_bar import color_from_int
 
 # most pressing first: (states, marker, colour)
@@ -247,7 +247,28 @@ def status_line(data: dict[str, Any]) -> str:
         return ''
 
 
+def vertical() -> bool:
+    # whether the tab bar is on a side: a title can have lines under it there.
+    # Assumed when kitty can't say.
+    try:
+        return get_options().tab_bar_edge in (LEFT_EDGE, RIGHT_EDGE)
+    except Exception:
+        return True
+
+
+def lead_marker(data: dict[str, Any]) -> str:
+    # the marker of the tab's most pressing agent, '' if none is not idle
+    try:
+        tab = get_boss().tab_for_id(data['tab_id'])
+        return next((mark for mark, _, _ in agent_entries(data, tab) if mark), '') if tab else ''
+    except Exception:
+        return ''
+
+
 def draw_title(data: dict[str, Any]) -> str:
     title = activity(data) + short_title(str(data.get('title', '')), *dim_colour(data))
+    if not vertical():
+        mark = lead_marker(data)
+        return f'{mark} {title}' if mark else title
     second = status_line(data)
     return f'{title}\n{second}' if second else title
