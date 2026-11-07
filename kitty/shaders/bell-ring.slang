@@ -53,7 +53,7 @@ static const float BELL_SHAKE_DECAY = 3.0;
 // rigidly, larger wobbles like jelly. Lower text also moves a bit more.
 static const float BELL_SHAKE_LAG = 1.6;
 // Corner radius of the glow's rounded rectangle, in framebuffer pixels.
-static const float BELL_RADIUS_PX = 20.0;
+static const float BELL_RADIUS_PX = 16.0;
 // Hold: blend amount at the pane edge, and how far in it fades out.
 static const float BELL_HOLD_INTENSITY = 0.3;
 static const float BELL_HOLD_WIDTH_PX = 22.0;

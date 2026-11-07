@@ -34,6 +34,9 @@ static const bool INCLUDE_WINDOW_PADDING = false;
 static const float GLOW_STRENGTH = 0.0;
 static const float3 GLOW_COLOR = float3(1.0);
 static const float GLOW_WIDTH_PX = 8.0;
+// Corner radius of the glow, in pixels; match kitty.conf's window_border_radius
+// (2 px per point on Retina). 0 = square corners.
+static const float GLOW_RADIUS_PX = 0.0;
 
 public float4
 fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
@@ -70,9 +73,15 @@ fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
         float boost = (HIGHLIGHT_INTENSITY + borderGlow) * strength;
 
         // Additive glow band, measured in pixels so it is equally wide on all four edges.
+        // The band follows a rounded rectangle: s is the distance in from its
+        // edge (negative in the corners, where the glow is full).
         float2 pixelDims = float2(d.viewport_size_pixels) * t.viewport.zw;
-        float2 edgePx = edgeDists * pixelDims;
-        float glow = smoothstep(GLOW_WIDTH_PX, 0.0, min(edgePx.x, edgePx.y)) * GLOW_STRENGTH * strength;
+        float2 halfPx = 0.5 * g.zw * pixelDims;
+        float2 offPx = (uv - (winMin + 0.5 * g.zw)) * pixelDims;
+        float radius = min(GLOW_RADIUS_PX, min(halfPx.x, halfPx.y));
+        float2 q = abs(offPx) - (halfPx - radius);
+        float s = radius - (length(max(q, 0.0)) + min(max(q.x, q.y), 0.0));
+        float glow = smoothstep(GLOW_WIDTH_PX, 0.0, s) * GLOW_STRENGTH * strength;
 
         return float4(color.rgb * (1.0 + boost) + GLOW_COLOR * glow, color.a);
     }

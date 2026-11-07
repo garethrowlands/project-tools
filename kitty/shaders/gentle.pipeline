@@ -39,6 +39,8 @@ startgroup
     # active_border_color #B4BEFE (Catppuccin Mocha lavender) in linear RGB
     var float3 GLOW_COLOR = float3(0.4564, 0.5149, 0.9911)
     var float GLOW_WIDTH_PX = 8.0
+    # match window_border_radius in kitty.conf (8pt = 16px on Retina)
+    var float GLOW_RADIUS_PX = 16.0
     var float INACTIVE_DIM = 1.0
     var bool INCLUDE_WINDOW_PADDING = true
     # local copy of focus-highlight with an additive edge glow
@@ -261,8 +263,9 @@ startgroup
     var float BELL_OUTSET_PX = 4.0
     # number of edge pulses; 0 = a single flash
     var float BELL_RINGS = 0.0
-    # corner radius of the glow, framebuffer pixels
-    var float BELL_RADIUS_PX = 20.0
+    # corner radius of the glow, framebuffer pixels; match window_border_radius
+    # in kitty.conf (8pt = 16px on Retina)
+    var float BELL_RADIUS_PX = 16.0
     # peak text displacement, framebuffer pixels (2 per point on Retina);
     # up and down is a third of it
     var float BELL_SHAKE_PX = 9.0
@@ -290,7 +293,7 @@ startgroup
     var int BELL_MODE = 1
     var float3 BELL_COLOR = float3(0.8963, 0.2582, 0.3916)
     var float BELL_OUTSET_PX = 4.0
-    var float BELL_RADIUS_PX = 20.0
+    var float BELL_RADIUS_PX = 16.0
     # blend amount at the pane edge (0..1), and how far in it fades out, in
     # framebuffer pixels
     var float BELL_HOLD_INTENSITY = 0.3
