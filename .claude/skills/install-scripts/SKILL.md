@@ -150,7 +150,7 @@ done
 
 It has no remote control, so `~/.zshrc`'s `set_kitty_title` precmd hook (`kitty @ set-window-title`) must skip itself there or the first prompt prints "remote control is disabled": start the function with `[[ -n ${KITTY_LISTEN_ON-} ]] || return` (the main kitty sets `KITTY_LISTEN_ON` through `listen_on`; the quick-access terminal sets none).
 
-The key is outside kitty. A macOS Services shortcut (System Settings, Keyboard, Keyboard Shortcuts, Services, General, "Quick access to kitty") doesn't work while the main kitty has focus, so bind it with `skhd` instead, which is global. In `~/.skhdrc` (`lalt - 0x32` is Option plus the backtick key, left of Z on an ISO MacBook keyboard), then reload with `kill -USR1 $(pgrep skhd)`:
+The key is outside kitty. A macOS Services shortcut (System Settings, Keyboard, Keyboard Shortcuts, Services, General, "Quick access to kitty") doesn't work while the main kitty has focus (tried: it works from other apps only), so bind it with `skhd` instead, which is global and works everywhere, kitty included (tried). Don't set both: remove the Services shortcut, or two keys toggle the same window. In `~/.skhdrc` (`lalt - 0x32` is Option plus the backtick key, left of Z on an ISO MacBook keyboard), then reload with `kill -USR1 $(pgrep skhd)` (`skhd --reload` can fail with "could not open pid-file"):
 
 ```
 lalt - 0x32 : /Applications/kitty.app/Contents/MacOS/kitten quick-access-terminal
