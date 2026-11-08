@@ -1,6 +1,6 @@
 ---
 name: install-scripts
-description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, save-session, tidy-windows, project-web, hunk-dock, btop-dock, tab-bar, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh) and the custom shader pipeline in kitty/shaders/. Use when setting up a new machine or adding a symlink for a newly added bin script.
+description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, save-session, tidy-windows, project-web, hunk-dock, btop-dock, tab-bar, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh), the quick-access terminal config (quick-access-terminal.conf, quick-access.conf) and the custom shader pipeline in kitty/shaders/. Use when setting up a new machine or adding a symlink for a newly added bin script.
 ---
 
 ## Installation
@@ -137,6 +137,24 @@ grep -q '^window_padding_width' ~/.config/kitty/kitty.conf || echo 'window_paddi
 If you change `window_border_radius` (or move to a 1x display), change `GLOW_RADIUS_PX` in group 2 and `BELL_RADIUS_PX` in the two bell groups of `gentle.pipeline` to match: the radius in points times 2 on Retina, in pixels.
 
 Then reload kitty's config (Cmd+Ctrl+,).
+
+## Quick-access terminal (`kitty/quick-access*.conf`)
+
+A drop-down scratch terminal (`kitten quick-access-terminal`, kitty 0.42+): it slides down from the top of the screen, and running the command again hides it, so one key toggles it. It is a separate kitty instance, so `quick-access-terminal.conf` points `kitty_conf` at `quick-access.conf`, a minimal config with just the font and theme. The main `kitty.conf` must not be used for it: it restores saved sessions at startup (`startup_session`), runs the agent watcher (a second poller duplicates notifications) and loads the shaders and the vertical tab bar. The other options keep the kitten's defaults (top edge, 25 lines, 80 columns, 0.85 opacity); add `hide_on_focus_loss yes` to `quick-access-terminal.conf` to hide it when you click away.
+
+```zsh
+for f in quick-access.conf quick-access-terminal.conf; do
+  ln -s $PWD/kitty/$f ~/.config/kitty/$f
+done
+```
+
+It has no remote control, so `~/.zshrc`'s `set_kitty_title` precmd hook (`kitty @ set-window-title`) must skip itself there or the first prompt prints "remote control is disabled": start the function with `[[ -n ${KITTY_LISTEN_ON-} ]] || return` (the main kitty sets `KITTY_LISTEN_ON` through `listen_on`; the quick-access terminal sets none).
+
+The key is outside kitty. A macOS Services shortcut (System Settings, Keyboard, Keyboard Shortcuts, Services, General, "Quick access to kitty") doesn't work while the main kitty has focus, so bind it with `skhd` instead, which is global. In `~/.skhdrc` (`lalt - 0x32` is Option plus the backtick key, left of Z on an ISO MacBook keyboard), then reload with `kill -USR1 $(pgrep skhd)`:
+
+```
+lalt - 0x32 : /Applications/kitty.app/Contents/MacOS/kitten quick-access-terminal
+```
 
 ## Hammerspoon (`hammerspoon/`)
 
