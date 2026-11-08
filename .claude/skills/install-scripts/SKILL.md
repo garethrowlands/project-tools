@@ -128,13 +128,13 @@ done
 grep -q '^custom_shaders' ~/.config/kitty/kitty.conf || echo 'custom_shaders gentle' >> ~/.config/kitty/kitty.conf
 # the bell shader only gets bell-in-window events with a visual bell; 0.01s keeps kitty's own flash invisible
 grep -q '^visual_bell_duration' ~/.config/kitty/kitty.conf || echo 'visual_bell_duration 0.01' >> ~/.config/kitty/kitty.conf
-# rounded pane borders: the pane focus glow and bell glow in gentle.pipeline use a matching 16px corner radius (8pt x 2 on Retina), and
+# rounded pane borders: the pane focus glow and bell glow in gentle.pipeline use a matching 32px corner radius (16pt x 2 on Retina), and
 # the padding keeps text clear of the rounded corners (needs the default full borders, draw_minimal_borders no)
-grep -q '^window_border_radius' ~/.config/kitty/kitty.conf || echo 'window_border_radius 8' >> ~/.config/kitty/kitty.conf
+grep -q '^window_border_radius' ~/.config/kitty/kitty.conf || echo 'window_border_radius 16' >> ~/.config/kitty/kitty.conf
 grep -q '^window_padding_width' ~/.config/kitty/kitty.conf || echo 'window_padding_width 3' >> ~/.config/kitty/kitty.conf
 ```
 
-If you change `window_border_radius` (or move to a 1x display), change `GLOW_RADIUS_PX` in group 2 and `BELL_RADIUS_PX` in the two bell groups of `gentle.pipeline` to match: the radius in points times 2 on Retina, in pixels.
+If you change `window_border_radius` (or move to a 1x display), change the pipeline-level `WINDOW_RADIUS_PX` at the top of `gentle.pipeline` to match: the radius in points times 2 on Retina, in pixels. kitty doesn't pass the radius or border width to shaders, so it can't be read from `kitty.conf`.
 
 Then reload kitty's config (Cmd+Ctrl+,).
 

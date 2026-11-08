@@ -6,6 +6,15 @@
 #
 # Groups run in order; each one reads the previous group's output.
 
+# Corner radius of the glows (pane focus glow, bell glow), in framebuffer
+# pixels. Match window_border_radius in kitty.conf: 16pt = 32px on Retina.
+# kitty gives shaders no border radius or width, so this is the one place to
+# change when you change window_border_radius (or move to a 1x display).
+# The macOS window's own corner is about 15pt (measured: it blacks out ~8.5px
+# along the diagonal at 2x), and a pane in a window corner needs to be a little
+# rounder than that or macOS clips the outer part of its border arc.
+var float WINDOW_RADIUS_PX = 32.0
+
 # 1. Dim inactive windows (same shader/setup as dim-inactive-windows,
 #    but much lighter). Static: only redraws when the active window changes.
 startgroup
@@ -39,8 +48,6 @@ startgroup
     # active_border_color #B4BEFE (Catppuccin Mocha lavender) in linear RGB
     var float3 GLOW_COLOR = float3(0.4564, 0.5149, 0.9911)
     var float GLOW_WIDTH_PX = 8.0
-    # match window_border_radius in kitty.conf (8pt = 16px on Retina)
-    var float GLOW_RADIUS_PX = 16.0
     var float INACTIVE_DIM = 1.0
     var bool INCLUDE_WINDOW_PADDING = true
     # local copy of focus-highlight with an additive edge glow
@@ -146,11 +153,17 @@ startgroup
     shaders cursor-trail-blaze-local
 endgroup
 
-# 6-8. OS window focus: a thin peach glow around the whole OS window (all
-#    panes and the tab bar) while it has keyboard focus; while it doesn't, a
-#    slight dim, cool tint and soft edge shadow (vignette). Last so the
-#    dimming, spotlight and ripple above don't dim or distort the glow. The glow adds light, so the pane focus glow
-#    (group 2) stays visible where the two overlap.
+# 6-8. OS window focus: while the OS window doesn't have keyboard focus, a
+#    slight dim, cool tint and soft edge shadow (vignette); when it gains
+#    focus, that fades away and a thin peach glow around the whole OS window
+#    (all panes and the tab bar) pulses once and dies away. There is no
+#    permanent border (OSW_FOCUS_STEADY_INTENSITY = 0): the shader can only
+#    draw at the edge of kitty's viewport, which sits below the macOS title
+#    bar, so a steady border would frame only three sides of the window
+#    and leave a second line under the title bar. The vignette alone marks
+#    focus. Last so the dimming, spotlight and ripple above don't dim or
+#    distort the glow. The glow adds light, so the pane focus glow (group 2)
+#    shows where the two overlap during the pulse.
 #    Only os-window-focus-in/out drive these groups, so pane switches and tab
 #    changes don't retrigger the pulse. kitty only synthesizes focus-in on
 #    pipeline (re)load for OS windows that are actually focused, so unfocused
@@ -164,8 +177,9 @@ var float3 OSW_FOCUS_COLOR = float3(0.956, 0.4508, 0.2423)
 var float OSW_FOCUS_BORDER_WIDTH_PX = 1.0
 var float OSW_FOCUS_GLOW_RADIUS_PX = 3.0
 #    light added at the border, as a fraction of the colour: steady while
-#    focused, and at the start of the focus-in pulse
-var float OSW_FOCUS_STEADY_INTENSITY = 0.1
+#    focused (0 = no permanent border; the pulse then fades to nothing), and
+#    at the start of the focus-in pulse
+var float OSW_FOCUS_STEADY_INTENSITY = 0
 var float OSW_FOCUS_PULSE_INTENSITY = 0.6
 #    fraction of the original colour kept while unfocused (1 = no dim);
 #    linear light, so 0.8 is about 10% darker on screen
@@ -212,7 +226,7 @@ startgroup
     shaders os-window-focus-border
 endgroup
 
-# 8. Focus-in pulse on top of the steady glow, settling to it. The number in
+# 8. Focus-in pulse on top of the steady glow (none now), settling to it. The number in
 #    animation_stop is the pulse duration in ms; animation frames stop with it.
 startgroup
     animation_start os-window-focus-in
@@ -250,9 +264,6 @@ startgroup
     var float BELL_OUTSET_PX = 4.0
     # number of edge pulses; 0 = a single flash
     var float BELL_RINGS = 0.0
-    # corner radius of the glow, framebuffer pixels; match window_border_radius
-    # in kitty.conf (8pt = 16px on Retina)
-    var float BELL_RADIUS_PX = 16.0
     # peak text displacement, framebuffer pixels (2 per point on Retina);
     # up and down is a third of it
     var float BELL_SHAKE_PX = 9.0
@@ -280,7 +291,6 @@ startgroup
     var int BELL_MODE = 1
     var float3 BELL_COLOR = float3(0.8963, 0.2582, 0.3916)
     var float BELL_OUTSET_PX = 4.0
-    var float BELL_RADIUS_PX = 16.0
     # blend amount at the pane edge (0..1), and how far in it fades out, in
     # framebuffer pixels
     var float BELL_HOLD_INTENSITY = 0.3

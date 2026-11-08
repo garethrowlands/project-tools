@@ -4,7 +4,7 @@
 // flash red and die away, and the pane's text shakes like a struck
 // panel (mostly side to side, with a lag down the pane so it wobbles rather
 // than moving rigidly) and settles. The glow follows a rounded rectangle
-// (BELL_RADIUS_PX) and reaches BELL_OUTSET_PX outside the pane too, because
+// (WINDOW_RADIUS_PX) and reaches BELL_OUTSET_PX outside the pane too, because
 // kitty gives only the pane's text area and draws its borders just outside it.
 // The pane need not be focused. If it isn't visible (e.g. it is in another
 // tab), kitty gives the whole central area instead, so the tab area's edges
@@ -52,8 +52,9 @@ static const float BELL_SHAKE_DECAY = 3.0;
 // Lag down the pane, radians from the top to the bottom: 0 moves the text
 // rigidly, larger wobbles like jelly. Lower text also moves a bit more.
 static const float BELL_SHAKE_LAG = 1.6;
-// Corner radius of the glow's rounded rectangle, in framebuffer pixels.
-static const float BELL_RADIUS_PX = 16.0;
+// Corner radius of the glow's rounded rectangle, in framebuffer pixels; match
+// kitty.conf's window_border_radius (gentle.pipeline sets it once for all shaders).
+static const float WINDOW_RADIUS_PX = 16.0;
 // Hold: blend amount at the pane edge, and how far in it fades out.
 static const float BELL_HOLD_INTENSITY = 0.3;
 static const float BELL_HOLD_WIDTH_PX = 22.0;
@@ -83,7 +84,7 @@ fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
 
     // The glow fades in along a rounded rectangle: s is the distance in from
     // its edge (negative outside it, in the corners, where the glow is full).
-    float radius = min(BELL_RADIUS_PX, min(halfPx.x, halfPx.y));
+    float radius = min(WINDOW_RADIUS_PX, min(halfPx.x, halfPx.y));
     float2 q = abs(offPx) - (halfPx - radius);
     float s = radius - (length(max(q, 0.0)) + min(max(q.x, q.y), 0.0));
 
