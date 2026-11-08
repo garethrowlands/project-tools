@@ -1,13 +1,13 @@
 # Gentle combination of kitty's shipped custom shaders (kitty >= 0.49).
 # Symlinked to ~/.config/kitty/shaders/gentle.pipeline and enabled from
-# kitty.conf with:  custom_shaders gentle
+# kitty/shaders.conf (included from kitty.conf) with:  custom_shaders gentle
 # Tunable constants come from the shipped .slang sources:
 # https://github.com/kovidgoyal/kitty/tree/master/kitty/shaders/custom
 #
 # Groups run in order; each one reads the previous group's output.
 
 # Corner radius of the glows (pane focus glow, bell glow), in framebuffer
-# pixels. Match window_border_radius in kitty.conf: 16pt = 32px on Retina.
+# pixels. Match window_border_radius in kitty/shaders.conf: 16pt = 32px on Retina.
 # kitty gives shaders no border radius or width, so this is the one place to
 # change when you change window_border_radius (or move to a 1x display).
 # The macOS window's own corner is about 15pt (measured: it blacks out ~8.5px
@@ -243,7 +243,7 @@ endgroup
 #    edges lit until the pane is focused. A bell in another tab rings the
 #    whole tab area the same way.
 #    Last, so a bell in an unfocused OS window isn't dimmed with it. Needs
-#    visual_bell_duration > 0 in kitty.conf for kitty to fire bell-in-window;
+#    visual_bell_duration > 0 (kitty/shaders.conf) for kitty to fire bell-in-window;
 #    0.01 keeps kitty's own full-pane flash too short to see. The number in
 #    animation_stop is the burst duration in ms; keep the curve linear, the
 #    shader shapes the decay itself. Focusing a pane cuts it short.

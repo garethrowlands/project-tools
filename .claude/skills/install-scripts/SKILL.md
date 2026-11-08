@@ -1,6 +1,6 @@
 ---
 name: install-scripts
-description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, save-session, tidy-windows, project-web, hunk-dock, btop-dock, tab-bar, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh), the quick-access terminal config (quick-access-terminal.conf, quick-access.conf) and the custom shader pipeline in kitty/shaders/. Use when setting up a new machine or adding a symlink for a newly added bin script.
+description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, save-session, tidy-windows, project-web, hunk-dock, btop-dock, tab-bar, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh), the quick-access terminal config (quick-access-terminal.conf, quick-access.conf) and the custom shader pipeline in kitty/shaders/ with its kitty settings in kitty/shaders.conf. Use when setting up a new machine or adding a symlink for a newly added bin script.
 ---
 
 ## Installation
@@ -125,16 +125,16 @@ mkdir -p ~/.config/kitty/shaders
 for f in gentle.pipeline cursor-trail-blaze-local.slang focus-highlight-local.slang os-window-focus-border.slang bell-ring.slang pond-ripple-local.slang spotlight-local.slang; do
   ln -s $PWD/kitty/shaders/$f ~/.config/kitty/shaders/$f
 done
-grep -q '^custom_shaders' ~/.config/kitty/kitty.conf || echo 'custom_shaders gentle' >> ~/.config/kitty/kitty.conf
-# the bell shader only gets bell-in-window events with a visual bell; 0.01s keeps kitty's own flash invisible
-grep -q '^visual_bell_duration' ~/.config/kitty/kitty.conf || echo 'visual_bell_duration 0.01' >> ~/.config/kitty/kitty.conf
-# rounded pane borders: the pane focus glow and bell glow in gentle.pipeline use a matching 32px corner radius (16pt x 2 on Retina), and
-# the padding keeps text clear of the rounded corners (needs the default full borders, draw_minimal_borders no)
-grep -q '^window_border_radius' ~/.config/kitty/kitty.conf || echo 'window_border_radius 16' >> ~/.config/kitty/kitty.conf
-grep -q '^window_padding_width' ~/.config/kitty/kitty.conf || echo 'window_padding_width 3' >> ~/.config/kitty/kitty.conf
+# the kitty settings the pipeline depends on live in the tracked kitty/shaders.conf: custom_shaders, the
+# visual bell (the bell shader only gets bell-in-window events with one; 0.01s keeps kitty's own flash
+# invisible) and the rounded pane borders (window_border_radius, window_padding_width, draw_minimal_borders no)
+ln -s $PWD/kitty/shaders.conf ~/.config/kitty/shaders.conf
+grep -q '^include shaders.conf' ~/.config/kitty/kitty.conf || echo 'include shaders.conf' >> ~/.config/kitty/kitty.conf
 ```
 
-If you change `window_border_radius` (or move to a 1x display), change the pipeline-level `WINDOW_RADIUS_PX` at the top of `gentle.pipeline` to match: the radius in points times 2 on Retina, in pixels. kitty doesn't pass the radius or border width to shaders, so it can't be read from `kitty.conf`.
+`shaders.conf` is included last, so remove any `custom_shaders`, `visual_bell_duration`, `window_border_radius`, `window_padding_width` or `draw_minimal_borders` lines of your own from `kitty.conf` or they will be overridden (or override it, if they come after the include).
+
+If you change `window_border_radius` in `kitty/shaders.conf` (or move to a 1x display), change the pipeline-level `WINDOW_RADIUS_PX` at the top of `gentle.pipeline` to match: the radius in points times 2 on Retina, in pixels. kitty doesn't pass the radius or border width to shaders, so it can't be read from `kitty.conf`.
 
 Then reload kitty's config (Cmd+Ctrl+,).
 
