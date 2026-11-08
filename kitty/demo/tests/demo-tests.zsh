@@ -526,11 +526,11 @@ done
 [[ $slides[11] == *'Ctrl+Option+arrow'* ]] && ok 'slide 11 gives the tiling keys' || bad 'slide 11 lacks Ctrl+Option+arrow'
 [[ $slides[12] == *'Ctrl+Option+Cmd+arrow'* ]] && ok 'slide 12 gives the focus keys' || bad 'slide 12 lacks Ctrl+Option+Cmd+arrow'
 # Beat 8 narrates one state per slide: kitty focused, TextEdit focused, back.
-[[ $slides[10] == *peach* ]] && ok 'slide 10: kitty has focus, peach border' || bad 'slide 10 lacks peach'
+[[ $slides[10] == *'full colour'* ]] && ok 'slide 10: kitty has focus, full colour' || bad 'slide 10 lacks "full colour"'
 for word in TextEdit duller tint vignette; do
   [[ $slides[11] == *$word* ]] && ok "slide 11 explains '$word'" || bad "slide 11 lacks '$word'"
 done
-[[ $slides[12] == *pulses* ]] && ok 'slide 12: the border pulses as focus returns' || bad 'slide 12 lacks pulses'
+[[ $slides[12] == *fade* ]] && ok 'slide 12: the dulling fades as focus returns' || bad 'slide 12 lacks fade'
 is 'OS-window slides fit a half-width window' "$(print -r -- $slides[10,12] | awk 'length > 48')" ''
 [[ $slides[5] == *'subtle trail'* ]] && ok 'cursor slide says the trail is subtle' || bad 'cursor slide lacks "subtle trail"'
 for text in 'kitty, with shaders' 'Focus follows you' 'switch tabs' 'and back again' 'cursor go?' 'spotlight' 'Clicks ripple' \

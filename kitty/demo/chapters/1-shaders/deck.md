@@ -96,8 +96,8 @@ Which pane rang?
 Which window has focus?
 =======================
 
-kitty has the focus, so it shows
-a thin peach border.
+kitty has the focus, so it looks as it
+should: full colour and clear edges.
 
 <!-- end_slide -->
 
@@ -123,9 +123,8 @@ Ctrl+Option+arrow does by hand.
 …and back to kitty
 ==================
 
-kitty has the focus again: the peach
-border pulses, and the dulling, tint
-and vignette lift.
+kitty has the focus again: the dulling,
+tint and vignette fade away.
 
 Hammerspoon moved the focus here; by
 hand it's Ctrl+Option+Cmd+arrow.
