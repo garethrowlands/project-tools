@@ -114,7 +114,7 @@ zsh config/install.zsh
 
 It writes kitty's `current-theme.conf` and `dark-theme.auto.conf` (each an `include` of the repo theme), links `config/btop/themes/catppuccin_mocha.theme` and `config/mdfried/config.toml` (which sets `code_theme = "Catppuccin Mocha"`) into place, and sets `color_theme = "catppuccin_mocha"` in `btop.conf` in place, since btop rewrites that file itself.
 
-`zsh/functions/theme.zsh` (sourced by `project.zsh`, `notes-lib.zsh` and `bin/tidy-windows`) sets `BAT_THEME=ansi` (bat follows the terminal's 16 colours) and Mocha colours in `FZF_DEFAULT_OPTS`. hunk is already `theme=catppuccin-mocha` in its own config. The shader colours (below) are Mocha's too, in linear RGB: lavender pane glow (matches `active_border_color`), peach OS-window glow and cursor trail, red bell, rosewater spotlight and ripple, and a dark slate for the unfocused window.
+`zsh/functions/theme.zsh` (sourced by `project.zsh`, `notes-lib.zsh` and `bin/tidy-windows`) sets `BAT_THEME=ansi` (bat follows the terminal's 16 colours) and Mocha colours in `FZF_DEFAULT_OPTS`. hunk is already `theme=catppuccin-mocha` in its own config. The shader colours (below) are Mocha's too, in linear RGB: lavender pane glow (matches `active_border_color`), peach cursor trail, red bell, rosewater spotlight and ripple, and a dark slate for the unfocused window.
 
 ## kitty shaders (`kitty/shaders/`)
 
@@ -127,14 +127,14 @@ for f in gentle.pipeline cursor-trail-blaze-local.slang focus-highlight-local.sl
 done
 # the kitty settings the pipeline depends on live in the tracked kitty/shaders.conf: custom_shaders, the
 # visual bell (the bell shader only gets bell-in-window events with one; 0.01s keeps kitty's own flash
-# invisible) and the rounded pane borders (window_border_radius, window_padding_width, draw_minimal_borders no)
+# invisible) and the rounded pane borders and hidden title bar (window_border_radius, window_padding_width, draw_minimal_borders no, hide_window_decorations)
 ln -s $PWD/kitty/shaders.conf ~/.config/kitty/shaders.conf
 grep -q '^include shaders.conf' ~/.config/kitty/kitty.conf || echo 'include shaders.conf' >> ~/.config/kitty/kitty.conf
 ```
 
-`shaders.conf` is included last, so remove any `custom_shaders`, `visual_bell_duration`, `window_border_radius`, `window_padding_width` or `draw_minimal_borders` lines of your own from `kitty.conf` or they will be overridden (or override it, if they come after the include).
+`shaders.conf` is included last, so remove any `custom_shaders`, `visual_bell_duration`, `window_border_radius`, `window_padding_width`, `draw_minimal_borders` or `hide_window_decorations` lines of your own from `kitty.conf` or they will be overridden (or override it, if they come after the include).
 
-If you change `window_border_radius` in `kitty/shaders.conf` (or move to a 1x display), change the pipeline-level `WINDOW_RADIUS_PX` at the top of `gentle.pipeline` to match: the radius in points times 2 on Retina, in pixels. kitty doesn't pass the radius or border width to shaders, so it can't be read from `kitty.conf`.
+`window_border_radius` in `kitty/shaders.conf` is in pixels (`32px`), so it is the same on every display, and `hide_window_decorations titlebar-and-corners` there removes the title bar and macOS's window corners (restart kitty for it to take effect). If you change the radius, change the pipeline-level `WINDOW_RADIUS_PX` at the top of `gentle.pipeline` to match: kitty doesn't pass the radius, border width or display scale to shaders, so it can't be read from the config.
 
 Then reload kitty's config (Cmd+Ctrl+,).
 
