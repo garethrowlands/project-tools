@@ -260,7 +260,8 @@ startgroup
     var float BELL_INTENSITY = 0.5
     # how far in from the pane edge the glow fades out, in framebuffer pixels
     var float BELL_WIDTH_PX = 28.0
-    # full-strength reach outward past the pane, over kitty's window border
+    # how far past the pane's text area the glow reaches when the padding to
+    # kitty's border isn't known (otherwise that padding is used)
     var float BELL_OUTSET_PX = 4.0
     # number of edge pulses; 0 = a single flash
     var float BELL_RINGS = 0.0

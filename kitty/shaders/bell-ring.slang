@@ -3,9 +3,11 @@
 // When a bell (BEL) arrives, the edges of the kitty window (pane) it arrived in
 // flash red and die away, and the pane's text shakes like a struck
 // panel (mostly side to side, with a lag down the pane so it wobbles rather
-// than moving rigidly) and settles. The glow follows a rounded rectangle
-// (WINDOW_RADIUS_PX) and reaches BELL_OUTSET_PX outside the pane too, because
-// kitty gives only the pane's text area and draws its borders just outside it.
+// than moving rigidly) and settles. kitty gives only the pane's text area and
+// draws its rounded border (WINDOW_RADIUS_PX) outside it, past the padding, so
+// the glow follows a rounded rectangle grown by that padding (the active
+// window's, which every pane shares) to the border's outer edge, and stays
+// out of the square corners beyond the border's arc.
 // The pane need not be focused. If it isn't visible (e.g. it is in another
 // tab), kitty gives the whole central area instead, so the tab area's edges
 // ring and its contents shake.
@@ -31,8 +33,9 @@ static const float3 BELL_COLOR = float3(0.8963, 0.2582, 0.3916);
 static const float BELL_INTENSITY = 0.5;
 // How far in from the pane edge the glow fades out, in framebuffer pixels.
 static const float BELL_WIDTH_PX = 6.0;
-// How far the glow reaches outward past the pane's text area at full strength,
-// in framebuffer pixels, to cover kitty's window border.
+// How far the glow reaches outward past the pane's text area, in framebuffer
+// pixels, when the padding to the border isn't known (the whole central area
+// ringing, or no active window yet). Otherwise the padding is used.
 static const float BELL_OUTSET_PX = 4.0;
 // Number of pulses over the animation; 0 = a single decaying flash.
 static const float BELL_RINGS = 3.0;
@@ -73,24 +76,39 @@ fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
     float2 winMin = g.xy;
     float2 winMax = g.xy + g.zw;
 
-    // Distance in from the nearest pane edge, in pixels so all four edges match;
-    // negative in the outset band. The pane is cut out as a plain rectangle, so
-    // the glow also covers the square corners of kitty's window border, and the
-    // text shakes right to the corners.
+    // The pane's text area, in pixels so all four edges match. The text shakes
+    // inside it as a plain rectangle.
     float2 halfPx = 0.5 * g.zw * pixelDims;
     float2 offPx = (t.pos - (winMin + 0.5 * g.zw)) * pixelDims;
     float2 edgePx = halfPx - abs(offPx);
-    if (min(edgePx.x, edgePx.y) < -BELL_OUTSET_PX) return color;
 
-    // The glow fades in along a rounded rectangle: s is the distance in from
-    // its edge (negative outside it, in the corners, where the glow is full).
-    float radius = min(WINDOW_RADIUS_PX, min(halfPx.x, halfPx.y));
-    float2 q = abs(offPx) - (halfPx - radius);
-    float s = radius - (length(max(q, 0.0)) + min(max(q.x, q.y), 0.0));
+    // The border's outer edge: the text area grown by the padding, per side
+    // (left, bottom, right, top). The active window's padding stands in for
+    // this pane's; it is the same for every pane. A tab-wide ring, or no known
+    // padding, grows the rectangle by BELL_OUTSET_PX instead.
+    float4 pad = float4(d.active_window_padding.xy * pixelDims, d.active_window_padding.zw * pixelDims);
+    if (all(abs(g - d.central_area) < 1e-4) || pad.x + pad.y + pad.z + pad.w <= 0.0) {
+        pad = float4(BELL_OUTSET_PX);
+    }
+    float2 outerHalf = halfPx + 0.5 * (pad.xy + pad.zw);
+    float2 outerCentre = 0.5 * (pad.zw - pad.xy);
+    // so: the distance in from the border's rounded outer edge (negative
+    // outside it, in the square corners beyond its arc).
+    float radius = min(WINDOW_RADIUS_PX, min(outerHalf.x, outerHalf.y));
+    float2 q = abs(offPx - outerCentre) - (outerHalf - radius);
+    float so = radius - (length(max(q, 0.0)) + min(max(q.x, q.y), 0.0));
+    if (so < -1.0) return color;
+    // 1 inside the rounded edge, fading over a pixel; 0 in the corners beyond
+    // it, so kitty's rounded border isn't flashed as a square.
+    float inside = saturate(so + 0.5);
+    // The glow is at full strength from the border in to the text area, then
+    // fades out over its width.
+    float reach = min(min(pad.x, pad.y), min(pad.z, pad.w));
+    float s = so - reach;
 
     if (BELL_MODE == 1) {
         float f = 1.0 - saturate(s / max(BELL_HOLD_WIDTH_PX, 1e-4));
-        float amount = saturate(BELL_HOLD_INTENSITY * f * f);
+        float amount = saturate(BELL_HOLD_INTENSITY * f * f * inside);
         return float4(lerp(color.rgb, BELL_COLOR, amount), color.a);
     }
 
@@ -112,6 +130,6 @@ fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
     float f = 1.0 - saturate(s / max(BELL_WIDTH_PX, 1e-4));
     float decay = (1.0 - p) * (1.0 - p);
     float pulse = 0.5 + 0.5 * cos(6.2831853 * BELL_RINGS * p);
-    float amount = saturate(BELL_INTENSITY * decay * pulse * f * f);
+    float amount = saturate(BELL_INTENSITY * decay * pulse * f * f * inside);
     return float4(lerp(result.rgb, BELL_COLOR, amount), result.a);
 }
