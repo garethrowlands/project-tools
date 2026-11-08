@@ -31,7 +31,10 @@ import kitty_custom_shader_types;
 static const float3 BELL_COLOR = float3(0.8963, 0.2582, 0.3916);
 // Blend amount toward BELL_COLOR at the pane edge at the first strike (0..1).
 static const float BELL_INTENSITY = 0.5;
-// How far in from the pane edge the glow fades out, in framebuffer pixels.
+// How far in from the border's outer edge the glow stays at full strength, in
+// framebuffer pixels, before it fades out.
+static const float BELL_FULL_PX = 2.0;
+// How far the glow then fades out, in framebuffer pixels.
 static const float BELL_WIDTH_PX = 6.0;
 // How far the glow reaches outward past the pane's text area, in framebuffer
 // pixels, when the padding to the border isn't known (the whole central area
@@ -101,10 +104,9 @@ fragment_main(float4 color, KittyTextures t, KittyCustomShaderData d) {
     // 1 inside the rounded edge, fading over a pixel; 0 in the corners beyond
     // it, so kitty's rounded border isn't flashed as a square.
     float inside = saturate(so + 0.5);
-    // The glow is at full strength from the border in to the text area, then
-    // fades out over its width.
-    float reach = min(min(pad.x, pad.y), min(pad.z, pad.w));
-    float s = so - reach;
+    // The glow is at full strength for BELL_FULL_PX in from the border's outer
+    // edge, then fades out over its width.
+    float s = so - BELL_FULL_PX;
 
     if (BELL_MODE == 1) {
         float f = 1.0 - saturate(s / max(BELL_HOLD_WIDTH_PX, 1e-4));

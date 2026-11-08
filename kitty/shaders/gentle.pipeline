@@ -257,9 +257,11 @@ startgroup
     var float3 BELL_COLOR = float3(0.8963, 0.2582, 0.3916)
     # blend amount toward the colour at the pane edge at the first strike (0..1;
     # a blend, not added light, so it stays red over the white active border)
-    var float BELL_INTENSITY = 0.5
-    # how far in from the pane edge the glow fades out, in framebuffer pixels
-    var float BELL_WIDTH_PX = 28.0
+    var float BELL_INTENSITY = 0.2
+    # how far in from the border's outer edge the glow stays at full strength,
+    # then how far it fades out over, in framebuffer pixels
+    var float BELL_FULL_PX = 2.0
+    var float BELL_WIDTH_PX = 8.0
     # how far past the pane's text area the glow reaches when the padding to
     # kitty's border isn't known (otherwise that padding is used)
     var float BELL_OUTSET_PX = 4.0
