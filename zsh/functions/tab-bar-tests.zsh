@@ -11,6 +11,7 @@ _zt=$(mktemp -d "${TMPDIR:-/tmp}/tab-bar-test-XXXXXX"); _zt=${_zt:A}
 mkdir -p "$_zt/bin" "$_zt/home"
 print -r -- '#!/bin/zsh
 print -r -- "kitten ${(j: :)@}" >> '$_zt'/calls
+print -r -- "${KITTY_LISTEN_ON:-none} pid=${KITTY_PID:-none}" >> '$_zt'/env
 [[ -n "$FAKE_FAIL" ]] && exit 1
 exit 0' > "$_zt/bin/kitten"
 chmod +x "$_zt/bin/kitten"
@@ -19,7 +20,7 @@ chmod +x "$_zt/bin/kitten"
 # putting the real kitten first on PATH, and no listen socket reaches a live kitty
 _run() {
   : > "$_zt/calls"
-  HOME="$_zt/home" XDG_CACHE_HOME= KITTY_LISTEN_ON= KITTY_PID=${PID:-100} PATH="$_zt/bin:$PATH" zsh -f "$_tb" "$@" >/dev/null 2>&1
+  HOME="$_zt/home" XDG_CACHE_HOME= KITTY_LISTEN_ON= KITTY_PID=${PID-100} PATH="$_zt/bin:$PATH" zsh -f "$_tb" "$@" >/dev/null 2>&1
   print "rc=$?"; cat "$_zt/calls"
 }
 H='kitten @ load-config -o tab_bar_edge=bottom -o tab_bar_style=powerline -o tab_title_max_lines=1 -o tab_title_max_length=0'
@@ -51,6 +52,15 @@ _assert_eq "$(_run toggle | sed -n 2p)" "$H" "...and does not count as the mode:
 _run vertical >/dev/null; _run none >/dev/null
 _assert_eq "$(_run toggle | sed -n 2,3p)" "$V" "toggle remembers none across calls"
 _assert_eq "$(_run bogus | head -1)" "rc=2" "an unknown mode is a usage error"
+
+# a window without KITTY_LISTEN_ON in its environment: tab-bar finds kitty's socket
+# itself, for a kitty that is running ($$ is, and 999999 is not)
+mkdir -p "$_zt/home/.config/kitty"; : > "$_zt/home/.config/kitty/kitty-999999.sock"; : > "$_zt/home/.config/kitty/kitty-$$.sock"
+: > "$_zt/env"; PID= _run horizontal >/dev/null
+_assert_eq "$(sed -n 1p $_zt/env)" "unix:$_zt/home/.config/kitty/kitty-$$.sock pid=$$" "no KITTY_LISTEN_ON: uses the socket of the running kitty, not a dead one's"
+rm -f "$_zt/home/.config/kitty/kitty-"*.sock
+: > "$_zt/env"; PID= _run horizontal >/dev/null
+_assert_eq "$(sed -n 1p $_zt/env)" "none pid=none" "no KITTY_LISTEN_ON and no socket: leaves it alone"
 
 rm -rf "$_zt"
 if (( _failures == 0 )); then print "\nAll tests passed."; else print "\n$_failures test(s) failed."; exit 1; fi

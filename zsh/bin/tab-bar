@@ -15,6 +15,23 @@
 # the kitty process's pid (KITTY_PID), which a new kitty doesn't match.
 #
 # TAB_BAR_EDGE (default bottom) is the edge the horizontal bar goes on.
+#
+# The action_alias launches this with --copy-env, which copies the active
+# window's environment. A window that has no KITTY_LISTEN_ON in it (one that
+# came back from a saved session, say) leaves `kitten @` with no socket to talk
+# to and the launch does nothing, silently. So without it, look for kitty's
+# socket the way kitty.conf names it (listen_on
+# unix:~/.config/kitty/kitty-{kitty_pid}.sock) and take the one whose kitty is
+# still running.
+
+if [[ -z $KITTY_LISTEN_ON ]]; then
+  for sock in $HOME/.config/kitty/kitty-*.sock(N); do
+    pid=${${sock:t:r}#kitty-}
+    kill -0 $pid 2>/dev/null || continue
+    export KITTY_LISTEN_ON=unix:$sock KITTY_PID=$pid
+    break
+  done
+fi
 
 mode=${1:-toggle}
 state=${XDG_CACHE_HOME:-$HOME/.cache}/project-tools/tab-bar-mode
