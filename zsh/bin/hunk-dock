@@ -1,7 +1,8 @@
 #!/usr/bin/env zsh
 # hunk-dock [--close | --changes | --view PATH...] [DIR] [HUNK_ARGS...] — review a repo's changes in Hunk, docked at the top of the
 # calling window's kitty tab (a kitty 0.50 window-dock: saved in sessions, closed with
-# its tab). Idempotent: if a window titled "hunk" is already in DIR it is left alone and
+# its tab). The dock takes the calling window's title (else DIR's name), so that the tab
+# keeps its name while the dock is focused; it is found again by its role user var. Idempotent: if a dock (a window with the user var role=hunk) is already in DIR it is left alone and
 # its id printed. --close closes it. DIR is the first argument if it is an existing
 # directory; every other argument goes to `hunk diff --watch` (e.g. --staged, main..HEAD,
 # --mode split). An already-open dock is left as is, so to change its arguments --close
@@ -43,10 +44,14 @@ else
 fi
 dir="${dir:A}"
 
-# id of an existing window titled "hunk" whose cwd is $dir
-local existing
-existing=$(kitten @ ls 2>/dev/null | jq -r --arg dir "$dir" '
-  [.[].tabs[].windows[] | select(.title == "hunk" and .cwd == $dir) | .id] | first // empty' 2>/dev/null)
+# one `kitten @ ls`: the id of an existing dock (user var role=hunk) whose cwd is $dir, and
+# the calling window's title
+local ls_json existing caller_title
+ls_json=$(kitten @ ls 2>/dev/null)
+existing=$(print -r -- "$ls_json" | jq -r --arg dir "$dir" '
+  [.[].tabs[].windows[] | select(.user_vars.role == "hunk" and .cwd == $dir) | .id] | first // empty' 2>/dev/null)
+caller_title=$(print -r -- "$ls_json" | jq -r --argjson id "${KITTY_WINDOW_ID:-0}" '
+  [.[].tabs[].windows[] | select(.id == $id) | .title] | first // empty' 2>/dev/null)
 
 if (( close )); then
   [[ -n "$existing" ]] && kitten @ close-window --match="id:$existing"
@@ -74,4 +79,4 @@ local -a match=()
 
 kitten @ launch --type=window-dock \
   --dock-edge="${HUNK_DOCK_EDGE:-top}" --dock-size="${HUNK_DOCK_SIZE:-65%}" \
-  "${match[@]}" --keep-focus --title=hunk --cwd="$dir" hunk diff --watch "${hunk_args[@]}" "${view_args[@]}"
+  "${match[@]}" --keep-focus --var=role=hunk --title="${caller_title:-${dir:t}}" --cwd="$dir" hunk diff --watch "${hunk_args[@]}" "${view_args[@]}"

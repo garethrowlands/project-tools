@@ -32,10 +32,10 @@ _run() {
   out=$(cd "${_cwd:-$_zt/repo}" && KITTY_LISTEN_ON= PATH="$_zt/bin:$PATH" zsh -f "$_hd" "$@" 2>&1); rc=$?
   cat "$_zt/calls"; print -r -- "$out"; print "rc=$rc"
 }
-_ls_hunk_in() {  # $1 = cwd of an existing window titled hunk
+_ls_hunk_in() {  # $1 = cwd of an existing dock (user var role=hunk)
   print -r -- '[{"tabs":[{"id":1,"title":"t","windows":[
     {"id":7,"title":"claude","cwd":"'$_zt'/repo"},
-    {"id":31,"title":"hunk","cwd":"'$1'"}]}]}]'
+    {"id":31,"title":"proj","user_vars":{"role":"hunk"},"cwd":"'$1'"}]}]}]'
 }
 
 export FAKE_LS='[{"tabs":[{"id":1,"title":"t","windows":[{"id":7,"title":"claude","cwd":"'$_zt'/repo"}]}]}]'
@@ -43,9 +43,12 @@ unset HUNK_DOCK_EDGE HUNK_DOCK_SIZE
 export KITTY_WINDOW_ID=7
 
 out=$(_run)
-_assert_contains "$out" "kitten @ launch --type=window-dock --dock-edge=top --dock-size=65% --match=window_id:7 --keep-focus --title=hunk --cwd=$_zt/repo hunk diff --watch" \
+_assert_contains "$out" "kitten @ launch --type=window-dock --dock-edge=top --dock-size=65% --match=window_id:7 --keep-focus --var=role=hunk --title=claude --cwd=$_zt/repo hunk diff --watch" \
   "open: docks Hunk at the top, 65%, in the caller's tab, without taking focus"
 _assert_contains "$out" "42" "open: prints the new window's id"
+
+out=$(KITTY_WINDOW_ID=99 _run)
+_assert_contains "$out" "--title=repo " "open: with no title for the calling window, the repo's name"
 
 out=$(_run "$_zt/other")
 _assert_contains "$out" "--cwd=$_zt/other hunk diff --watch" "open: a directory argument is the repo"
@@ -82,6 +85,11 @@ export FAKE_LS='[{"tabs":[{"id":1,"title":"t","windows":[{"id":7,"title":"claude
 out=$(_run --close)
 _assert_not_contains "$out" "close-window" "close: nothing open, nothing closed"
 _assert_contains "$out" "rc=0" "close: ... and that is not an error"
+
+# a window merely titled hunk is not a dock
+export FAKE_LS='[{"tabs":[{"id":1,"title":"t","windows":[{"id":7,"title":"claude","cwd":"'$_zt'/repo"},{"id":31,"title":"hunk","cwd":"'$_zt'/repo"}]}]}]'
+out=$(_run)
+_assert_contains "$out" "@ launch" "open: a window titled hunk, without the role, does not count"
 
 # --view / --changes
 export FAKE_LS='[{"tabs":[{"id":1,"title":"t","windows":[{"id":7,"title":"claude","cwd":"'$_zt'/repo"}]}]}]'
