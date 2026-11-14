@@ -418,7 +418,27 @@ def on_program_status_change(boss: Any, window: Any, data: dict[str, Any]) -> No
         pass
 
 
+FOCUS_LOG = os.path.expanduser('~/.cache/project-tools/kitty-focus.log')
+FOCUS_LOG_MAX = 200 * 1024
+
+
+def log_focus(window: Any, focused: bool) -> None:
+    """Append a line to FOCUS_LOG for every focus change, to line up with the
+    OS-window focus shader after a wake (a focused window left showing the
+    unfocused vignette). zsh/bin/kitty-resync logs its reloads there too."""
+    try:
+        os.makedirs(os.path.dirname(FOCUS_LOG), exist_ok=True)
+        if os.path.exists(FOCUS_LOG) and os.path.getsize(FOCUS_LOG) > FOCUS_LOG_MAX:
+            os.replace(FOCUS_LOG, FOCUS_LOG + '.1')
+        with open(FOCUS_LOG, 'a') as f:
+            f.write(f"{time.strftime('%F %T')} focus: window {window.id} "
+                    f"os_window {window.os_window_id} {'in' if focused else 'out'}\n")
+    except Exception:
+        pass
+
+
 def on_focus_change(boss: Any, window: Any, data: dict[str, Any]) -> None:
+    log_focus(window, bool(data.get('focused')))
     window.set_user_var('seen_at', str(int(time.time())))
     # straight away, so a ✓ clears as you arrive rather than at the next poll
     try:
