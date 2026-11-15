@@ -40,6 +40,7 @@ done
 
 link $ROOT/config/btop/themes/catppuccin_mocha.theme $CONFIG/btop/themes/catppuccin_mocha.theme
 link $ROOT/config/mdfried/config.toml $CONFIG/mdfried/config.toml
+link $ROOT/skhd/kitty_console $CONFIG/skhd/kitty_console   # bound in ~/.skhdrc
 
 # btop rewrites its own btop.conf, so it is edited in place, not linked.
 btop_conf=$CONFIG/btop/btop.conf

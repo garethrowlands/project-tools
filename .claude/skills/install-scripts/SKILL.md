@@ -115,7 +115,7 @@ The palette is Catppuccin Mocha with the crust background (`#11111B`), dark mode
 zsh config/install.zsh
 ```
 
-It writes kitty's `current-theme.conf` and `dark-theme.auto.conf` (each an `include` of the repo theme), links `config/btop/themes/catppuccin_mocha.theme` and `config/mdfried/config.toml` (which sets `code_theme = "Catppuccin Mocha"`) into place, and sets `color_theme = "catppuccin_mocha"` in `btop.conf` in place, since btop rewrites that file itself.
+It also links `skhd/kitty_console` (the Option+Space kitty toggle bound in `~/.skhdrc`) to `~/.config/skhd/kitty_console`. That script launches kitty, or, when kitty is frontmost, focuses the next window down the z-order through `hs -c` instead of hiding kitty (so there is no unhide flicker; it falls back to hiding if there is no other window or Hammerspoon doesn't answer within 3s). It writes kitty's `current-theme.conf` and `dark-theme.auto.conf` (each an `include` of the repo theme), links `config/btop/themes/catppuccin_mocha.theme` and `config/mdfried/config.toml` (which sets `code_theme = "Catppuccin Mocha"`) into place, and sets `color_theme = "catppuccin_mocha"` in `btop.conf` in place, since btop rewrites that file itself.
 
 `zsh/functions/theme.zsh` (sourced by `project.zsh`, `notes-lib.zsh` and `bin/tidy-windows`) sets `BAT_THEME=ansi` (bat follows the terminal's 16 colours) and Mocha colours in `FZF_DEFAULT_OPTS`. hunk is already `theme=catppuccin-mocha` in its own config. The shader colours (below) are Mocha's too, in linear RGB: lavender pane glow (matches `active_border_color`), peach cursor trail, red bell, rosewater spotlight and ripple, and a dark slate for the unfocused window.
 

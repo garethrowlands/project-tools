@@ -17,7 +17,8 @@ is()  { [[ $2 == "$3" ]] && ok $1 || bad "$1: got ${(q+)2}, want ${(q+)3}" }
 
 H=$T/home
 C=$H/.config
-mkdir -p $C/kitty $C/btop/themes $C/mdfried
+mkdir -p $C/kitty $C/btop/themes $C/mdfried $C/skhd
+print -r -- 'old toggle' > $C/skhd/kitty_console
 print -r -- 'foreground #cccccc' > $C/kitty/current-theme.conf
 print -r -- 'font_family = "mine"' > $C/mdfried/config.toml
 print -r -- $'#? btop\ncolor_theme = "Default"\ntheme_background = true' > $C/btop/btop.conf
@@ -31,6 +32,8 @@ is 'the old kitty theme is kept' "$(<$C/kitty/current-theme.conf.pre-symlink)" '
 is 'btop theme is a link into the repo' "$(readlink $C/btop/themes/catppuccin_mocha.theme)" $ROOT/config/btop/themes/catppuccin_mocha.theme
 is 'mdfried config is a link into the repo' "$(readlink $C/mdfried/config.toml)" $ROOT/config/mdfried/config.toml
 is 'the old mdfried config is kept' "$(<$C/mdfried/config.toml.pre-symlink)" 'font_family = "mine"'
+is 'skhd kitty_console is a link into the repo' "$(readlink $C/skhd/kitty_console)" $ROOT/skhd/kitty_console
+is 'the old skhd kitty_console is kept' "$(<$C/skhd/kitty_console.pre-symlink)" 'old toggle'
 is 'btop color_theme is set' "$(grep '^color_theme' $C/btop/btop.conf)" 'color_theme = "catppuccin_mocha"'
 is 'btop.conf keeps its other lines' "$(grep -c 'theme_background = true' $C/btop/btop.conf)" 1
 is 'the old btop.conf is kept' "$(grep '^color_theme' $C/btop/btop.conf.pre-theme)" 'color_theme = "Default"'

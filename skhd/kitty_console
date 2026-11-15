@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Toggle kitty: launch if not running, send back if focused, focus if unfocused.
+# "Send back" focuses the next window down the z-order (via Hammerspoon) instead of
+# hiding kitty, so there is no unhide flicker. The previous hide-based version is
+# kept as kitty_console.orig.
+
+if ! pgrep -x kitty >/dev/null; then
+    open -a kitty
+    exit 0
+fi
+
+# Prints "raised" if it moved focus off kitty, "front" if kitty is not frontmost,
+# "none" if there was no other window to go to.
+result=$(perl -e 'alarm 3; exec @ARGV' hs -c '
+local kitty = hs.application.get("net.kovidgoyal.kitty")
+local front = hs.application.frontmostApplication()
+if not (kitty and front and front:bundleID() == "net.kovidgoyal.kitty") then return "front" end
+for _, w in ipairs(hs.window.orderedWindows()) do
+    local app = w:application()
+    if app and app:bundleID() ~= "net.kovidgoyal.kitty" and w:isStandard() and w:isVisible() then
+        w:focus()
+        return "raised"
+    end
+end
+return "none"
+' 2>/dev/null)
+
+case "$result" in
+    raised) ;;
+    front|"") open -a kitty ;;
+    # No other window (or Hammerspoon unavailable): fall back to the old behaviour.
+    *) exec osascript -e 'tell application "System Events" to set visible of first process whose name is "kitty" to false' ;;
+esac
