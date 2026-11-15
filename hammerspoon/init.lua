@@ -364,7 +364,7 @@ pointerFollow = dofile(hs.fs.pathToAbsolute(hs.configdir .. "/init.lua"):match("
 -- bounce; it only runs when kitty is the frontmost app, since otherwise the
 -- unfocused look is right. Unlock is watched too, because with the screen
 -- locked there is nothing to focus.
-kittyWakeDelay = 0.5 -- seconds; collapses the events of one wake into one bounce
+kittyWakeDelay = 0.1 -- seconds; collapses the events of one wake or unhide into one bounce
 kittyFocusLog = os.getenv("HOME") .. "/.cache/project-tools/kitty-focus.log"
 local function logKitty(msg)
     local f = io.open(kittyFocusLog, "a")
@@ -377,21 +377,44 @@ for name, value in pairs(hs.caffeinate.watcher) do
 end
 
 kittyWakeTimer = nil
+
+-- Bounce focus once things have settled, if kitty is frontmost then. Events
+-- that arrive together (wake, screen wake, unlock; unhide and activate) cancel
+-- each other's pending timer, so one cluster gives one bounce.
+local function scheduleBounce(why)
+    if kittyWakeTimer then kittyWakeTimer:stop() end
+    kittyWakeTimer = hs.timer.doAfter(kittyWakeDelay, function()
+        local now = hs.application.frontmostApplication()
+        if now and now:bundleID() == "net.kovidgoyal.kitty" then
+            logKitty("bounce: focus bounce (" .. why .. ")")
+            kittyFocusBounce()
+        else
+            logKitty("bounce: none (" .. why .. "; frontmost " .. (now and now:name() or "none") .. ")")
+        end
+    end)
+end
+
 kittyWakeWatcher = hs.caffeinate.watcher.new(function(event)
     local w = hs.caffeinate.watcher
     local front = hs.application.frontmostApplication()
     logKitty(string.format("power: %s (frontmost %s)", wakeEventNames[event] or event, front and front:name() or "none"))
     if event == w.systemDidWake or event == w.screensDidWake or event == w.screensDidUnlock then
-        if kittyWakeTimer then kittyWakeTimer:stop() end
-        kittyWakeTimer = hs.timer.doAfter(kittyWakeDelay, function()
-            local now = hs.application.frontmostApplication()
-            if now and now:bundleID() == "net.kovidgoyal.kitty" then
-                logKitty("wake: focus bounce")
-                kittyFocusBounce()
-            else
-                logKitty("wake: no bounce (frontmost " .. (now and now:name() or "none") .. ")")
-            end
-        end)
+        scheduleBounce("wake")
+    end
+end):start()
+
+-- The same stuck vignette follows kitty being hidden and shown again (Option+Space
+-- via skhd, Cmd+H, a Dock click): kitty gets its focus-in while its window isn't
+-- yet on screen and the shader's focus fade doesn't start. Switching between
+-- visible windows is fine. So bounce when kitty is unhidden too.
+kittyAppWatcher = hs.application.watcher.new(function(name, event, app)
+    if not (app and app:bundleID() == "net.kovidgoyal.kitty") then return end
+    local w = hs.application.watcher
+    if event == w.hidden then
+        logKitty("app: kitty hidden")
+    elseif event == w.unhidden then
+        logKitty("app: kitty unhidden")
+        scheduleBounce("unhide")
     end
 end):start()
 
