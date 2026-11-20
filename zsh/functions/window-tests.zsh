@@ -311,6 +311,31 @@ is 'save-session: run from a shell, it is kept'  "$(grep -c '"id": 3' $T/s/shell
 is 'save-session: nothing saved, old file kept'  "$(save_session $T/s/out.session 2>&1; grep -c resume $T/s/out.session)" "kitty saved no session
 2"
 
+# save-session --auto: quiet, locked, keeps the old file as .prev, and leaves
+# an unchanged file alone
+print -r -- "$SAVED" >| $T/saved.session
+save_auto() { HOME=$T/home PATH=$T/bin:$PATH zsh -f $ROOT/zsh/bin/save-session --auto $1 }
+rm -f $T/s/auto.session $T/s/auto.session.prev
+is 'save-session --auto: quiet'                  "$(save_auto $T/s/auto.session)" ""
+is 'save-session --auto: wrote the file'         "$(grep -c resume $T/s/auto.session)" 2
+touch -t 200001010000 $T/s/auto.session
+save_auto $T/s/auto.session
+is 'save-session --auto: unchanged, left alone'  "$(zmodload zsh/datetime zsh/stat; zstat -F %Y +mtime $T/s/auto.session)" 2000
+is 'save-session --auto: unchanged, no .prev'    "$([[ -e $T/s/auto.session.prev ]] && echo yes || echo no)" no
+print -r -- "$SAVED
+launch 'kitty-unserialize-data={\"id\": 9}'" >| $T/saved.session
+save_auto $T/s/auto.session
+is 'save-session --auto: changed, .prev kept'    "$(grep -c 'id\": 9' $T/s/auto.session.prev) $(grep -c 'id\": 9' $T/s/auto.session)" "0 1"
+print -r -- "$SAVED" >| $T/saved.session
+mkdir -p $T/home/.cache/project-tools/save-session.lock
+cp $T/s/auto.session $T/s/before.session
+save_auto $T/s/auto.session
+is 'save-session --auto: lock held, skipped'     "$(cmp -s $T/s/auto.session $T/s/before.session && echo same || echo changed)" same
+touch -t 200001010000 $T/home/.cache/project-tools/save-session.lock
+save_auto $T/s/auto.session
+is 'save-session --auto: stale lock taken over'  "$(grep -c 'id\": 9' $T/s/auto.session)" 0
+is 'save-session --auto: lock released'          "$([[ -e $T/home/.cache/project-tools/save-session.lock ]] && echo held || echo free)" free
+
 # a claude suspended with Ctrl+Z: the window's foreground is its shell (pid
 # 500), and claude (pid 104) a stopped child of it
 print -r -- "$SAVED" >| $T/saved.session

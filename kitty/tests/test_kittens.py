@@ -996,5 +996,41 @@ check('horizontal: so does a tab with no agents', horizontal_title(BOTTOM_EDGE, 
 check('vertical: a left edge still has its lines', horizontal_title(LEFT_EDGE, TW('working', 'A', '5')) == f'proj\n{W}A', repr(horizontal_title(LEFT_EDGE, TW('working', 'A', '5'))))
 check('vertical: and so does a right edge', horizontal_title(RIGHT_EDGE, TW('working', 'A', '5')) == f'proj\n{W}A')
 
+# focus_watcher.py: autosave runs save-session --auto without waiting for it
+auto_dir = tempfile.mkdtemp()
+auto_script = os.path.join(auto_dir, 'save-session')
+with open(auto_script, 'w') as f:
+    f.write(f'#!/bin/sh\necho "$@ $KITTY_LISTEN_ON" >> {auto_dir}/ran\nsleep 1\n')
+os.chmod(auto_script, 0o755)
+fw.save_session_path = lambda: auto_script
+
+
+class AutoBoss:
+    listening_on = 'unix:/tmp/fake.sock'
+    all_windows = [object()]
+
+
+started = time.time()
+fw.autosave(AutoBoss())
+check('autosave: does not wait for the script', time.time() - started < 0.5)
+first = fw.autosave_proc
+fw.autosave(AutoBoss())
+check('autosave: one still running is left alone', fw.autosave_proc is first)
+first.wait()
+fw.autosave(AutoBoss())
+check('autosave: the next is started once it is done', fw.autosave_proc is not first)
+fw.autosave_proc.wait()
+with open(f'{auto_dir}/ran') as f:
+    check('autosave: --auto, with this kitty\'s socket', f.readline().strip() == '--auto unix:/tmp/fake.sock')
+AutoBoss.listening_on = ''
+os.environ.pop('KITTY_LISTEN_ON', None)
+fw.autosave_proc = None
+fw.autosave(AutoBoss())
+check('autosave: no socket, nothing run', fw.autosave_proc is None)
+AutoBoss.listening_on = 'unix:/tmp/fake.sock'
+AutoBoss.all_windows = []
+fw.autosave(AutoBoss())
+check('autosave: no windows, nothing run', fw.autosave_proc is None)
+
 print(f'\n{failures} failure(s)' if failures else '\nALL OK')
 sys.exit(1 if failures else 0)

@@ -3,7 +3,15 @@
 # (or of the machine) can bring them all back: tabs, layouts, working
 # directories, and each Claude Code agent resumed in its own window.
 #
-#   save-session [FILE]     default ~/.config/kitty/sessions/restore.kitty-session
+#   save-session [--auto] [FILE]   default ~/.config/kitty/sessions/restore.kitty-session
+#
+# --auto is what kitty/focus_watcher.py runs every few minutes, so that a
+# crash or an unplanned restart still has a recent file to restore. It is
+# quiet, takes a lock (~/.cache/project-tools/save-session.lock, a directory,
+# so that taking it is atomic; one older than LOCK_STALE seconds is a dead run's
+# and is taken over) and does nothing if another save is running; leaves the
+# file alone, mtime included, when nothing has changed; and keeps the file it
+# replaces as FILE.prev.
 #
 # To restore, point kitty.conf at the file:
 #
@@ -35,10 +43,27 @@
 
 source "${0:A:h}/../functions/claude-session.zsh"
 
+zmodload zsh/datetime
+local auto=0
+[[ $1 == --auto ]] && { auto=1; shift }
 local out=${1:-$HOME/.config/kitty/sessions/restore.kitty-session}
-local tmp
+local tmp lock=$HOME/.cache/project-tools/save-session.lock
+local LOCK_STALE=${SAVE_SESSION_LOCK_STALE:-300}
 tmp=$(mktemp -d)
-trap 'rm -rf $tmp' EXIT
+trap 'rm -rf $tmp; [[ -n $held ]] && rmdir $lock 2>/dev/null' EXIT
+if (( auto )); then
+  mkdir -p ${lock:h}
+  if ! mkdir $lock 2>/dev/null; then
+    # held: by a run still going, or by one that died
+    zmodload -F zsh/stat b:zstat
+    local mtime=0
+    zstat -A mtime +mtime $lock 2>/dev/null
+    local age=$(( EPOCHSECONDS - mtime[1] ))
+    (( age < LOCK_STALE )) && exit 0
+    rmdir $lock 2>/dev/null; mkdir $lock 2>/dev/null || exit 0
+  fi
+  local held=1
+fi
 
 local kitty_ls
 kitty_ls=$(kitty @ ls 2>/dev/null) || { echo "kitty not available" >&2; exit 1 }
@@ -122,5 +147,10 @@ awk -v map=$tmp/resume -v typed_map=$tmp/typed -v self="${KITTY_WINDOW_ID:-0}" '
   END { printf "%d windows, %d Claude sessions, %d other commands\n", windows, resumed, commands > "/dev/stderr" }
 ' $tmp/saved >| $tmp/out 2>| $tmp/summary
 
-mkdir -p ${out:h} && mv $tmp/out $out || exit 1
-print -r -- "saved $(<$tmp/summary) to $out"
+mkdir -p ${out:h} || exit 1
+if (( auto )); then
+  cmp -s $tmp/out $out && exit 0
+  [[ -f $out ]] && cp -p $out $out.prev
+fi
+mv $tmp/out $out || exit 1
+(( auto )) || print -r -- "saved $(<$tmp/summary) to $out"

@@ -39,12 +39,15 @@ state", never an error.
 
 import json
 import os
+import shutil
+import subprocess
 import time
 from glob import escape as glob_escape
 from glob import glob
 from typing import Any
 
 POLL_SECONDS = 2.0
+AUTOSAVE_SECONDS = 300.0
 STATUS_APP = 'claude-code'
 # most pressing first: the state a window gets when its records hold several
 STATUS_ORDER = ('blocked', 'error', 'done', 'working', 'idle')
@@ -380,6 +383,36 @@ def poll(boss: Any) -> None:
         del published_hint[window_id]
 
 
+autosave_proc: Any = None
+
+
+def save_session_path() -> str:
+    here = os.path.dirname(os.path.realpath(__file__))
+    mine = os.path.join(here, '..', 'zsh', 'bin', 'save-session')
+    return mine if os.path.exists(mine) else (shutil.which('save-session') or '')
+
+
+def autosave(boss: Any) -> None:
+    """Runs `save-session --auto` as a separate process, and never waits for it:
+    it talks to this kitty through its socket (`kitty @ ls`, `save_as_session`),
+    which this thread answers, so waiting here would deadlock kitty. A run
+    still going when the next is due is left to finish; the script has its own
+    lock for runs started from elsewhere. The finished one is reaped here."""
+    global autosave_proc
+    if autosave_proc is not None and autosave_proc.poll() is None:
+        return
+    autosave_proc = None
+    script = save_session_path()
+    listen = getattr(boss, 'listening_on', '') or os.environ.get('KITTY_LISTEN_ON', '')
+    if not script or not listen or not any(True for _ in boss.all_windows):
+        return
+    env = dict(os.environ, KITTY_LISTEN_ON=listen)
+    env.pop('KITTY_WINDOW_ID', None)
+    autosave_proc = subprocess.Popen(
+        [script, '--auto'], env=env, stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
 def retire_older_copies() -> None:
     """kitty caches a watcher by path and never unloads one, so a changed copy
     of this file only gets loaded under a new name, alongside the old one —
@@ -392,7 +425,15 @@ def retire_older_copies() -> None:
         if older is None or older is globals() or 'published' not in older:
             continue
         older['poll'] = lambda boss: None
+        older['autosave'] = lambda boss: None
         older['refresh'] = refresh
+
+
+def autosave_safely(boss: Any) -> None:
+    try:
+        autosave(boss)
+    except Exception:
+        pass
 
 
 def start_timer() -> None:
@@ -402,6 +443,7 @@ def start_timer() -> None:
     retire_older_copies()
     from kitty.fast_data_types import add_timer, get_boss
     add_timer(lambda *a: poll(get_boss()), POLL_SECONDS, True)
+    add_timer(lambda *a: autosave_safely(get_boss()), AUTOSAVE_SECONDS, True)
     timer_started = True
 
 
