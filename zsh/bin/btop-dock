@@ -6,7 +6,7 @@
 # "btop" already in the tab is left alone and its id printed.
 #
 # BTOP_DOCK_EDGE (default bottom) and BTOP_DOCK_SIZE (default 25%, of the tab) set where
-# it goes; a dock can't be resized once launched, so to resize, --close and reopen.
+# it goes; from kitty 0.51 you can resize it afterwards by dragging its inner border.
 #
 # btop with its usual four boxes needs 24 rows and refuses to draw in less, so the dock
 # runs it on a copy of the user's config (theme and all) showing only BTOP_DOCK_BOXES

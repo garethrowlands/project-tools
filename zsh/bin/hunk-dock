@@ -13,8 +13,8 @@
 # is open it is reloaded in place, otherwise one is launched. --changes reloads an open
 # dock back to the working-tree diff. PATHs must exist inside the repo.
 #
-# HUNK_DOCK_EDGE (default top) and HUNK_DOCK_SIZE (default 65%) set where it goes; a
-# dock can't be resized once launched, so to resize, --close and reopen. No key binding
+# HUNK_DOCK_EDGE (default top) and HUNK_DOCK_SIZE (default 65%) set where it goes; from
+# kitty 0.51 you can resize it afterwards by dragging its inner border. No key binding
 # — ask Claude, which runs this and then drives Hunk with the hunk-review skill.
 
 local close=0 view=0 changes=0
