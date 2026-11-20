@@ -600,6 +600,39 @@ del s4.program_status
 fw.poll(boss)
 check('status: a kitty with no program_status attribute falls back too', s4.user_vars.get('agent_state') == 'blocked', s4.user_vars)
 
+# background: records say working, but the conversation's own turn is over
+class BgWindow(AgentWindow):
+    def __init__(self, id, pid, status, other_last=False):
+        super().__init__(id, pid, seen_at='')
+        procs = [{'pid': 1, 'cmdline': ['-zsh']}, {'pid': pid, 'cmdline': ['/usr/local/bin/claude']}]
+        if other_last:
+            procs.append({'pid': 2, 'cmdline': ['glab', 'ci', 'status']})
+        self.child = type('Child', (), {'foreground_processes': procs})()
+        self.program_status = Status(rec('working'))
+        if status:
+            write_session(agent_home, pid, status, 2000)
+
+
+for label, status, want, other_last in [
+    ('turn over (shell)', 'shell', 'background', False),
+    ('turn over (idle)', 'idle', 'background', False),
+    ('claude not the frontmost process', 'shell', 'background', True),
+    ('turn running (busy)', 'busy', 'working', False),
+    ('waiting on you', 'waiting', 'working', False),
+    ('no session file', '', 'working', False),
+]:
+    bw = BgWindow(40, 740, status, other_last)
+    check(f'background: working records, session {label} -> {want}', fw.window_state(bw, False) == want, fw.window_state(bw, False))
+bw = BgWindow(41, 741, 'shell')
+bw.program_status.records = [rec('blocked'), rec('working')]
+check('background: blocked still wins', fw.window_state(bw, False) == 'blocked')
+bw.program_status.records = [rec('idle')]
+check('background: idle records stay idle', fw.window_state(bw, False) == 'idle')
+with open(os.path.join(agent_home, '.claude', 'sessions', '741.json'), 'w') as fh:
+    fh.write('{not json')
+bw.program_status.records = [rec('working')]
+check('background: an unreadable session file leaves it working', fw.window_state(bw, False) == 'working')
+
 # agent_state_at: when the published state last changed, for next-agent's recency order
 boss.active_window = s3
 s1.program_status.records = [rec('working')]
@@ -896,6 +929,11 @@ check('line 2: +N for the other agents', second_line(TW('idle', 'Old one', '1'),
 check('line 2: the most pressing agent leads', second_line(TW('working', 'W', '9'), TW('blocked', 'B', '1'), TW('done', 'D', '5')) == cy('B +2', B))
 check('line 2: of equal agents, the most recently changed', second_line(TW('working', 'Old', '1'), TW('working', 'New', '9')) == cy('New +1', W))
 check('line 2: an agent with no title yet has just its marker', second_line(TW('working', '', '5')) == W)
+check('line 2: a background agent has a dim ◦', second_line(TW('background', 'Docs', '5')) == cy('Docs', '◦'))
+check('line 2: background ranks below working, above idle', second_line(TW('idle', 'I', '9'), TW('background', 'Bg', '5'), TW('working', 'Wk', '1')) == cy('Wk +2', W))
+check('line 2: a background agent with no title is "claude"', second_line(TW('background', '', '5')) == '◦claude')
+check('tab marker: background is dim, halfway to the background',
+      tb.state_marker({'fmt': real_fmt, 'tab_id': 7}, 'background') == f'{tab_fg._8f9faf}◦{tab_fg._ffffff}', repr(tb.state_marker({'fmt': real_fmt, 'tab_id': 7}, 'background')))
 check('line 2: an idle agent with no title is just "claude"', second_line(TW('idle', '', '5')) == ' claude')
 check('line 2: a command running in a window with no agent', second_line(TW(), TW(prompt=False, cmd='pnpm dev')) == ' pnpm dev')
 check('line 2: the active window\'s command first', (lambda a: second_line(TW(prompt=False, cmd='tail -f log'), a, active=a))(TW(prompt=False, cmd='pnpm   dev')) == ' pnpm dev')

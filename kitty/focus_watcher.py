@@ -15,7 +15,7 @@ Two jobs:
    was loaded.)
 
 2. Works out the agent state of every window running `claude` — blocked, error,
-   working, done or idle — and publishes it as the window's `agent_state`
+   working, background, done or idle — and publishes it as the window's `agent_state`
    user var (and, as `agent_state_at`, the epoch second it last changed, which
    next-agent orders by): when the window's program status changes, when its focus
    changes, and every POLL_SECONDS for the windows that don't report one. When a state changes it redraws the tab
@@ -281,8 +281,30 @@ def status_records(window: Any) -> list[Any]:
         return []
 
 
+def session_status(window: Any) -> str:
+    """The `status` in the session file of a `claude` anywhere among the
+    window's foreground processes (not only the frontmost: a background job
+    such as `glab` or a dev server can be listed after it), '' if there is none
+    or it can't be read."""
+    try:
+        for process in window.child.foreground_processes:
+            if os.path.basename((process['cmdline'] or [''])[0].lstrip('-')) != 'claude':
+                continue
+            path = session_file(int(process['pid']))
+            if path:
+                return str(read_session(path).get('status', ''))
+    except Exception:
+        pass
+    return ''
+
+
 def window_state(window: Any, looked_at: bool) -> str:
     state = status_state(status_records(window))
+    if state == 'working' and session_status(window) in ('idle', 'shell'):
+        # the records are working, but the conversation's own turn is over: what
+        # runs is background work (a dev server, a monitor, a task), which
+        # doesn't need you and isn't the agent being busy
+        return 'background'
     if state:
         return state
     pid = claude_pid(window)

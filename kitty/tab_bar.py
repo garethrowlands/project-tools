@@ -12,8 +12,11 @@ would show it for agents after all, and twice for other windows.
 
 A tab gets one marker for the agents in its windows — the most pressing of
 red `!` (one is blocked on you), green `✓` (one has finished since you last
-looked) and yellow `…` (one is working) — or nothing, in bold. The states are
-the `agent_state` user vars that focus_watcher.py keeps up to date.
+looked) and yellow `…` (one is working) — or nothing, in bold. A dim `◦` marks
+an agent that is idle but has background work running (a dev server, a monitor,
+a task): the conversation is waiting for you, so it is less pressing than a busy
+one. The states are the `agent_state` user vars that focus_watcher.py keeps up
+to date.
 
 With `tab_bar_edge left` (or right) and `tab_title_max_lines` above 1 a line
 for each agent follows the title, led by its marker, in front of the Claude
@@ -82,6 +85,9 @@ def state_marker(data: dict[str, Any], state: str) -> str:
     # the marker for one agent's state: bold, in the state's colour, then back to
     # the tab's own; '' for idle, which gets none, as in the window picker
     try:
+        if state == 'background':
+            dim, plain = dim_colour(data)
+            return f'{dim}◦{plain}'
         fmt = data['fmt']
         fg = fmt.fg
         for wanted, symbol, colour in MARKERS:
@@ -119,7 +125,7 @@ def activity(data: dict[str, Any]) -> str:
 
 
 # every agent state, most pressing first: the order of the agents' lines
-PRESSING = ('blocked', 'error', 'done', 'working', 'idle')
+PRESSING = ('blocked', 'error', 'done', 'working', 'background', 'idle')
 
 
 def option(name: str, default: int) -> int:
@@ -187,7 +193,7 @@ def agent_entries(data: dict[str, Any], tab: Any) -> list[tuple[str, str, str]]:
             entries.append((mark, title, 'agent'))
         elif hint:
             entries.append((mark, f'\u201c{hint}', 'agent'))
-        elif state == 'idle':
+        elif state in ('idle', 'background'):
             entries.append((mark, 'claude', 'program'))
         else:
             entries.append((mark, '', 'agent'))
