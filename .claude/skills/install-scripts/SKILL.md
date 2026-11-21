@@ -89,7 +89,7 @@ kitty loads a watcher file once and caches it by path, so after changing `focus_
 ln -s $PWD/kitty/focus_watcher.py ~/.config/kitty/agent_watcher.py   # then: watcher agent_watcher.py
 ```
 
-The watcher also logs every focus change of a window (`focus: window N os_window M in|out`) to `~/.cache/project-tools/kitty-focus.log` (rotated at 200KB to `kitty-focus.log.1`). Hammerspoon writes its power events and focus bounces to the same file (see below), so the two can be lined up when the unfocused vignette sticks.
+The watcher also logs every focus change of a window (`focus: window N os_window M in|out`) to `~/.cache/project-tools/kitty-focus.log` (rotated at 200KB to `kitty-focus.log.1`). `bin/kitty-resync` logs to it too.
 
 With kitty 0.50 and Claude Code 2.1.295 or later the watcher takes an agent's state straight from its Program Status Protocol records (`window.program_status`), and falls back to Claude's session files for windows without one. Nothing to configure; the protocol is negotiated by Claude Code at startup.
 
@@ -140,7 +140,7 @@ grep -q '^include shaders.conf' ~/.config/kitty/kitty.conf || echo 'include shad
 
 `window_border_radius` in `kitty/shaders.conf` is in pixels (`32px`), so it is the same on every display, and `hide_window_decorations titlebar-and-corners` there removes the title bar and macOS's window corners (restart kitty for it to take effect). If you change the radius, change the pipeline-level `WINDOW_RADIUS_PX` at the top of `gentle.pipeline` to match: kitty doesn't pass the radius, border width or display scale to shaders, so it can't be read from the config.
 
-**Known limitation (kitty 0.50.0): the unfocused vignette can stick.** After kitty is hidden and shown again (Cmd+H, a Dock click, an skhd toggle that does `set visible … to false`) or after the Mac sleeps and wakes, the OS-window focus fade (groups 6–7 of `gentle.pipeline`) can be left showing the unfocused look on a focused window. kitty queues the focus events while the window isn't rendering, then sees the focus-out and the focus-in in one tick, where a focus-out stop is a hard stop, so group 7 never starts. It is reported upstream (https://github.com/kovidgoyal/kitty/issues/10871); the pipeline can't express "the last event wins", so the workaround is the focus bounce in `hammerspoon/init.lua` (see Hammerspoon below). `kitten @ load-config` also clears it, and `zsh/bin/kitty-resync` does that from a script. If kitty fixes it, the bounce can go.
+**Fixed in kitty 0.51.0: the unfocused vignette no longer sticks.** On 0.50.0 the OS-window focus fade (groups 6–7 of `gentle.pipeline`) could be left showing the unfocused look on a focused window after kitty was hidden and shown or the Mac woke (kitty queued the focus events while not rendering, and the focus-out hard-stopped group 7; kovidgoyal/kitty#10871). 0.51 fixed it, so the Hammerspoon focus bounce that worked around it was removed. If it ever returns, `zsh/bin/kitty-resync` (`kitten @ load-config`) clears it.
 
 Then reload kitty's config (Cmd+Ctrl+,).
 
@@ -170,8 +170,6 @@ lalt - 0x32 : /Applications/kitty.app/Contents/MacOS/kitten quick-access-termina
 mkdir -p ~/.hammerspoon
 ln -s $PWD/hammerspoon/init.lua ~/.hammerspoon/init.lua
 ```
-
-It also works around the stuck unfocused vignette described under "kitty shaders" above: when the Mac wakes or unlocks, or kitty is unhidden, and kitty is then the frontmost app, `scheduleBounce` waits `kittyWakeDelay` (0.1s) and calls `kittyFocusBounce()`, which gives a throwaway window of Hammerspoon's focus for 0.25s and then refocuses the original window, so kitty sees a real focus-out and focus-in in separate frames. It is driven by `hs.caffeinate.watcher` (`systemDidWake`, `screensDidWake`, `screensDidUnlock`) and `hs.application.watcher` (`unhidden`), matched on kitty's bundle id `net.kovidgoyal.kitty`, so it fires for any kitty process, including a test instance. Every power event, hide/unhide and bounce is logged to `~/.cache/project-tools/kitty-focus.log`. To test something kitty-related without it: `hs -c 'kittyAppWatcher:stop()'`, then `kittyAppWatcher:start()` after.
 
 Machine-specific or private settings go in `hammerspoon/local.lua`, which `init.lua` loads if present and git ignores. Never put secrets in `init.lua` itself.
 
