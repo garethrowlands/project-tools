@@ -230,7 +230,7 @@ startgroup
     var float3 BELL_COLOR = float3(0.8963, 0.2582, 0.3916)
     # blend amount toward the colour at the pane edge at the first strike (0..1;
     # a blend, not added light, so it stays red over the white active border)
-    var float BELL_INTENSITY = 0.2
+    var float BELL_INTENSITY = 0.15
     # how far in from the border's outer edge the glow stays at full strength,
     # then how far it fades out over, in framebuffer pixels
     var float BELL_FULL_PX = 2.0
@@ -242,7 +242,7 @@ startgroup
     var float BELL_RINGS = 0.0
     # peak text displacement, framebuffer pixels (2 per point on Retina);
     # up and down is a third of it
-    var float BELL_SHAKE_PX = 9.0
+    var float BELL_SHAKE_PX = 5.0
     # oscillations over the burst: 7 in 500ms is 14 per second
     var float BELL_SHAKE_CYCLES = 7.0
     # how fast the shake dies away (higher = quicker)

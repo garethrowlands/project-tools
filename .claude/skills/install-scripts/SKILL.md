@@ -1,6 +1,6 @@
 ---
 name: install-scripts
-description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, save-session, tidy-windows, project-web, hunk-dock, btop-dock, tab-bar, kitty-resync, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh), the quick-access terminal config (quick-access-terminal.conf, quick-access.conf) and the custom shader pipeline in kitty/shaders/ with its kitty settings in kitty/shaders.conf. Use when setting up a new machine or adding a symlink for a newly added bin script.
+description: Install this repo's zsh scripts (ide, close-project, switch-project, window, next-agent, save-session, tidy-windows, project-web, hunk-dock, btop-dock, tab-bar, kitty-resync, bell-log, web, note) onto PATH via symlinks, set up kitty.conf for bin/window's live preview and key bindings, and install the kitty link handling in kitty/ (open_local.py, hint_menu.py, open-actions.conf, links.conf, kitty-cd-link.zsh), the quick-access terminal config (quick-access-terminal.conf, quick-access.conf) and the custom shader pipeline in kitty/shaders/ with its kitty settings in kitty/shaders.conf. Use when setting up a new machine or adding a symlink for a newly added bin script.
 ---
 
 ## Installation
@@ -21,6 +21,7 @@ ln -s $PWD/zsh/bin/hunk-dock ~/.local/bin/hunk-dock
 ln -s $PWD/zsh/bin/btop-dock ~/.local/bin/btop-dock
 ln -s $PWD/zsh/bin/tab-bar ~/.local/bin/tab-bar
 ln -s $PWD/zsh/bin/kitty-resync ~/.local/bin/kitty-resync
+ln -s $PWD/zsh/bin/bell-log ~/.local/bin/bell-log
 ln -s $PWD/zsh/bin/web ~/.local/bin/web
 ln -s $PWD/zsh/bin/note ~/.local/bin/note
 ```

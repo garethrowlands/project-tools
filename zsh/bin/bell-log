@@ -1,0 +1,11 @@
+#!/usr/bin/env zsh
+# Run by kitty's command_on_bell (kitty/shaders.conf). Appends one line per bell
+# to ~/.cache/project-tools/bell.log: time, the command running in the window
+# that rang, and whether kitty was the frontmost app. kitty doesn't say which
+# window rang, so this can't tell if it was the one you were looking at.
+# Purpose: find out how often bells arrive while you aren't looking.
+log=$HOME/.cache/project-tools/bell.log
+mkdir -p ${log:h}
+front=$(osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true' 2>/dev/null)
+[[ $front == kitty ]] && seen=frontmost || seen="away(${front:-?})"
+print -r -- "$(date '+%Y-%m-%d %H:%M:%S') $seen ${KITTY_CHILD_CMDLINE:-?}" >> $log
